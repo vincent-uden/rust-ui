@@ -47,6 +47,18 @@ impl Shader {
                 None
             };
 
+            let program = gl::CreateProgram();
+            gl::AttachShader(program, s_vertex);
+            gl::AttachShader(program, s_frag);
+            if let Some(s_geo) = s_geo {
+                gl::AttachShader(program, s_geo);
+            }
+            gl::LinkProgram(program);
+
+            let shader = Shader { id: program };
+
+            success = success && check_compile_errors(shader.id, ShaderType::Program);
+
             gl::DeleteShader(s_vertex);
             gl::DeleteShader(s_frag);
             if let Some(s_geo) = s_geo {
@@ -54,22 +66,9 @@ impl Shader {
             }
 
             if !success {
-                return Err(anyhow!("Couldn't compile shader"));
+                return Err(anyhow!("Couldn't compile or link shader"));
             }
 
-            let shader = Shader {
-                id: gl::CreateProgram(),
-            };
-            gl::AttachShader(shader.id, s_vertex);
-            gl::AttachShader(shader.id, s_frag);
-            if let Some(s_geo) = s_geo {
-                gl::AttachShader(shader.id, s_geo);
-            }
-            gl::LinkProgram(shader.id);
-            success = success && check_compile_errors(shader.id, ShaderType::Program);
-            if !success {
-                return Err(anyhow!("Couldn't link shader"));
-            }
             Ok(shader)
         }
     }
@@ -83,12 +82,13 @@ fn check_compile_errors(id: u32, shader_type: ShaderType) -> bool {
         match shader_type {
             ShaderType::Vertex | ShaderType::Fragment | ShaderType::Geometry => {
                 gl::GetShaderiv(id, gl::COMPILE_STATUS, &mut success);
+                gl::GetShaderInfoLog(id, 1024, &mut length, info_log.as_mut_ptr());
             }
             ShaderType::Program => {
-                gl::GetShaderiv(id, gl::LINK_STATUS, &mut success);
+                gl::GetProgramiv(id, gl::LINK_STATUS, &mut success);
+                gl::GetProgramInfoLog(id, 1024, &mut length, info_log.as_mut_ptr());
             }
         }
-        gl::GetShaderInfoLog(id, 1024, &mut length, info_log.as_mut_ptr());
         let info = String::from_utf8(info_log.into_iter().map(|b| b as u8).collect())
             .unwrap_or(String::from("Unkown error"));
         if success == 0 {
@@ -96,10 +96,10 @@ fn check_compile_errors(id: u32, shader_type: ShaderType) -> bool {
                 "ERROR::SHADER: Type {:?} Error flag: {} {}",
                 shader_type, success, info
             );
+            return false;
         }
     }
-
-    false
+    true
 }
 
 #[cfg(test)]
@@ -108,14 +108,10 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn can_load_rectangle_rendering_shader() {
-        let vertex_src = include_str!("../shaders/rounded_rect.vs");
-        let frag_src = include_str!("../shaders/rounded_rect.frag");
-
+    fn init_window() -> glfw::PWindow {
         let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
         glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
-        glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
+        // glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(false));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(
             glfw::OpenGlProfileHint::Core,
         ));
@@ -136,6 +132,16 @@ mod tests {
                 None => std::ptr::null(),
             }
         });
+
+        window
+    }
+
+    #[test]
+    fn can_load_rectangle_rendering_shader() {
+        let vertex_src = include_str!("../shaders/rounded_rect.vs");
+        let frag_src = include_str!("../shaders/rounded_rect.frag");
+
+        let window = init_window();
 
         let shader = Shader::compile_shader(vertex_src, frag_src, None);
         assert!(shader.is_ok(), "Shader should compile successfully");
