@@ -1,4 +1,5 @@
 pub mod rect;
+pub mod text;
 
 #[derive(Debug)]
 pub struct Color {
