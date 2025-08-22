@@ -7,5 +7,7 @@ edition = "2024"
 anyhow = "1.0.99"
 gl = "0.14.0"
 glfw = "0.60.0"
+glm = {package ="nalgebra-glm", version = "0.20.0"}
+num = "0.4.3"
 tracing = "0.1.41"
 tracing-log = "0.2.0"

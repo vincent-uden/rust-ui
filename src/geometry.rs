@@ -1,0 +1,191 @@
+use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
+
+use num::Num;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Vector<T> {
+    pub x: T,
+    pub y: T,
+}
+
+impl<T> Vector<T>
+where
+    T: Num + Copy,
+{
+    pub fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+    pub fn scale(&mut self, scale: T) {
+        self.x = self.x * scale;
+        self.y = self.y * scale;
+    }
+
+    pub fn scaled(self, scale: T) -> Vector<T> {
+        let mut out = self;
+        out.scale(scale);
+        out
+    }
+
+    pub fn non_uniform_scale(&mut self, scale: Vector<T>) {
+        self.x = self.x * scale.x;
+        self.y = self.y * scale.y;
+    }
+
+    pub fn non_uniform_scaled(self, scale: Vector<T>) -> Vector<T> {
+        let mut out = self;
+        out.non_uniform_scale(scale);
+        out
+    }
+
+    pub fn div_inverted(self) -> Self {
+        Self {
+            x: T::one() / self.x,
+            y: T::one() / self.y,
+        }
+    }
+
+    pub fn zero() -> Vector<T> {
+        Self {
+            x: T::zero(),
+            y: T::zero(),
+        }
+    }
+}
+
+impl<T> Add for Vector<T>
+where
+    T: Num + Copy,
+{
+    type Output = Vector<T>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut out = self;
+        out.add_assign(rhs);
+        out
+    }
+}
+
+impl<T> AddAssign for Vector<T>
+where
+    T: Num + Copy,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.x = self.x + rhs.x;
+        self.y = self.y + rhs.y;
+    }
+}
+
+impl<T> Sub for Vector<T>
+where
+    T: Num + Copy,
+{
+    type Output = Vector<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut out = self;
+        out.sub_assign(rhs);
+        out
+    }
+}
+
+impl<T> SubAssign for Vector<T>
+where
+    T: Num + Copy,
+{
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x = self.x - rhs.x;
+        self.y = self.y - rhs.y;
+    }
+}
+
+impl<T> Neg for Vector<T>
+where
+    T: Num + Copy + Neg<Output = T>,
+{
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
+    }
+}
+
+impl From<Vector<f32>> for Vector<i32> {
+    fn from(value: Vector<f32>) -> Self {
+        Vector {
+            x: value.x.round() as i32,
+            y: value.y.round() as i32,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Rect<T> {
+    /// Top left
+    pub x0: Vector<T>,
+    /// Bottom right
+    pub x1: Vector<T>,
+}
+
+impl<T> Rect<T>
+where
+    T: Num + Copy + std::fmt::Debug + PartialOrd,
+{
+    pub fn from_points(top_left: Vector<T>, bottom_right: Vector<T>) -> Self {
+        Self {
+            x0: top_left,
+            x1: bottom_right,
+        }
+    }
+
+    pub fn from_pos_size(pos: Vector<T>, size: Vector<T>) -> Self {
+        Self {
+            x0: pos,
+            x1: pos + size,
+        }
+    }
+
+    pub fn center(&self) -> Vector<T> {
+        (self.x0 + self.x1).scaled(T::one() / (T::one() + T::one()))
+    }
+
+    pub fn width(&self) -> T {
+        self.x1.x - self.x0.x
+    }
+
+    pub fn height(&self) -> T {
+        self.x1.y - self.x0.y
+    }
+
+    pub fn size(&self) -> Vector<T> {
+        Vector::new(self.width(), self.height())
+    }
+
+    pub fn translate(&mut self, offset: Vector<T>) {
+        self.x0 += offset;
+        self.x1 += offset;
+    }
+
+    /// Scales the rectangle around it's center point
+    pub fn scale(&mut self, s: T) {
+        let x0 = self.x0;
+        let x1 = self.x1;
+        self.x0 = (x0.scaled(T::one() + s) + x1.scaled(T::one() - s))
+            .scaled(T::one() / (T::one() + T::one()));
+        self.x1 = (x0.scaled(T::one() - s) + x1.scaled(T::one() + s))
+            .scaled(T::one() / (T::one() + T::one()));
+    }
+
+    /// Returns a new rectangle scaled around its center point
+    pub fn scaled(&self, s: T) -> Self {
+        let mut out = *self;
+        out.scale(s);
+        out
+    }
+
+    pub fn contains(&self, v: Vector<T>) -> bool {
+        self.x0.x < v.x && self.x1.x > v.x && self.x0.y < v.y && self.x1.y > v.y
+    }
+}

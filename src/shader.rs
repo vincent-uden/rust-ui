@@ -1,3 +1,5 @@
+use std::{ffi::CString, fs, path::Path};
+
 use anyhow::{Result, anyhow};
 use tracing::error;
 
@@ -72,6 +74,69 @@ impl Shader {
             Ok(shader)
         }
     }
+
+    pub fn from_paths(
+        vertex_path: &Path,
+        frag_path: &Path,
+        geo_path: Option<&Path>,
+    ) -> Result<Self> {
+        let vertex_src = fs::read_to_string(vertex_path)?;
+        let frag_src = fs::read_to_string(frag_path)?;
+        let geo_src = if let Some(geo_path) = geo_path {
+            Some(fs::read_to_string(geo_path)?)
+        } else {
+            None
+        };
+
+        Self::compile_shader(&vertex_src, &frag_src, geo_src.as_deref())
+    }
+
+    fn find(&self, name: &str) -> gl::types::GLint {
+        let c_string = CString::new(name).unwrap();
+        unsafe { gl::GetUniformLocation(self.id, c_string.as_ptr()) }
+    }
+
+    pub fn set_uniform_f32(&self, name: &str, value: f32) {
+        let loc = self.find(name);
+        unsafe {
+            gl::Uniform1f(loc, value);
+        }
+    }
+
+    pub fn set_uniform_i32(&self, name: &str, value: i32) {
+        let loc = self.find(name);
+        unsafe {
+            gl::Uniform1i(loc, value);
+        }
+    }
+
+    pub fn set_uniform_vec2(&self, name: &str, value: &glm::Vec2) {
+        let loc = self.find(name);
+        unsafe {
+            gl::Uniform2f(loc, value.x, value.y);
+        }
+    }
+
+    pub fn set_uniform_vec3(&self, name: &str, value: &glm::Vec3) {
+        let loc = self.find(name);
+        unsafe {
+            gl::Uniform3f(loc, value.x, value.y, value.z);
+        }
+    }
+
+    pub fn set_uniform_vec4(&self, name: &str, value: &glm::Vec4) {
+        let loc = self.find(name);
+        unsafe {
+            gl::Uniform4f(loc, value.x, value.y, value.z, value.w);
+        }
+    }
+
+    pub fn set_uniform_mat4(&self, name: &str, value: &glm::Mat4) {
+        let loc = self.find(name);
+        unsafe {
+            gl::UniformMatrix4fv(loc, 1, 0, value.as_ptr());
+        }
+    }
 }
 
 fn check_compile_errors(id: u32, shader_type: ShaderType) -> bool {
@@ -111,7 +176,6 @@ mod tests {
     fn init_window() -> glfw::PWindow {
         let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
         glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
-        // glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(false));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(
             glfw::OpenGlProfileHint::Core,
         ));
