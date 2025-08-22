@@ -18,9 +18,7 @@ pub struct State {
     pub height: u32,
 }
 
-// TRY TO USE A SHADER
-
-fn main() {
+fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
     glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
     glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
@@ -30,13 +28,13 @@ fn main() {
     glfw.window_hint(glfw::WindowHint::Resizable(true));
     glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
 
-    let mut state = State {
-        width: 1000,
-        height: 800,
-    };
-
     let (mut window, events) = glfw
-        .create_window(state.width, state.height, "App", glfw::WindowMode::Windowed)
+        .create_window(
+            inital_state.width,
+            inital_state.height,
+            "App",
+            glfw::WindowMode::Windowed,
+        )
         .unwrap();
 
     window.make_current();
@@ -51,11 +49,21 @@ fn main() {
     });
 
     unsafe {
-        gl::Viewport(0, 0, state.width as i32, state.height as i32);
+        gl::Viewport(0, 0, inital_state.width as i32, inital_state.height as i32);
         gl::Enable(gl::BLEND);
         gl::Enable(gl::MULTISAMPLE);
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
     }
+
+    (glfw, window)
+}
+
+fn main() {
+    let mut state = State {
+        width: 1000,
+        height: 800,
+    };
+    let (mut glfw, mut window) = init_open_gl(&state);
 
     let rect_shader = Shader::from_paths(
         &PathBuf::from("./shaders/rounded_rect.vs"),
@@ -113,4 +121,12 @@ fn main() {
     }
 
     // TODO: callbacks
+
+    unsafe {
+        gl::Flush();
+        gl::Finish();
+    }
+    glfw::make_context_current(None);
+    // Segfaults due to bug in glfw with wayland
+    std::mem::forget(window);
 }
