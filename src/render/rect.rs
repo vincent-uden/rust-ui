@@ -84,16 +84,16 @@ impl RectRenderer {
         self.shader.use_shader();
         let mut model = glm::Mat4::identity();
         model *= &glm::translation(&glm::Vec3::new(-0.5, -0.5, 0.0));
-        let mut scale = glm::make_vec3(&[1.0]);
+        let mut scale = glm::make_vec3(&[1.0, 1.0, 1.0]);
         scale.x = rect.size().x + edge_softness * 2.0;
         scale.y = rect.size().y + edge_softness * 2.0;
-        glm::scale(&model, &scale);
-        glm::translate(&model, &glm::Vec3::new(0.5, 0.5, 0.0).component_div(&scale));
-        glm::translate(
+        model = glm::scale(&model, &scale);
+        model = glm::translate(&model, &glm::Vec3::new(0.5, 0.5, 0.0).component_div(&scale));
+        model = glm::translate(
             &model,
             &glm::Vec3::new(rect.x0.x, rect.x0.y, 0.0).component_div(&scale),
         );
-        glm::translate(
+        model = glm::translate(
             &model,
             &glm::Vec3::new(-edge_softness, -edge_softness, 0.0).component_div(&scale),
         );
@@ -116,7 +116,7 @@ impl RectRenderer {
         self.shader
             .set_uniform_f32("borderThickness", border.thickness);
         self.shader.set_uniform_vec4(
-            "bgColor",
+            "borderRadius",
             &glm::make_vec4(&[
                 border.radius.top_left,
                 border.radius.top_right,
@@ -125,8 +125,10 @@ impl RectRenderer {
             ]),
         );
         self.shader.set_uniform_f32("edgeSoftness", edge_softness);
-        self.shader
-            .set_uniform_vec2("size", &glm::Vec2::new(rect.height(), rect.height()));
+
+        // Make sure size is correct
+        let rect_size = glm::Vec2::new(rect.width(), rect.height());
+        self.shader.set_uniform_vec2("size", &rect_size);
 
         unsafe {
             gl::BindVertexArray(self.quad_vao);

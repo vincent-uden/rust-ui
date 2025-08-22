@@ -28,7 +28,6 @@ float box(vec2 position, vec2 halfSize, vec4 cornerRadius) {
 
 // Quad needs to be a little bit bigger
 void main() {
-    color = vec4(size, 0.0, 1.0);
     vec2 center = size / 2.0;
 
     float distance = box(

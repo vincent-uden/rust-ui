@@ -50,12 +50,26 @@ fn main() {
         }
     });
 
+    unsafe {
+        gl::Viewport(0, 0, state.width as i32, state.height as i32);
+        gl::Enable(gl::BLEND);
+        gl::Enable(gl::MULTISAMPLE);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+    }
+
     let rect_shader = Shader::from_paths(
         &PathBuf::from("./shaders/rounded_rect.vs"),
         &PathBuf::from("./shaders/rounded_rect.frag"),
         None,
     )
     .unwrap();
+
+    // Set up projection matrix for 2D rendering
+    let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
+
+    rect_shader.use_shader();
+    rect_shader.set_uniform_mat4("projection", &projection);
+
     let rect_renderer = RectRenderer::new(rect_shader);
 
     while !window.should_close() {
@@ -69,7 +83,7 @@ fn main() {
         rect_renderer.draw(
             Rect {
                 x0: Vector::new(100.0, 100.0),
-                x1: Vector::new(200.0, 100.0),
+                x1: Vector::new(300.0, 200.0),
             },
             Color {
                 r: 1.0,
@@ -86,10 +100,10 @@ fn main() {
             Border {
                 thickness: 4.0,
                 radius: BorderRadius {
-                    top_left: 8.0,
-                    top_right: 8.0,
-                    bottom_left: 8.0,
-                    bottom_right: 8.0,
+                    top_left: 20.0,
+                    top_right: 20.0,
+                    bottom_left: 20.0,
+                    bottom_right: 20.0,
                 },
             },
             1.0,
