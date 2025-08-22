@@ -4,6 +4,7 @@ use glfw;
 use glfw::Context;
 
 use crate::geometry::{Rect, Vector};
+use crate::render::clay::ClayRenderer;
 use crate::render::rect::RectRenderer;
 use crate::render::text::TextRenderer;
 use crate::render::{Border, BorderRadius, Color};
@@ -96,6 +97,13 @@ fn main() {
     )
     .unwrap();
 
+    let mut clay_renderer = ClayRenderer::new(
+        rect_shader,
+        text_shader,
+        state.width as f32,
+        state.height as f32,
+    );
+
     while !window.should_close() {
         glfw.poll_events();
 
@@ -104,43 +112,16 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        rect_renderer.draw(
-            Rect {
-                x0: Vector::new(100.0, 100.0),
-                x1: Vector::new(300.0, 200.0),
-            },
-            Color {
-                r: 1.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
-            Color {
-                r: 0.0,
-                g: 1.0,
-                b: 0.0,
-                a: 1.0,
-            },
-            Border {
-                thickness: 4.0,
-                radius: BorderRadius {
-                    top_left: 20.0,
-                    top_right: 20.0,
-                    bottom_left: 20.0,
-                    bottom_right: 20.0,
-                },
-            },
-            1.0,
-        );
-
         // Draw text below the rectangle
-        text_renderer.draw_text(
-            "Hello, Rust UI!",
-            Vector::new(150.0, 250.0), // Position below the rectangle
-            25,                        // Font size
-            1.0,                       // Scale
-            [1.0, 1.0, 1.0],           // White color
-        );
+        // text_renderer.draw_text(
+        //     "Hello, Rust UI!",
+        //     Vector::new(150.0, 250.0), // Position below the rectangle
+        //     25,                        // Font size
+        //     1.0,                       // Scale
+        //     [1.0, 1.0, 1.0],           // White color
+        // );
+u
+        clay_renderer.draw();
 
         window.swap_buffers();
     }

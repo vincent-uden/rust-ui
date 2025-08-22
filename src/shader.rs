@@ -64,7 +64,7 @@ pub enum ShaderType {
 }
 
 /// A program which is a combination of a vertex, fragment and possibly a geometry shader.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Shader {
     id: u32,
 }

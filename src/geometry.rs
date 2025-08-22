@@ -189,3 +189,12 @@ where
         self.x0.x < v.x && self.x1.x > v.x && self.x0.y < v.y && self.x1.y > v.y
     }
 }
+
+impl Into<Rect<f32>> for clay_layout::math::BoundingBox {
+    fn into(self) -> Rect<f32> {
+        Rect {
+            x0: Vector::new(self.x, self.y),
+            x1: Vector::new(self.x + self.width, self.y + self.height),
+        }
+    }
+}

@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
 
-use crate::{geometry::Vector, shader::Shader};
+use crate::{geometry::Vector, render::Color, shader::Shader};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
@@ -163,12 +163,12 @@ impl TextRenderer {
         position: Vector<f32>,
         font_size: u32,
         scale: f32,
-        color: [f32; 3],
+        color: Color,
     ) {
         self.shader.use_shader();
         let text_unit = 0;
         self.shader.set_uniform("text", &text_unit);
-        let color_vec = glm::make_vec3(&color);
+        let color_vec = glm::make_vec3(&[color.r, color.g, color.b]);
         self.shader.set_uniform("textColor", &color_vec);
 
         unsafe {
