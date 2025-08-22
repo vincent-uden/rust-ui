@@ -5,6 +5,7 @@ use glfw::Context;
 
 use crate::geometry::{Rect, Vector};
 use crate::render::rect::RectRenderer;
+use crate::render::text::TextRenderer;
 use crate::render::{Border, BorderRadius, Color};
 use crate::shader::Shader;
 
@@ -72,13 +73,28 @@ fn main() {
     )
     .unwrap();
 
+    let text_shader = Shader::from_paths(
+        &PathBuf::from("./shaders/text.vs"),
+        &PathBuf::from("./shaders/text.frag"),
+        None,
+    )
+    .unwrap();
+
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
     rect_shader.use_shader();
     rect_shader.set_uniform("projection", &projection);
 
+    text_shader.use_shader();
+    text_shader.set_uniform("projection", &projection);
+
     let rect_renderer = RectRenderer::new(rect_shader);
+    let mut text_renderer = TextRenderer::new(
+        text_shader,
+        &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
+    )
+    .unwrap();
 
     while !window.should_close() {
         glfw.poll_events();
@@ -115,6 +131,15 @@ fn main() {
                 },
             },
             1.0,
+        );
+
+        // Draw text below the rectangle
+        text_renderer.draw_text(
+            "Hello, Rust UI!",
+            Vector::new(150.0, 250.0), // Position below the rectangle
+            25,                        // Font size
+            1.0,                       // Scale
+            [1.0, 1.0, 1.0],           // White color
         );
 
         window.swap_buffers();
