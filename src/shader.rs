@@ -3,6 +3,58 @@ use std::{ffi::CString, fs, path::Path};
 use anyhow::{Result, anyhow};
 use tracing::error;
 
+pub trait UniformValue {
+    fn set_uniform(location: gl::types::GLint, value: &Self);
+}
+
+impl UniformValue for f32 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform1f(location, *value);
+        }
+    }
+}
+
+impl UniformValue for i32 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform1i(location, *value);
+        }
+    }
+}
+
+impl UniformValue for glm::Vec2 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform2f(location, value.x, value.y);
+        }
+    }
+}
+
+impl UniformValue for glm::Vec3 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform3f(location, value.x, value.y, value.z);
+        }
+    }
+}
+
+impl UniformValue for glm::Vec4 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform4f(location, value.x, value.y, value.z, value.w);
+        }
+    }
+}
+
+impl UniformValue for glm::Mat4 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::UniformMatrix4fv(location, 1, 0, value.as_ptr());
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ShaderType {
     Vertex,
@@ -96,46 +148,9 @@ impl Shader {
         unsafe { gl::GetUniformLocation(self.id, c_string.as_ptr()) }
     }
 
-    pub fn set_uniform_f32(&self, name: &str, value: f32) {
+    pub fn set_uniform<T: UniformValue>(&self, name: &str, value: &T) {
         let loc = self.find(name);
-        unsafe {
-            gl::Uniform1f(loc, value);
-        }
-    }
-
-    pub fn set_uniform_i32(&self, name: &str, value: i32) {
-        let loc = self.find(name);
-        unsafe {
-            gl::Uniform1i(loc, value);
-        }
-    }
-
-    pub fn set_uniform_vec2(&self, name: &str, value: &glm::Vec2) {
-        let loc = self.find(name);
-        unsafe {
-            gl::Uniform2f(loc, value.x, value.y);
-        }
-    }
-
-    pub fn set_uniform_vec3(&self, name: &str, value: &glm::Vec3) {
-        let loc = self.find(name);
-        unsafe {
-            gl::Uniform3f(loc, value.x, value.y, value.z);
-        }
-    }
-
-    pub fn set_uniform_vec4(&self, name: &str, value: &glm::Vec4) {
-        let loc = self.find(name);
-        unsafe {
-            gl::Uniform4f(loc, value.x, value.y, value.z, value.w);
-        }
-    }
-
-    pub fn set_uniform_mat4(&self, name: &str, value: &glm::Mat4) {
-        let loc = self.find(name);
-        unsafe {
-            gl::UniformMatrix4fv(loc, 1, 0, value.as_ptr());
-        }
+        T::set_uniform(loc, value);
     }
 }
 
@@ -182,7 +197,7 @@ mod tests {
         glfw.window_hint(glfw::WindowHint::Resizable(true));
         glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
 
-        let (mut window, events) = glfw
+        let (mut window, _events) = glfw
             .create_window(100, 100, "App", glfw::WindowMode::Windowed)
             .unwrap();
 
@@ -205,7 +220,7 @@ mod tests {
         let vertex_src = include_str!("../shaders/rounded_rect.vs");
         let frag_src = include_str!("../shaders/rounded_rect.frag");
 
-        let window = init_window();
+        let _window = init_window();
 
         let shader = Shader::compile_shader(vertex_src, frag_src, None);
         assert!(shader.is_ok(), "Shader should compile successfully");

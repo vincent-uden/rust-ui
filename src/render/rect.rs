@@ -99,36 +99,32 @@ impl RectRenderer {
         );
 
         // Set uniforms
-        self.shader.set_uniform_mat4("model", &model);
-        self.shader.set_uniform_vec4(
-            "bgColor",
-            &glm::make_vec4(&[bg_color.r, bg_color.g, bg_color.b, bg_color.a]),
-        );
-        self.shader.set_uniform_vec4(
-            "borderColor",
-            &glm::make_vec4(&[
-                border_color.r,
-                border_color.g,
-                border_color.b,
-                border_color.a,
-            ]),
-        );
+        self.shader.set_uniform("model", &model);
+        let bg_color_vec = glm::make_vec4(&[bg_color.r, bg_color.g, bg_color.b, bg_color.a]);
+        self.shader.set_uniform("bgColor", &bg_color_vec);
+
+        let border_color_vec = glm::make_vec4(&[
+            border_color.r,
+            border_color.g,
+            border_color.b,
+            border_color.a,
+        ]);
+        self.shader.set_uniform("borderColor", &border_color_vec);
         self.shader
-            .set_uniform_f32("borderThickness", border.thickness);
-        self.shader.set_uniform_vec4(
-            "borderRadius",
-            &glm::make_vec4(&[
-                border.radius.top_left,
-                border.radius.top_right,
-                border.radius.bottom_left,
-                border.radius.bottom_right,
-            ]),
-        );
-        self.shader.set_uniform_f32("edgeSoftness", edge_softness);
+            .set_uniform("borderThickness", &border.thickness);
+
+        let border_radius_vec = glm::make_vec4(&[
+            border.radius.top_left,
+            border.radius.top_right,
+            border.radius.bottom_left,
+            border.radius.bottom_right,
+        ]);
+        self.shader.set_uniform("borderRadius", &border_radius_vec);
+        self.shader.set_uniform("edgeSoftness", &edge_softness);
 
         // Make sure size is correct
         let rect_size = glm::Vec2::new(rect.width(), rect.height());
-        self.shader.set_uniform_vec2("size", &rect_size);
+        self.shader.set_uniform("size", &rect_size);
 
         unsafe {
             gl::BindVertexArray(self.quad_vao);

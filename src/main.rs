@@ -28,7 +28,7 @@ fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
     glfw.window_hint(glfw::WindowHint::Resizable(true));
     glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
 
-    let (mut window, events) = glfw
+    let (mut window, _events) = glfw
         .create_window(
             inital_state.width,
             inital_state.height,
@@ -59,7 +59,7 @@ fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
 }
 
 fn main() {
-    let mut state = State {
+    let state = State {
         width: 1000,
         height: 800,
     };
@@ -76,7 +76,7 @@ fn main() {
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
     rect_shader.use_shader();
-    rect_shader.set_uniform_mat4("projection", &projection);
+    rect_shader.set_uniform("projection", &projection);
 
     let rect_renderer = RectRenderer::new(rect_shader);
 

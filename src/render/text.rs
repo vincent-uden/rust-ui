@@ -4,10 +4,7 @@ use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
 
-use crate::{
-    geometry::Vector,
-    shader::Shader,
-};
+use crate::{geometry::Vector, shader::Shader};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
@@ -47,20 +44,20 @@ impl TextRenderer {
     pub fn new(shader: Shader, font_path: &Path) -> Result<Self> {
         let ft_library =
             ft::Library::init().map_err(|_| anyhow!("Failed to initialize FreeType library"))?;
-        
+
         let ft_face = ft_library
             .new_face(font_path, 0)
             .map_err(|_| anyhow!("Failed to load font"))?;
-        
+
         // FreeType expects 1-byte alignment for proper glyph rendering
         unsafe {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
         }
-        
+
         let characters = HashMap::new();
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
-        
+
         unsafe {
             gl::GenVertexArrays(1, &mut quad_vao);
             gl::GenBuffers(1, &mut quad_vbo);
@@ -84,7 +81,7 @@ impl TextRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
         }
-        
+
         Ok(Self {
             shader,
             quad_vao,
@@ -99,21 +96,21 @@ impl TextRenderer {
         if let Err(_) = self.ft_face.set_pixel_sizes(0, font_size) {
             return false;
         }
-        
+
         if let Err(_) = self
             .ft_face
             .load_char(character as usize, ft::face::LoadFlag::DEFAULT)
         {
             return false;
         }
-        
+
         let glyph = self.ft_face.glyph();
         if let Err(_) = glyph.render_glyph(ft::render_mode::RenderMode::Normal) {
             return false;
         }
-        
+
         let bitmap = glyph.bitmap();
-        
+
         let mut texture: GLuint = 0;
         unsafe {
             gl::GenTextures(1, &mut texture);
@@ -129,7 +126,7 @@ impl TextRenderer {
                 gl::UNSIGNED_BYTE,
                 bitmap.buffer().as_ptr() as *const c_void,
             );
-            
+
             // Use CLAMP_TO_EDGE to avoid artifacts when sampling near the edge
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
@@ -137,12 +134,12 @@ impl TextRenderer {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
         }
-        
+
         let key = GlyphKey {
             character,
             font_size,
         };
-        
+
         let char_info = Character {
             texture_id: texture,
             size: Vector::new(bitmap.width(), bitmap.rows()),
@@ -150,13 +147,13 @@ impl TextRenderer {
             // Shift by 6 to convert from 1/64 pixels (FreeType's format) to pixels
             advance: (glyph.advance().x >> 6) as i32,
         };
-        
+
         self.characters.insert(key, char_info);
-        
+
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
-        
+
         true
     }
 
@@ -169,24 +166,25 @@ impl TextRenderer {
         color: [f32; 3],
     ) {
         self.shader.use_shader();
-        self.shader.set_uniform_i32("text", 0);
-        self.shader
-            .set_uniform_vec3("textColor", &glm::make_vec3(&color));
-        
+        let text_unit = 0;
+        self.shader.set_uniform("text", &text_unit);
+        let color_vec = glm::make_vec3(&color);
+        self.shader.set_uniform("textColor", &color_vec);
+
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindVertexArray(self.quad_vao);
         }
-        
+
         let mut x = position.x;
         let baseline_y = position.y;
-        
+
         for c in text.chars() {
             let key = GlyphKey {
                 character: c,
                 font_size,
             };
-            
+
             let ch = match self.characters.get(&key) {
                 Some(ch) => *ch,
                 None => {
@@ -196,25 +194,24 @@ impl TextRenderer {
                     self.characters[&key]
                 }
             };
-            
+
             // Round to nearest pixel for crisp text rendering
             let xpos = f32::floor(x + ch.bearing.x as f32 * scale + 0.5);
             let ypos = f32::floor(baseline_y - ch.bearing.y as f32 * scale + 0.5);
-            
+
             let w = ch.size.x as f32 * scale;
             let h = ch.size.y as f32 * scale;
-            
+
             // Each vertex: [x, y, tex_x, tex_y]
             let vertices: [[f32; 4]; 6] = [
                 [xpos, ypos + h, 0.0, 1.0],
                 [xpos, ypos, 0.0, 0.0],
                 [xpos + w, ypos, 1.0, 0.0],
-                
                 [xpos, ypos + h, 0.0, 1.0],
                 [xpos + w, ypos, 1.0, 0.0],
                 [xpos + w, ypos + h, 1.0, 1.0],
             ];
-            
+
             unsafe {
                 gl::BindTexture(gl::TEXTURE_2D, ch.texture_id);
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.quad_vbo);
@@ -227,10 +224,10 @@ impl TextRenderer {
                 gl::BindBuffer(gl::ARRAY_BUFFER, 0);
                 gl::DrawArrays(gl::TRIANGLES, 0, 6);
             }
-            
+
             x += ch.advance as f32 * scale;
         }
-        
+
         unsafe {
             gl::BindVertexArray(0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -301,10 +298,10 @@ impl Drop for TextRenderer {
 
 #[cfg(test)]
 mod tests {
+    use crate::geometry::Vector;
     use freetype as ft;
     use image::{GrayImage, ImageBuffer};
     use std::path::Path;
-    use crate::geometry::Vector;
 
     fn get_test_font_path() -> &'static Path {
         Path::new("/media/hdd/programming/rust-ui/assets/fonts/LiberationMono.ttf")
@@ -315,12 +312,12 @@ mod tests {
         println!("Testing character atlas generation...");
 
         let ft_library = ft::Library::init().expect("Failed to initialize FreeType");
-        
+
         let font_path = get_test_font_path();
         let ft_face = ft_library
             .new_face(font_path, 0)
             .expect("Failed to load font face");
-        
+
         let font_size: u32 = 63;
         ft_face
             .set_pixel_sizes(0, font_size)
@@ -408,12 +405,12 @@ mod tests {
         println!("Testing single character rendering...");
 
         let ft_library = ft::Library::init().expect("Failed to initialize FreeType");
-        
+
         let font_path = get_test_font_path();
         let ft_face = ft_library
             .new_face(font_path, 0)
             .expect("Failed to load font face");
-        
+
         let font_size: u32 = 64;
         ft_face
             .set_pixel_sizes(0, font_size)
