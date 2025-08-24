@@ -133,7 +133,14 @@ impl RectRenderer {
         }
     }
 
-    pub fn push_scissor_region(&mut self, x: f32, y: f32, width: f32, height: f32, window_height: i32) {
+    pub fn push_scissor_region(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        window_height: i32,
+    ) {
         // Convert Clay coordinates (top-left origin) to OpenGL coordinates (bottom-left origin)
         let clay_y = y as i32;
         let clay_height = height as i32;
@@ -177,7 +184,12 @@ impl RectRenderer {
         self.scissor_stack.push(new_region);
         unsafe {
             gl::Enable(gl::SCISSOR_TEST);
-            gl::Scissor(new_region.x, new_region.y, new_region.width, new_region.height);
+            gl::Scissor(
+                new_region.x,
+                new_region.y,
+                new_region.width,
+                new_region.height,
+            );
         }
     }
 

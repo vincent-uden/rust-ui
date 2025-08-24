@@ -18,7 +18,13 @@ mod render;
 mod shader;
 mod state;
 
-fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
+fn init_open_gl(
+    inital_state: &State,
+) -> (
+    glfw::Glfw,
+    glfw::PWindow,
+    glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
+) {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
     glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
     glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
@@ -28,7 +34,7 @@ fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
     glfw.window_hint(glfw::WindowHint::Resizable(true));
     glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
 
-    let (mut window, _events) = glfw
+    let (mut window, events) = glfw
         .create_window(
             inital_state.width,
             inital_state.height,
@@ -39,6 +45,8 @@ fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
 
     window.make_current();
     window.set_key_polling(true);
+    window.set_mouse_button_polling(true);
+    window.set_cursor_pos_polling(true);
 
     gl::load_with(|ptr| {
         let f = window.get_proc_address(ptr);
@@ -55,7 +63,7 @@ fn init_open_gl(inital_state: &State) -> (glfw::Glfw, glfw::PWindow) {
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
     }
 
-    (glfw, window)
+    (glfw, window, events)
 }
 
 fn main() {
@@ -63,8 +71,14 @@ fn main() {
         width: 1000,
         height: 800,
         clay: Clay::new((1000.0, 800.0).into()),
+        clicked_sidebar_item: -1,
+        click_counter: 0,
+        mouse_left_down: false,
+        mouse_left_was_down: false,
+        mouse_x: 0.0,
+        mouse_y: 0.0,
     };
-    let (mut glfw, mut window) = init_open_gl(&state);
+    let (mut glfw, mut window, events) = init_open_gl(&state);
 
     let rect_shader = Shader::from_paths(
         &PathBuf::from("./shaders/rounded_rect.vs"),
@@ -112,6 +126,22 @@ fn main() {
 
     while !window.should_close() {
         glfw.poll_events();
+
+        // Handle events
+        state.mouse_left_was_down = state.mouse_left_down;
+        for (_, event) in glfw::flush_messages(&events) {
+            match event {
+                glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1, action, _) => {
+                    state.mouse_left_down =
+                        action == glfw::Action::Press || action == glfw::Action::Repeat;
+                }
+                glfw::WindowEvent::CursorPos(x, y) => {
+                    state.mouse_x = x;
+                    state.mouse_y = y;
+                }
+                _ => {}
+            }
+        }
 
         unsafe {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
