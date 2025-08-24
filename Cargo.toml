@@ -14,4 +14,3 @@ tracing = "0.1.41"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 image = "0.24.7"  # For PNG writing in tests
-clay-layout = "0.4.0"

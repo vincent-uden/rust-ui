@@ -1,13 +1,10 @@
 use std::io;
 use std::path::PathBuf;
 
-use clay_layout::Clay;
 use glfw;
 use glfw::Context;
 use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
-
-use crate::render::clay::ClayRenderer;
 
 use crate::shader::Shader;
 use crate::state::State;
@@ -75,14 +72,8 @@ fn main() {
     let mut state = State {
         width: 1000,
         height: 800,
-        clay: Clay::new((1000.0, 800.0).into()),
-        clicked_sidebar_item: -1,
-        click_counter: 0,
         mouse_left_down: false,
         mouse_left_was_down: false,
-        mouse_x: 0.0,
-        mouse_y: 0.0,
-        button_text_buffer: String::with_capacity(20),
     };
     let (mut glfw, mut window, events) = init_open_gl(&state);
 
@@ -109,27 +100,6 @@ fn main() {
     text_shader.use_shader();
     text_shader.set_uniform("projection", &projection);
 
-    let mut clay_renderer = ClayRenderer::new(rect_shader, text_shader, state.height as f32);
-
-    let text_renderer = clay_renderer.text_r.clone();
-    state.clay.set_measure_text_function(move |text, config| {
-        use clay_layout::math::Dimensions;
-        if text.is_empty() || config.font_size == 0 {
-            return Dimensions {
-                width: 0.0,
-                height: config.font_size as f32,
-            };
-        }
-        let mut text_renderer = text_renderer
-            .lock()
-            .expect("The TextRenderer mutex should never be poisoned");
-        let size = text_renderer.measure_text_size(text, config.font_size as u32);
-        Dimensions {
-            width: size.x,
-            height: size.y,
-        }
-    });
-
     while !window.should_close() {
         glfw.poll_events();
 
@@ -141,8 +111,8 @@ fn main() {
                         action == glfw::Action::Press || action == glfw::Action::Repeat;
                 }
                 glfw::WindowEvent::CursorPos(x, y) => {
-                    state.mouse_x = x;
-                    state.mouse_y = y;
+                    // state.mouse_x = x;
+                    // state.mouse_y = y;
                 }
                 glfw::WindowEvent::FramebufferSize(width, height) => {
                     info!("Width {width}, {height}");
@@ -150,16 +120,11 @@ fn main() {
                     unsafe {
                         gl::Viewport(0, 0, width, height);
                     }
-                    clay_renderer.window_size((width, height));
                 }
                 _ => {}
             }
         }
 
-        state.clay.pointer_state(
-            (state.mouse_x as f32, state.mouse_y as f32).into(),
-            state.mouse_left_down,
-        );
         let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
         rect_shader.use_shader();
@@ -172,7 +137,7 @@ fn main() {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-        state.draw_and_render(&mut clay_renderer);
+        state.draw_and_render();
 
         window.swap_buffers();
     }
