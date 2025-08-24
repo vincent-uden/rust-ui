@@ -21,6 +21,17 @@ impl Into<Color> for clay_layout::Color {
     }
 }
 
+impl Into<clay_layout::Color> for Color {
+    fn into(self) -> clay_layout::Color {
+        clay_layout::Color {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a: self.a,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct BorderRadius {
     pub top_left: f32,

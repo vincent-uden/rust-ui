@@ -111,16 +111,6 @@ fn main() {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-
-        // Draw text below the rectangle
-        // text_renderer.draw_text(
-        //     "Hello, Rust UI!",
-        //     Vector::new(150.0, 250.0), // Position below the rectangle
-        //     25,                        // Font size
-        //     1.0,                       // Scale
-        //     [1.0, 1.0, 1.0],           // White color
-        // );
-u
         clay_renderer.draw();
 
         window.swap_buffers();
