@@ -1,6 +1,7 @@
 use clay_layout::{
     Clay, Declaration,
     layout::{Alignment, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Sizing},
+    math::Dimensions,
     text::TextConfig,
 };
 
@@ -410,5 +411,12 @@ impl State {
 
         let render_commands: Vec<_> = clay_scope.end().collect();
         clay_renderer.render_commands(render_commands);
+    }
+
+    pub fn window_size(&mut self, size: (i32, i32)) {
+        self.width = size.0 as u32;
+        self.height = size.1 as u32;
+        self.clay
+            .set_layout_dimensions(Dimensions::new(size.0 as f32, size.1 as f32));
     }
 }

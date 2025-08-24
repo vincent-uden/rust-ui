@@ -102,4 +102,8 @@ impl ClayRenderer {
             }
         }
     }
+
+    pub fn window_size(&mut self, size: (i32, i32)) {
+        self.window_height = size.1;
+    }
 }

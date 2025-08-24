@@ -1,15 +1,14 @@
+use std::io;
 use std::path::PathBuf;
 
-use clay_layout::layout::{Padding, Sizing};
-
-use clay_layout::text::TextConfig;
-use clay_layout::{Clay, Declaration};
+use clay_layout::Clay;
 use glfw;
 use glfw::Context;
+use tracing::{debug, info};
+use tracing_subscriber::EnvFilter;
 
 use crate::render::clay::ClayRenderer;
 
-use crate::render::Color;
 use crate::shader::Shader;
 use crate::state::State;
 
@@ -47,6 +46,7 @@ fn init_open_gl(
     window.set_key_polling(true);
     window.set_mouse_button_polling(true);
     window.set_cursor_pos_polling(true);
+    window.set_framebuffer_size_polling(true);
 
     gl::load_with(|ptr| {
         let f = window.get_proc_address(ptr);
@@ -67,6 +67,11 @@ fn init_open_gl(
 }
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_writer(io::stdout)
+        .with_env_filter(EnvFilter::new("rust_ui"))
+        .init();
+
     let mut state = State {
         width: 1000,
         height: 800,
@@ -128,7 +133,6 @@ fn main() {
     while !window.should_close() {
         glfw.poll_events();
 
-        // Handle events
         state.mouse_left_was_down = state.mouse_left_down;
         for (_, event) in glfw::flush_messages(&events) {
             match event {
@@ -140,15 +144,29 @@ fn main() {
                     state.mouse_x = x;
                     state.mouse_y = y;
                 }
+                glfw::WindowEvent::FramebufferSize(width, height) => {
+                    info!("Width {width}, {height}");
+                    state.window_size((width, height));
+                    unsafe {
+                        gl::Viewport(0, 0, width, height);
+                    }
+                    clay_renderer.window_size((width, height));
+                }
                 _ => {}
             }
         }
 
-        // Update Clay's pointer state for hover detection
         state.clay.pointer_state(
             (state.mouse_x as f32, state.mouse_y as f32).into(),
             state.mouse_left_down,
         );
+        let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
+
+        rect_shader.use_shader();
+        rect_shader.set_uniform("projection", &projection);
+
+        text_shader.use_shader();
+        text_shader.set_uniform("projection", &projection);
 
         unsafe {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
