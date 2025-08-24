@@ -80,6 +80,7 @@ impl State {
                 &[header_node, body_node],
             )
             .unwrap();
+        // TODO: Text wrapping?
         tree.compute_layout_with_measure(
             root_node,
             Size::MAX_CONTENT,

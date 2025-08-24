@@ -176,8 +176,9 @@ impl TextRenderer {
             gl::BindVertexArray(self.quad_vao);
         }
 
+        let size = self.measure_text_size(text, font_size);
         let mut x = position.x;
-        let baseline_y = position.y;
+        let baseline_y = position.y + size.y * 0.8;
 
         for c in text.chars() {
             let key = GlyphKey {
