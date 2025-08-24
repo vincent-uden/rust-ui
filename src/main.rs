@@ -77,6 +77,7 @@ fn main() {
         mouse_left_was_down: false,
         mouse_x: 0.0,
         mouse_y: 0.0,
+        button_text_buffer: String::with_capacity(20),
     };
     let (mut glfw, mut window, events) = init_open_gl(&state);
 
@@ -142,6 +143,12 @@ fn main() {
                 _ => {}
             }
         }
+
+        // Update Clay's pointer state for hover detection
+        state.clay.pointer_state(
+            (state.mouse_x as f32, state.mouse_y as f32).into(),
+            state.mouse_left_down,
+        );
 
         unsafe {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);

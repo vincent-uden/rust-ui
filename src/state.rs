@@ -129,6 +129,7 @@ pub struct State {
     pub mouse_left_was_down: bool,
     pub mouse_x: f64,
     pub mouse_y: f64,
+    pub button_text_buffer: String,
 }
 
 impl State {
@@ -184,19 +185,7 @@ impl State {
                             },
                         );
 
-                        // Cycle through items on any click
-                        if !self.mouse_left_down && self.mouse_left_was_down {
-                            self.clicked_sidebar_item = (self.clicked_sidebar_item + 1) % 5;
-                        }
-
-                        // Menu items
                         for i in 0..5 {
-                            let bg_color = if self.clicked_sidebar_item == i {
-                                COLOR_SECONDARY
-                            } else {
-                                COLOR_PRIMARY
-                            };
-
                             let item_id_str = match i {
                                 0 => "MenuItem0",
                                 1 => "MenuItem1", 
@@ -212,35 +201,63 @@ impl State {
                                     .layout()
                                     .width(Sizing::Percent(1.0))
                                     .height(Sizing::Fixed(50.0))
-                                    .padding(Padding::all(16))
-                                    .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+                                    .padding(Padding::all(0)) // No padding on outer
                                     .end()
-                                    .background_color(bg_color.into())
                                     .border()
                                     .all_directions(4)
                                     .color(COLOR_BLACK.into())
                                     .end(),
                                 |item| {
-                                    let text = if self.clicked_sidebar_item == i {
-                                        "Selected Item"
+                                    let is_hovered = item.hovered();
+                                    let bg_color = if self.clicked_sidebar_item == i as i32 {
+                                        COLOR_SECONDARY
+                                    } else if is_hovered {
+                                        NORD9 // Lighter blue for hover
                                     } else {
-                                        "Menu Item"
+                                        COLOR_PRIMARY
                                     };
+                                    if is_hovered && !self.mouse_left_down && self.mouse_left_was_down {
+                                        self.clicked_sidebar_item = i as i32;
+                                    }
+                                    let inner_id_str = match i {
+                                        0 => "inner0",
+                                        1 => "inner1",
+                                        2 => "inner2", 
+                                        3 => "inner3",
+                                        4 => "inner4",
+                                        _ => "inner",
+                                    };
+                                    item.with(
+                                        &Declaration::new()
+                                            .id(item.id(inner_id_str))
+                                            .layout()
+                                            .width(Sizing::Percent(1.0))
+                                            .height(Sizing::Percent(1.0))
+                                            .padding(Padding::all(16))
+                                            .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+                                            .end()
+                                            .background_color(bg_color.into()),
+                                        |inner| {
+                                            let text = if self.clicked_sidebar_item == i as i32 {
+                                                "Selected Item"
+                                            } else {
+                                                "Menu Item"
+                                            };
 
-                                    item.text(
-                                        text,
-                                        TextConfig::new()
-                                            .font_size(14)
-                                            .color(COLOR_BLACK.into())
-                                            .end(),
+                                            inner.text(
+                                                text,
+                                                TextConfig::new()
+                                                    .font_size(14)
+                                                    .color(COLOR_BLACK.into())
+                                                    .end(),
+                                            );
+                                        },
                                     );
                                 },
                             );
                         }
                     },
                 );
-
-                // Main content area
                 outer.with(
                     &Declaration::new()
                         .id(outer.id("MainContent"))
@@ -277,17 +294,15 @@ impl State {
                                 .end(),
                         );
 
-                        // Interactive button
+                        // Interactive button with hover state
                         main.with(
                             &Declaration::new()
                                 .id(main.id("ClickButton"))
                                 .layout()
                                 .width(Sizing::Fixed(200.0))
                                 .height(Sizing::Fixed(50.0))
-                                .padding(Padding::all(12))
-                                .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
+                                .padding(Padding::all(0))
                                 .end()
-                                .background_color(COLOR_SUCCESS.into())
                                 .corner_radius()
                                 .all(8.0)
                                 .end()
@@ -296,16 +311,46 @@ impl State {
                                 .color(COLOR_BLACK.into())
                                 .end(),
                             |button| {
-                                if !self.mouse_left_down && self.mouse_left_was_down {
+                                let is_hovered = button.hovered();
+                                let button_bg_color = if is_hovered {
+                                    NORD13 // Yellow hover color
+                                } else {
+                                    COLOR_SUCCESS
+                                };
+                                if is_hovered && !self.mouse_left_down && self.mouse_left_was_down {
                                     self.click_counter += 1;
                                 }
 
-                                button.text(
-                                    "Click Me!",
-                                    TextConfig::new()
-                                        .font_size(16)
-                                        .color(COLOR_BLACK.into())
+                                button.with(
+                                    &Declaration::new()
+                                        .id(button.id("buttoninner"))
+                                        .layout()
+                                        .width(Sizing::Percent(1.0))
+                                        .height(Sizing::Percent(1.0))
+                                        .padding(Padding::all(12))
+                                        .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
+                                        .end()
+                                        .background_color(button_bg_color.into())
+                                        .corner_radius()
+                                        .all(6.0)
                                         .end(),
+                                    |inner| {
+                                        self.button_text_buffer.clear();
+                                        self.button_text_buffer.push_str("Click me: ");
+                                        if self.click_counter < 10 {
+                                            self.button_text_buffer.push((b'0' + self.click_counter as u8) as char);
+                                        } else {
+                                            self.button_text_buffer.push_str(&self.click_counter.to_string());
+                                        }
+
+                                        inner.text(
+                                            &self.button_text_buffer,
+                                            TextConfig::new()
+                                                .font_size(16)
+                                                .color(COLOR_BLACK.into())
+                                                .end(),
+                                        );
+                                    },
                                 );
                             },
                         );
