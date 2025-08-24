@@ -6,6 +6,7 @@ use glfw::Context;
 use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
+use crate::render::rect::RectRenderer;
 use crate::shader::Shader;
 use crate::state::State;
 
@@ -15,7 +16,8 @@ mod shader;
 mod state;
 
 fn init_open_gl(
-    inital_state: &State,
+    width: u32,
+    height: u32,
 ) -> (
     glfw::Glfw,
     glfw::PWindow,
@@ -31,12 +33,7 @@ fn init_open_gl(
     glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
 
     let (mut window, events) = glfw
-        .create_window(
-            inital_state.width,
-            inital_state.height,
-            "App",
-            glfw::WindowMode::Windowed,
-        )
+        .create_window(width, height, "App", glfw::WindowMode::Windowed)
         .unwrap();
 
     window.make_current();
@@ -54,7 +51,7 @@ fn init_open_gl(
     });
 
     unsafe {
-        gl::Viewport(0, 0, inital_state.width as i32, inital_state.height as i32);
+        gl::Viewport(0, 0, width as i32, height as i32);
         gl::Enable(gl::BLEND);
         gl::Enable(gl::MULTISAMPLE);
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -69,13 +66,7 @@ fn main() {
         .with_env_filter(EnvFilter::new("rust_ui"))
         .init();
 
-    let mut state = State {
-        width: 1000,
-        height: 800,
-        mouse_left_down: false,
-        mouse_left_was_down: false,
-    };
-    let (mut glfw, mut window, events) = init_open_gl(&state);
+    let (mut glfw, mut window, events) = init_open_gl(1000, 800);
 
     let rect_shader = Shader::from_paths(
         &PathBuf::from("./shaders/rounded_rect.vs"),
@@ -90,6 +81,14 @@ fn main() {
         None,
     )
     .unwrap();
+
+    let mut state = State {
+        width: 1000,
+        height: 800,
+        mouse_left_down: false,
+        mouse_left_was_down: false,
+        rect_r: RectRenderer::new(rect_shader),
+    };
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
