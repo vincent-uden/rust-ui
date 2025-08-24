@@ -8,6 +8,7 @@ use clay_layout::{
     text::TextConfig,
 };
 
+use crate::state::EventListeners;
 use crate::{
     geometry::{Rect, Vector},
     render::{Border, BorderRadius, Color, rect::RectRenderer, text::TextRenderer},
@@ -41,7 +42,7 @@ impl ClayRenderer {
 
     pub fn render_commands(
         &mut self,
-        render_commands: Vec<clay_layout::render_commands::RenderCommand<(), ()>>,
+        render_commands: Vec<clay_layout::render_commands::RenderCommand<(), EventListeners>>,
     ) {
         for command in render_commands {
             match &command.config {

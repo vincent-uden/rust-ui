@@ -4,6 +4,7 @@ use clay_layout::{
     math::Dimensions,
     text::TextConfig,
 };
+use tracing::info;
 
 use crate::render::{Color, clay::ClayRenderer};
 
@@ -120,6 +121,11 @@ pub const COLOR_SUCCESS: Color = NORD14; // Aurora green
 pub const COLOR_DANGER: Color = NORD11; // Aurora red
 pub const COLOR_BLACK: Color = NORD0; // Polar night darkest
 
+pub struct EventListeners {
+    on_hover: Option<Box<dyn Fn(&mut State)>>,
+    on_click: Option<Box<dyn Fn(&mut State)>>,
+}
+
 pub struct State {
     pub width: u32,
     pub height: u32,
@@ -135,7 +141,7 @@ pub struct State {
 
 impl State {
     pub fn draw_and_render(&mut self, clay_renderer: &mut ClayRenderer) {
-        let mut clay_scope = self.clay.begin::<(), ()>();
+        let mut clay_scope = self.clay.begin::<(), EventListeners>();
 
         // Outer container
         clay_scope.with(
@@ -334,7 +340,14 @@ impl State {
                                         .background_color(button_bg_color.into())
                                         .corner_radius()
                                         .all(6.0)
-                                        .end(),
+                                        .end()
+                                        .custom_element(&EventListeners {
+                                            on_hover: None,
+                                            on_click: Some(Box::new(|x| {
+                                                info!("Clicking the button!!!");
+                                            })),
+                                        })
+                                    ,
                                     |inner| {
                                         self.button_text_buffer.clear();
                                         self.button_text_buffer.push_str("Click me: ");
