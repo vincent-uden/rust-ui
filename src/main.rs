@@ -7,6 +7,7 @@ use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
 use crate::render::rect::RectRenderer;
+use crate::render::text::TextRenderer;
 use crate::shader::Shader;
 use crate::state::State;
 
@@ -88,6 +89,11 @@ fn main() {
         mouse_left_down: false,
         mouse_left_was_down: false,
         rect_r: RectRenderer::new(rect_shader),
+        text_r: TextRenderer::new(
+            text_shader,
+            &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
+        )
+        .unwrap(),
     };
 
     // Set up projection matrix for 2D rendering

@@ -2,7 +2,7 @@ pub mod clay;
 pub mod rect;
 pub mod text;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
