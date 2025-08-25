@@ -1,6 +1,7 @@
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
 use num::Num;
+use taffy::AvailableSpace;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Vector<T> {
@@ -141,6 +142,39 @@ where
         Self {
             x: value.width,
             y: value.height,
+        }
+    }
+}
+
+impl<T> From<Vector<T>> for taffy::geometry::Point<T>
+where
+    T: Num + Copy + std::fmt::Debug + PartialOrd,
+{
+    fn from(value: Vector<T>) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
+impl<T> From<Vector<T>> for taffy::geometry::Size<T>
+where
+    T: Num + Copy + std::fmt::Debug + PartialOrd,
+{
+    fn from(value: Vector<T>) -> Self {
+        Self {
+            width: value.x,
+            height: value.y,
+        }
+    }
+}
+
+impl From<Vector<f32>> for taffy::geometry::Size<AvailableSpace> {
+    fn from(value: Vector<f32>) -> Self {
+        Self {
+            width: AvailableSpace::Definite(value.x),
+            height: AvailableSpace::Definite(value.y),
         }
     }
 }

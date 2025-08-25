@@ -5,7 +5,11 @@ use freetype as ft;
 use gl::types::GLuint;
 use taffy::AvailableSpace;
 
-use crate::{geometry::Vector, render::Color, shader::Shader};
+use crate::{
+    geometry::Vector,
+    render::{Color, Text},
+    shader::Shader,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
@@ -242,10 +246,8 @@ impl TextRenderer {
 
     pub fn draw_in_box(
         &mut self,
-        text: String,
+        text: Text,
         position: Vector<f32>,
-        font_size: u32,
-        color: Color,
         size: taffy::geometry::Size<f32>,
     ) {
         for line in self.layout_text(
@@ -253,15 +255,15 @@ impl TextRenderer {
                 width: AvailableSpace::Definite(size.width),
                 height: AvailableSpace::Definite(size.height),
             },
-            text,
-            font_size,
+            text.text,
+            text.font_size,
         ) {
             self.draw_line(
                 &line.contents,
                 position + line.position,
-                font_size,
+                text.font_size,
                 1.0,
-                color,
+                text.color,
             );
         }
     }

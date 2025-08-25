@@ -41,6 +41,24 @@ pub struct Border {
     pub radius: BorderRadius,
     pub color: Color,
 }
+
+#[derive(Debug, Clone)]
+pub struct Text {
+    pub text: String,
+    pub font_size: u32,
+    pub color: Color,
+}
+
+impl Default for Text {
+    fn default() -> Self {
+        Self {
+            text: Default::default(),
+            font_size: 12,
+            color: Color::new(0.0, 0.0, 0.0, 1.0),
+        }
+    }
+}
+
 // Nord color scheme - https://www.nordtheme.com/
 // Polar Night (dark colors)
 pub const NORD0: Color = Color {

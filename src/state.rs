@@ -5,7 +5,7 @@ use tracing::{debug, info};
 use crate::{
     geometry::Vector,
     render::{
-        Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color,
+        Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color, Text,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
     },
@@ -29,8 +29,7 @@ pub struct NodeContext {
     // Border
     border: Border,
     // Text
-    text: String,
-    font_size: u32,
+    text: Text,
     // Event listeners
     on_mouse_enter: Option<Arc<dyn Fn(&mut State)>>,
     on_mouse_exit: Option<Arc<dyn Fn(&mut State)>>,
@@ -83,6 +82,68 @@ impl State {
         self.run_event_listeners();
     }
 
+    fn stats_overlay(
+        &mut self,
+        size: crate::geometry::Vector<f32>,
+    ) -> (TaffyTree<NodeContext>, NodeId) {
+        let mut tree = TaffyTree::new();
+
+        let title = tree
+            .new_leaf_with_context(
+                Style {
+                    ..Default::default()
+                },
+                NodeContext {
+                    flags: flags::TEXT,
+                    text: Text {
+                        text: "Performance stats".into(),
+                        font_size: 18,
+                        color: Color::new(1.0, 1.0, 1.0, 1.0),
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let root_node = tree
+            .new_leaf_with_context(
+                Style {
+                    flex_direction: FlexDirection::Column,
+                    size: Size {
+                        width: Dimension::percent(1.0),
+                        height: Dimension::percent(1.0),
+                    },
+                    padding: Rect::length(12.0),
+                    ..Default::default()
+                },
+                NodeContext {
+                    bg_color: Color::new(0.0, 0.0, 0.0, 0.5),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        tree.add_child(root_node, title).unwrap();
+
+        tree.compute_layout_with_measure(
+            root_node,
+            Size {
+                width: AvailableSpace::MaxContent,
+                height: AvailableSpace::MinContent,
+            },
+            |known_dimensions, available_space, _node_id, node_context, _style| {
+                measure_function(
+                    known_dimensions,
+                    available_space,
+                    node_context,
+                    &mut self.text_r,
+                )
+            },
+        )
+        .unwrap();
+        (tree, root_node)
+    }
+
     fn generate_layout(&mut self) -> (TaffyTree<NodeContext>, NodeId) {
         let mut tree = TaffyTree::new();
         let header_node = tree
@@ -96,8 +157,11 @@ impl State {
                 },
                 NodeContext {
                     flags: flags::TEXT,
-                    text: "Hello from taffy! gggggg lask jwal aj wkja ljw klaj w".into(),
-                    font_size: 18,
+                    text: Text {
+                        text: "Hello from taffy! gggggg lask jwal aj wkja ljw klaj w".into(),
+                        font_size: 18,
+                        ..Default::default()
+                    },
                     bg_color: self.header_bg,
                     border: Border {
                         radius: BorderRadius {
@@ -189,13 +253,28 @@ impl State {
 
     pub fn draw_and_render(&mut self) {
         let (tree, root_node) = self.generate_layout();
-        self.render_tree(&tree, root_node);
+        self.render_tree(&tree, root_node, Vector::zero());
+        let (tree, root_node) = self.stats_overlay(Vector::new(400.0, 400.0));
+        let stats_layout = tree.layout(root_node).unwrap();
+        self.render_tree(
+            &tree,
+            root_node,
+            Vector::new(
+                self.width as f32 - stats_layout.size.width,
+                self.height as f32 - stats_layout.size.height,
+            ),
+        );
     }
 
     /// Draws a populated layout tree to the screen and queues up event listeners for the drawn
     /// nodes.
-    fn render_tree(&mut self, tree: &TaffyTree<NodeContext>, root_node: NodeId) {
-        let mut stack: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, taffy::Point::zero())];
+    fn render_tree(
+        &mut self,
+        tree: &TaffyTree<NodeContext>,
+        root_node: NodeId,
+        position: Vector<f32>,
+    ) {
+        let mut stack: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
         while let Some((id, parent_pos)) = stack.pop() {
             let layout = tree.layout(id).unwrap();
             let default_ctx = &NodeContext::default();
@@ -220,8 +299,6 @@ impl State {
                 self.text_r.draw_in_box(
                     ctx.text.clone(),
                     Vector::new(abs_pos.x, abs_pos.y),
-                    ctx.font_size,
-                    Color::new(0.0, 0.0, 0.0, 1.0),
                     layout.size,
                 );
             }
@@ -295,7 +372,11 @@ fn measure_function(
 
     if let Some(ctx) = node_context {
         if ctx.flags & flags::TEXT == 1 {
-            let lines = text_renderer.layout_text(available_space, ctx.text.clone(), ctx.font_size);
+            let lines = text_renderer.layout_text(
+                available_space,
+                ctx.text.text.clone(),
+                ctx.text.font_size,
+            );
             let size = total_size(&lines);
             return Size {
                 width: size.x,
