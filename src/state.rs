@@ -3,12 +3,12 @@ use tracing::{debug, info};
 use crate::{
     geometry::Vector,
     render::{
-        Border, BorderRadius, COLOR_LIGHT, Color,
+        Border, BorderRadius, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
     },
 };
-use taffy::{CacheTree, prelude::*, print_tree};
+use taffy::{prelude::*, print_tree};
 
 type Flag = u8;
 
@@ -61,14 +61,20 @@ impl State {
             .unwrap();
 
         let body_node = tree
-            .new_leaf(Style {
-                size: Size {
-                    width: length(self.width as f32),
-                    height: auto(),
+            .new_leaf_with_context(
+                Style {
+                    size: Size {
+                        width: length(self.width as f32),
+                        height: auto(),
+                    },
+                    flex_grow: 1.0,
+                    ..Default::default()
                 },
-                flex_grow: 1.0,
-                ..Default::default()
-            })
+                NodeContext {
+                    bg_color: COLOR_SUCCESS,
+                    ..Default::default()
+                },
+            )
             .unwrap();
 
         let root_node = tree
@@ -116,9 +122,9 @@ impl State {
                 context
                     .map(|c| c.bg_color)
                     .unwrap_or(Color::new(0.0, 0.0, 0.0, 0.0)),
-                Color::new(1.0, 0.0, 0.0, 1.0),
+                Color::new(0.0, 0.0, 0.0, 0.0),
                 Border {
-                    thickness: 2.0,
+                    thickness: 0.0,
                     radius: BorderRadius::all(0.0),
                 },
                 1.0,
@@ -168,10 +174,6 @@ fn measure_function(
         if ctx.flags & flags::TEXT == 1 {
             let lines = text_renderer.layout_text(available_space, ctx.text.clone(), ctx.font_size);
             let size = total_size(&lines);
-            debug!(
-                "Known: {:?} Available: {:?} Computed {:?}\nLines {:#?}",
-                known_dimensions, available_space, size, lines
-            );
             return Size {
                 width: size.x,
                 height: size.y,

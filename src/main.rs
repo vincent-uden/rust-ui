@@ -1,5 +1,6 @@
 use std::io;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use glfw;
 use glfw::Context;
@@ -15,6 +16,9 @@ mod geometry;
 mod render;
 mod shader;
 mod state;
+
+const TARGET_FPS: u64 = 60;
+const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
 fn init_open_gl(
     width: u32,
@@ -106,6 +110,8 @@ fn main() {
     text_shader.set_uniform("projection", &projection);
 
     while !window.should_close() {
+        let frame_start = Instant::now();
+
         glfw.poll_events();
 
         state.mouse_left_was_down = state.mouse_left_down;
@@ -145,6 +151,11 @@ fn main() {
         state.draw_and_render();
 
         window.swap_buffers();
+
+        let frame_time = frame_start.elapsed();
+        if frame_time < FRAME_TIME {
+            std::thread::sleep(FRAME_TIME - frame_time);
+        }
     }
 
     // TODO: callbacks
