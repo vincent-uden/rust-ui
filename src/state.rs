@@ -24,9 +24,14 @@ mod flags {
 #[derive(Default)]
 pub struct NodeContext {
     flags: Flag,
+    // Colors
     bg_color: Color,
+    // Border
+    border: Border,
+    // Text
     text: String,
     font_size: u32,
+    // Event listeners
     on_mouse_enter: Option<Arc<dyn Fn(&mut State)>>,
     on_mouse_exit: Option<Arc<dyn Fn(&mut State)>>,
     on_mouse_down: Option<Arc<dyn Fn(&mut State)>>,
@@ -78,7 +83,7 @@ impl State {
         self.run_event_listeners();
     }
 
-    pub fn draw_and_render(&mut self) {
+    fn generate_layout(&mut self) -> (TaffyTree<NodeContext>, NodeId) {
         let mut tree = TaffyTree::new();
         let header_node = tree
             .new_leaf_with_context(
@@ -94,6 +99,14 @@ impl State {
                     text: "Hello from taffy! gggggg lask jwal aj wkja ljw klaj w".into(),
                     font_size: 18,
                     bg_color: self.header_bg,
+                    border: Border {
+                        radius: BorderRadius {
+                            bottom_left: 40.0,
+                            bottom_right: 40.0,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
                     on_mouse_enter: Some(Arc::new(|state| {
                         info!("Entering");
                         state.header_bg = COLOR_DANGER;
@@ -120,11 +133,22 @@ impl State {
                         width: length(self.width as f32),
                         height: auto(),
                     },
+                    border: Rect {
+                        left: length(40.0),
+                        right: length(40.0),
+                        top: length(40.0),
+                        bottom: length(40.0),
+                    },
                     flex_grow: 1.0,
                     ..Default::default()
                 },
                 NodeContext {
                     bg_color: COLOR_SUCCESS,
+                    border: Border {
+                        thickness: 20.0,
+                        radius: BorderRadius::all(40.0),
+                        color: COLOR_LIGHT,
+                    },
                     ..Default::default()
                 },
             )
@@ -137,6 +161,10 @@ impl State {
                     size: Size {
                         width: length(self.width as f32),
                         height: length(self.height as f32),
+                    },
+                    gap: Size {
+                        width: length(16.0),
+                        height: length(16.0),
                     },
                     ..Default::default()
                 },
@@ -156,15 +184,22 @@ impl State {
             },
         )
         .unwrap();
+        (tree, root_node)
+    }
 
+    pub fn draw_and_render(&mut self) {
+        let (tree, root_node) = self.generate_layout();
         self.render_tree(&tree, root_node);
     }
 
+    /// Draws a populated layout tree to the screen and queues up event listeners for the drawn
+    /// nodes.
     fn render_tree(&mut self, tree: &TaffyTree<NodeContext>, root_node: NodeId) {
         let mut stack: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, taffy::Point::zero())];
         while let Some((id, parent_pos)) = stack.pop() {
             let layout = tree.layout(id).unwrap();
-            let context = tree.get_node_context(id);
+            let default_ctx = &NodeContext::default();
+            let ctx = tree.get_node_context(id).unwrap_or(&default_ctx);
 
             // Drawing
             let abs_pos = layout.location + parent_pos;
@@ -176,66 +211,57 @@ impl State {
                         abs_pos.y + layout.size.height,
                     ),
                 },
-                context
-                    .map(|c| c.bg_color)
-                    .unwrap_or(Color::new(0.0, 0.0, 0.0, 0.0)),
-                Color::new(0.0, 0.0, 0.0, 0.0),
-                Border {
-                    thickness: 0.0,
-                    radius: BorderRadius::all(0.0),
-                },
+                ctx.bg_color,
+                ctx.border,
                 1.0,
             );
 
-            if let Some(ctx) = context {
-                if ctx.flags & flags::TEXT == 1 {
-                    self.text_r.draw_in_box(
-                        ctx.text.clone(),
-                        Vector::new(abs_pos.x, abs_pos.y),
-                        ctx.font_size,
-                        Color::new(0.0, 0.0, 0.0, 1.0),
-                        layout.size,
-                    );
-                }
-                // End of Drawing
+            if ctx.flags & flags::TEXT == 1 {
+                self.text_r.draw_in_box(
+                    ctx.text.clone(),
+                    Vector::new(abs_pos.x, abs_pos.y),
+                    ctx.font_size,
+                    Color::new(0.0, 0.0, 0.0, 1.0),
+                    layout.size,
+                );
+            }
 
-                let abs_bbox = crate::geometry::Rect {
-                    x0: abs_pos.into(),
-                    x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
-                };
-                // Event listeners
-                if let Some(on_mouse_enter) = &ctx.on_mouse_enter
-                    && abs_bbox.contains(self.mouse_pos)
-                    && !*self.hover_states.get(&id).unwrap_or(&false)
-                {
-                    self.pending_event_listeners.push(on_mouse_enter.clone());
-                }
-                if let Some(on_mouse_exit) = &ctx.on_mouse_exit
-                    && !abs_bbox.contains(self.mouse_pos)
-                    && *self.hover_states.get(&id).unwrap_or(&false)
-                {
-                    self.pending_event_listeners.push(on_mouse_exit.clone());
-                }
-                if let Some(on_mouse_down) = &ctx.on_mouse_down
-                    && abs_bbox.contains(self.mouse_pos)
-                    && self.mouse_left_down
-                    && !self.mouse_left_was_down
-                {
-                    self.pending_event_listeners.push(on_mouse_down.clone());
-                }
-                if let Some(on_mouse_up) = &ctx.on_mouse_up
-                    && abs_bbox.contains(self.mouse_pos)
-                    && !self.mouse_left_down
-                    && self.mouse_left_was_down
-                {
-                    self.pending_event_listeners.push(on_mouse_up.clone());
-                }
-                if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
-                    if abs_bbox.contains(self.mouse_pos) {
-                        self.hover_states.insert(id, true);
-                    } else {
-                        self.hover_states.insert(id, false);
-                    }
+            // Event listeners
+            let abs_bbox = crate::geometry::Rect {
+                x0: abs_pos.into(),
+                x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
+            };
+            if let Some(on_mouse_enter) = &ctx.on_mouse_enter
+                && abs_bbox.contains(self.mouse_pos)
+                && !*self.hover_states.get(&id).unwrap_or(&false)
+            {
+                self.pending_event_listeners.push(on_mouse_enter.clone());
+            }
+            if let Some(on_mouse_exit) = &ctx.on_mouse_exit
+                && !abs_bbox.contains(self.mouse_pos)
+                && *self.hover_states.get(&id).unwrap_or(&false)
+            {
+                self.pending_event_listeners.push(on_mouse_exit.clone());
+            }
+            if let Some(on_mouse_down) = &ctx.on_mouse_down
+                && abs_bbox.contains(self.mouse_pos)
+                && self.mouse_left_down
+                && !self.mouse_left_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_down.clone());
+            }
+            if let Some(on_mouse_up) = &ctx.on_mouse_up
+                && abs_bbox.contains(self.mouse_pos)
+                && !self.mouse_left_down
+                && self.mouse_left_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_up.clone());
+            }
+            if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
+                if abs_bbox.contains(self.mouse_pos) {
+                    self.hover_states.insert(id, true);
+                } else {
+                    self.hover_states.insert(id, false);
                 }
             }
 

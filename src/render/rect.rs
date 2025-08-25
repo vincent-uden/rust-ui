@@ -73,14 +73,7 @@ impl RectRenderer {
         }
     }
 
-    pub fn draw(
-        &self,
-        rect: Rect<f32>,
-        bg_color: Color,
-        border_color: Color,
-        border: Border,
-        edge_softness: f32,
-    ) {
+    pub fn draw(&self, rect: Rect<f32>, bg_color: Color, border: Border, edge_softness: f32) {
         self.shader.use_shader();
         let mut model = glm::Mat4::identity();
         model *= &glm::translation(&glm::Vec3::new(-0.5, -0.5, 0.0));
@@ -104,10 +97,10 @@ impl RectRenderer {
         self.shader.set_uniform("bgColor", &bg_color_vec);
 
         let border_color_vec = glm::make_vec4(&[
-            border_color.r,
-            border_color.g,
-            border_color.b,
-            border_color.a,
+            border.color.r,
+            border.color.g,
+            border.color.b,
+            border.color.a,
         ]);
         self.shader.set_uniform("borderColor", &border_color_vec);
         self.shader

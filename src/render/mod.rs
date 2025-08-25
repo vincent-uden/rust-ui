@@ -16,7 +16,7 @@ impl Color {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct BorderRadius {
     pub top_left: f32,
     pub top_right: f32,
@@ -35,10 +35,11 @@ impl BorderRadius {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Border {
     pub thickness: f32,
     pub radius: BorderRadius,
+    pub color: Color,
 }
 // Nord color scheme - https://www.nordtheme.com/
 // Polar Night (dark colors)
