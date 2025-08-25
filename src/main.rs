@@ -32,8 +32,8 @@ fn init_open_gl(
     // Configure OpenGL context based on target architecture
     #[cfg(target_arch = "aarch64")]
     {
-        // Raspberry Pi / ARM configuration - let driver pick defaults
-        // No OpenGL version hints, no profile hints, no MSAA
+        // Raspberry Pi / ARM configuration - let driver choose defaults
+        // No OpenGL version or profile hints for maximum compatibility
     }
     
     #[cfg(not(target_arch = "aarch64"))]
@@ -87,16 +87,22 @@ fn main() {
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);
 
+    // Select shader directory based on target architecture
+    #[cfg(target_arch = "aarch64")]
+    let shader_dir = "./shaders/gles300";
+    #[cfg(not(target_arch = "aarch64"))]
+    let shader_dir = "./shaders/glsl330";
+
     let rect_shader = Shader::from_paths(
-        &PathBuf::from("./shaders/rounded_rect.vs"),
-        &PathBuf::from("./shaders/rounded_rect.frag"),
+        &PathBuf::from(format!("{}/rounded_rect.vs", shader_dir)),
+        &PathBuf::from(format!("{}/rounded_rect.frag", shader_dir)),
         None,
     )
     .unwrap();
 
     let text_shader = Shader::from_paths(
-        &PathBuf::from("./shaders/text.vs"),
-        &PathBuf::from("./shaders/text.frag"),
+        &PathBuf::from(format!("{}/text.vs", shader_dir)),
+        &PathBuf::from(format!("{}/text.frag", shader_dir)),
         None,
     )
     .unwrap();

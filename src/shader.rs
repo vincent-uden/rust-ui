@@ -217,8 +217,15 @@ mod tests {
 
     #[test]
     fn can_load_rectangle_rendering_shader() {
-        let vertex_src = include_str!("../shaders/rounded_rect.vs");
-        let frag_src = include_str!("../shaders/rounded_rect.frag");
+        #[cfg(target_arch = "aarch64")]
+        let vertex_src = include_str!("../shaders/gles300/rounded_rect.vs");
+        #[cfg(target_arch = "aarch64")]
+        let frag_src = include_str!("../shaders/gles300/rounded_rect.frag");
+        
+        #[cfg(not(target_arch = "aarch64"))]
+        let vertex_src = include_str!("../shaders/glsl330/rounded_rect.vs");
+        #[cfg(not(target_arch = "aarch64"))]
+        let frag_src = include_str!("../shaders/glsl330/rounded_rect.frag");
 
         let _window = init_window();
 
