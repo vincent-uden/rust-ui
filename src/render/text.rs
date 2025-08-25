@@ -18,7 +18,9 @@ pub struct Character {
     texture_id: GLuint,
     size: Vector<i32>,
     bearing: Vector<i32>,
-    advance: i32,
+    advance: f32,
+    ascent: f32,
+    descent: f32,
 }
 
 #[derive(Debug)]
@@ -100,22 +102,20 @@ impl TextRenderer {
         })
     }
 
-    fn load_character(&mut self, character: char, font_size: u32) -> bool {
-        if let Err(_) = self.ft_face.set_pixel_sizes(0, font_size) {
-            return false;
+    fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
+        let key = GlyphKey {
+            character,
+            font_size,
+        };
+        if self.characters.contains_key(&key) {
+            return Ok(self.characters[&key]);
         }
-
-        if let Err(_) = self
-            .ft_face
-            .load_char(character as usize, ft::face::LoadFlag::DEFAULT)
-        {
-            return false;
-        }
+        self.ft_face.set_pixel_sizes(0, font_size)?;
+        self.ft_face
+            .load_char(character as usize, ft::face::LoadFlag::DEFAULT)?;
 
         let glyph = self.ft_face.glyph();
-        if let Err(_) = glyph.render_glyph(ft::render_mode::RenderMode::Normal) {
-            return false;
-        }
+        glyph.render_glyph(ft::render_mode::RenderMode::Normal)?;
 
         let bitmap = glyph.bitmap();
 
@@ -143,17 +143,14 @@ impl TextRenderer {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
         }
 
-        let key = GlyphKey {
-            character,
-            font_size,
-        };
-
         let char_info = Character {
             texture_id: texture,
             size: Vector::new(bitmap.width(), bitmap.rows()),
             bearing: Vector::new(glyph.bitmap_left(), glyph.bitmap_top()),
             // Shift by 6 to convert from 1/64 pixels (FreeType's format) to pixels
-            advance: (glyph.advance().x >> 6) as i32,
+            advance: (glyph.advance().x >> 6) as f32,
+            ascent: glyph.bitmap_top() as f32,
+            descent: (glyph.bitmap().rows() - glyph.bitmap_top()) as f32,
         };
 
         self.characters.insert(key, char_info);
@@ -162,7 +159,7 @@ impl TextRenderer {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
-        true
+        Ok(char_info)
     }
 
     pub fn draw_line(
@@ -197,7 +194,7 @@ impl TextRenderer {
             let ch = match self.characters.get(&key) {
                 Some(ch) => *ch,
                 None => {
-                    if !self.load_character(c, font_size) {
+                    if self.load_character(c, font_size).is_err() {
                         continue;
                     }
                     self.characters[&key]
@@ -274,36 +271,15 @@ impl TextRenderer {
             return Vector::new(0.0, font_size as f32);
         }
 
-        if let Err(_) = self.ft_face.set_pixel_sizes(0, font_size) {
-            // Fallback estimation if font size setting fails
-            return Vector::new(text.len() as f32 * font_size as f32 * 0.6, font_size as f32);
-        }
-
         let mut width: f32 = 0.0;
         let mut max_ascent: f32 = 0.0;
         let mut max_descent: f32 = 0.0;
 
         for c in text.chars() {
-            if let Err(_) = self
-                .ft_face
-                .load_char(c as usize, ft::face::LoadFlag::RENDER)
-            {
-                // Fallback for characters that can't be loaded
-                width += font_size as f32 * 0.6;
-                continue;
-            }
-
-            let glyph = self.ft_face.glyph();
-
-            // FreeType stores advance in 1/64 pixels
-            width += (glyph.advance().x >> 6) as f32;
-
-            // Track max ascent and descent for height calculation
-            let ascent = glyph.bitmap_top() as f32;
-            let descent = glyph.bitmap().rows() as f32 - ascent;
-
-            max_ascent = max_ascent.max(ascent);
-            max_descent = max_descent.max(descent);
+            let loaded = self.load_character(c, font_size).unwrap();
+            width += loaded.advance as f32;
+            max_ascent = max_ascent.max(loaded.ascent);
+            max_descent = max_descent.max(loaded.descent);
         }
 
         let mut height = max_ascent + max_descent;

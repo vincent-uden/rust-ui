@@ -109,6 +109,10 @@ fn main() {
     text_shader.use_shader();
     text_shader.set_uniform("projection", &projection);
 
+    let mut sleep_time_accumulator = Duration::ZERO;
+    let mut frame_count = 0u64;
+    let mut last_log_time = Instant::now();
+
     while !window.should_close() {
         let frame_start = Instant::now();
 
@@ -153,8 +157,28 @@ fn main() {
         window.swap_buffers();
 
         let frame_time = frame_start.elapsed();
-        if frame_time < FRAME_TIME {
-            std::thread::sleep(FRAME_TIME - frame_time);
+        let sleep_duration = if frame_time < FRAME_TIME {
+            let sleep_time = FRAME_TIME - frame_time;
+            std::thread::sleep(sleep_time);
+            sleep_time
+        } else {
+            Duration::ZERO
+        };
+
+        sleep_time_accumulator += sleep_duration;
+        frame_count += 1;
+
+        if last_log_time.elapsed() >= Duration::from_secs(1) {
+            let avg_sleep_ms = if frame_count > 0 {
+                sleep_time_accumulator.as_micros() as f64 / frame_count as f64 / 1000.0
+            } else {
+                0.0
+            };
+            info!("Avg sleep time: {:.2}ms per frame ({} frames)", avg_sleep_ms, frame_count);
+            
+            sleep_time_accumulator = Duration::ZERO;
+            frame_count = 0;
+            last_log_time = Instant::now();
         }
     }
 
