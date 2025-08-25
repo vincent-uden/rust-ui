@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use glfw;
 use glfw::Context;
 use sysinfo::{ProcessesToUpdate, System};
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::shader::Shader;
@@ -28,13 +28,30 @@ fn init_open_gl(
     glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
 ) {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-    glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
-    glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
-    glfw.window_hint(glfw::WindowHint::OpenGlProfile(
-        glfw::OpenGlProfileHint::Core,
-    ));
+    
+    // Configure OpenGL context based on target architecture
+    #[cfg(target_arch = "aarch64")]
+    {
+        // Raspberry Pi / ARM configuration
+        glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
+        glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+            glfw::OpenGlProfileHint::Compat,
+        ));
+        glfw.window_hint(glfw::WindowHint::Samples(Some(2))); // Lower MSAA for ARM GPUs
+    }
+    
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        // x86/x64 desktop configuration
+        glfw.window_hint(glfw::WindowHint::ContextVersion(4, 3));
+        glfw.window_hint(glfw::WindowHint::OpenGlDebugContext(true));
+        glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+            glfw::OpenGlProfileHint::Core,
+        ));
+        glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
+    }
+    
     glfw.window_hint(glfw::WindowHint::Resizable(true));
-    glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
 
     let (mut window, events) = glfw
         .create_window(width, height, "App", glfw::WindowMode::Windowed)
