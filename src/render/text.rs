@@ -19,12 +19,23 @@ pub struct GlyphKey {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Character {
-    texture_id: GLuint,
+    atlas_coords: Vector<f32>,
+    atlas_size: Vector<f32>,
     size: Vector<i32>,
     bearing: Vector<i32>,
     advance: f32,
     ascent: f32,
     descent: f32,
+}
+
+#[derive(Debug)]
+pub struct FontAtlas {
+    texture_id: GLuint,
+    size: Vector<i32>,
+    characters: HashMap<char, Character>,
+    current_x: i32,
+    current_y: i32,
+    line_height: i32,
 }
 
 #[derive(Debug)]
@@ -40,7 +51,7 @@ pub struct TextRenderer {
     quad_vbo: GLuint,
     ft_library: ft::Library,
     ft_face: ft::Face,
-    characters: HashMap<GlyphKey, Character>,
+    atlases: HashMap<u32, FontAtlas>,
 }
 
 impl std::fmt::Debug for TextRenderer {
@@ -49,7 +60,7 @@ impl std::fmt::Debug for TextRenderer {
             .field("shader", &self.shader)
             .field("quad_vao", &self.quad_vao)
             .field("quad_vbo", &self.quad_vbo)
-            .field("characters", &self.characters)
+            .field("atlases", &self.atlases)
             .finish_non_exhaustive()
     }
 }
@@ -68,7 +79,7 @@ impl TextRenderer {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
         }
 
-        let characters = HashMap::new();
+        let atlases = HashMap::new();
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
 
@@ -102,18 +113,59 @@ impl TextRenderer {
             quad_vbo,
             ft_library,
             ft_face,
-            characters,
+            atlases,
         })
     }
 
-    fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
-        let key = GlyphKey {
-            character,
-            font_size,
-        };
-        if self.characters.contains_key(&key) {
-            return Ok(self.characters[&key]);
+    fn get_or_create_atlas(&mut self, font_size: u32) -> &mut FontAtlas {
+        if !self.atlases.contains_key(&font_size) {
+            let atlas_size = Vector::new(512, 512);
+            let mut texture_id: GLuint = 0;
+
+            unsafe {
+                gl::GenTextures(1, &mut texture_id);
+                gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RED as i32,
+                    atlas_size.x,
+                    atlas_size.y,
+                    0,
+                    gl::RED,
+                    gl::UNSIGNED_BYTE,
+                    std::ptr::null(),
+                );
+
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+                gl::BindTexture(gl::TEXTURE_2D, 0);
+            }
+
+            let atlas = FontAtlas {
+                texture_id,
+                size: atlas_size,
+                characters: HashMap::new(),
+                current_x: 2,
+                current_y: 2,
+                line_height: 0,
+            };
+
+            self.atlases.insert(font_size, atlas);
         }
+
+        self.atlases.get_mut(&font_size).unwrap()
+    }
+
+    fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
+        let atlas = self.get_or_create_atlas(font_size);
+
+        if let Some(&char_info) = atlas.characters.get(&character) {
+            return Ok(char_info);
+        }
+
         self.ft_face.set_pixel_sizes(0, font_size)?;
         self.ft_face
             .load_char(character as usize, ft::face::LoadFlag::DEFAULT)?;
@@ -122,46 +174,66 @@ impl TextRenderer {
         glyph.render_glyph(ft::render_mode::RenderMode::Normal)?;
 
         let bitmap = glyph.bitmap();
+        let glyph_width = bitmap.width();
+        let glyph_height = bitmap.rows();
+        let bitmap_left = glyph.bitmap_left();
+        let bitmap_top = glyph.bitmap_top();
+        let advance_x = (glyph.advance().x >> 6) as f32;
+        let buffer_ptr = bitmap.buffer().as_ptr();
+        let buffer_empty = bitmap.buffer().is_empty();
 
-        let mut texture: GLuint = 0;
-        unsafe {
-            gl::GenTextures(1, &mut texture);
-            gl::BindTexture(gl::TEXTURE_2D, texture);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RED as i32,
-                bitmap.width(),
-                bitmap.rows(),
-                0,
-                gl::RED,
-                gl::UNSIGNED_BYTE,
-                bitmap.buffer().as_ptr() as *const c_void,
-            );
+        let atlas = self.get_or_create_atlas(font_size);
 
-            // Use CLAMP_TO_EDGE to avoid artifacts when sampling near the edge
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-            // NEAREST filtering works best for pixel-perfect text
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+        // Check if we need to move to next line
+        if atlas.current_x + glyph_width + 2 > atlas.size.x {
+            atlas.current_x = 2;
+            atlas.current_y += atlas.line_height + 2;
+            atlas.line_height = 0;
         }
+
+        // Check if we've run out of space
+        if atlas.current_y + glyph_height + 2 > atlas.size.y {
+            return Err(anyhow!("Atlas full for font size {}", font_size));
+        }
+
+        // Copy glyph bitmap to atlas
+        if !buffer_empty {
+            unsafe {
+                gl::BindTexture(gl::TEXTURE_2D, atlas.texture_id);
+                gl::TexSubImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    atlas.current_x,
+                    atlas.current_y,
+                    glyph_width,
+                    glyph_height,
+                    gl::RED,
+                    gl::UNSIGNED_BYTE,
+                    buffer_ptr as *const c_void,
+                );
+                gl::BindTexture(gl::TEXTURE_2D, 0);
+            }
+        }
+
+        // Calculate UV coordinates
+        let u1 = atlas.current_x as f32 / atlas.size.x as f32;
+        let v1 = atlas.current_y as f32 / atlas.size.y as f32;
+        let u2 = (atlas.current_x + glyph_width) as f32 / atlas.size.x as f32;
+        let v2 = (atlas.current_y + glyph_height) as f32 / atlas.size.y as f32;
 
         let char_info = Character {
-            texture_id: texture,
-            size: Vector::new(bitmap.width(), bitmap.rows()),
-            bearing: Vector::new(glyph.bitmap_left(), glyph.bitmap_top()),
-            // Shift by 6 to convert from 1/64 pixels (FreeType's format) to pixels
-            advance: (glyph.advance().x >> 6) as f32,
-            ascent: glyph.bitmap_top() as f32,
-            descent: (glyph.bitmap().rows() - glyph.bitmap_top()) as f32,
+            atlas_coords: Vector::new(u1, v1),
+            atlas_size: Vector::new(u2 - u1, v2 - v1),
+            size: Vector::new(glyph_width, glyph_height),
+            bearing: Vector::new(bitmap_left, bitmap_top),
+            advance: advance_x,
+            ascent: bitmap_top as f32,
+            descent: (glyph_height - bitmap_top) as f32,
         };
 
-        self.characters.insert(key, char_info);
-
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-        }
+        atlas.line_height = atlas.line_height.max(glyph_height);
+        atlas.current_x += glyph_width + 2;
+        atlas.characters.insert(character, char_info);
 
         Ok(char_info)
     }
@@ -189,20 +261,28 @@ impl TextRenderer {
         let mut x = position.x;
         let baseline_y = position.y + size.y * 0.8;
 
-        for c in text.chars() {
-            let key = GlyphKey {
-                character: c,
-                font_size,
-            };
-
-            let ch = match self.characters.get(&key) {
-                Some(ch) => *ch,
-                None => {
-                    if self.load_character(c, font_size).is_err() {
-                        continue;
-                    }
-                    self.characters[&key]
+        let atlas_texture_id = if let Some(atlas) = self.atlases.get(&font_size) {
+            atlas.texture_id
+        } else {
+            // Create atlas if it doesn't exist by loading first character
+            if let Some(first_char) = text.chars().next() {
+                if self.load_character(first_char, font_size).is_err() {
+                    return;
                 }
+                self.atlases[&font_size].texture_id
+            } else {
+                return;
+            }
+        };
+
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, atlas_texture_id);
+        }
+
+        for c in text.chars() {
+            let ch = match self.load_character(c, font_size) {
+                Ok(ch) => ch,
+                Err(_) => continue,
             };
 
             // Round to nearest pixel for crisp text rendering
@@ -212,18 +292,23 @@ impl TextRenderer {
             let w = ch.size.x as f32 * scale;
             let h = ch.size.y as f32 * scale;
 
+            // Calculate atlas UV coordinates
+            let u1 = ch.atlas_coords.x;
+            let v1 = ch.atlas_coords.y;
+            let u2 = ch.atlas_coords.x + ch.atlas_size.x;
+            let v2 = ch.atlas_coords.y + ch.atlas_size.y;
+
             // Each vertex: [x, y, tex_x, tex_y]
             let vertices: [[f32; 4]; 6] = [
-                [xpos, ypos + h, 0.0, 1.0],
-                [xpos, ypos, 0.0, 0.0],
-                [xpos + w, ypos, 1.0, 0.0],
-                [xpos, ypos + h, 0.0, 1.0],
-                [xpos + w, ypos, 1.0, 0.0],
-                [xpos + w, ypos + h, 1.0, 1.0],
+                [xpos, ypos + h, u1, v2],
+                [xpos, ypos, u1, v1],
+                [xpos + w, ypos, u2, v1],
+                [xpos, ypos + h, u1, v2],
+                [xpos + w, ypos, u2, v1],
+                [xpos + w, ypos + h, u2, v2],
             ];
 
             unsafe {
-                gl::BindTexture(gl::TEXTURE_2D, ch.texture_id);
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.quad_vbo);
                 gl::BufferSubData(
                     gl::ARRAY_BUFFER,
@@ -235,7 +320,7 @@ impl TextRenderer {
                 gl::DrawArrays(gl::TRIANGLES, 0, 6);
             }
 
-            x += ch.advance as f32 * scale;
+            x += ch.advance * scale;
         }
 
         unsafe {
@@ -279,7 +364,7 @@ impl TextRenderer {
 
         for c in text.chars() {
             let loaded = self.load_character(c, font_size).unwrap();
-            width += loaded.advance as f32;
+            width += loaded.advance;
             max_ascent = max_ascent.max(loaded.ascent);
             max_descent = max_descent.max(loaded.descent);
         }
@@ -342,10 +427,10 @@ impl TextRenderer {
 
 impl Drop for TextRenderer {
     fn drop(&mut self) {
-        // Free OpenGL textures to avoid memory leaks
-        for (_, ch) in &self.characters {
+        // Free OpenGL atlas textures to avoid memory leaks
+        for atlas in self.atlases.values() {
             unsafe {
-                gl::DeleteTextures(1, &ch.texture_id);
+                gl::DeleteTextures(1, &atlas.texture_id);
             }
         }
 

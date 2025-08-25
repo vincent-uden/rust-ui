@@ -229,7 +229,7 @@ impl State {
                 NodeContext {
                     flags: flags::TEXT,
                     text: Text {
-                        text: "Hello from taffy! gggggg lask jwal aj wkja ljw klaj w".into(),
+                        text: "Flygande bäckasiner söka hwila på mjuka tuvor".into(),
                         font_size: 18,
                         ..Default::default()
                     },
