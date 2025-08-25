@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use glfw;
 use glfw::Context;
 use sysinfo::{ProcessesToUpdate, System};
-use tracing::info;
+
 use tracing_subscriber::EnvFilter;
 
 use crate::shader::Shader;
@@ -32,12 +32,8 @@ fn init_open_gl(
     // Configure OpenGL context based on target architecture
     #[cfg(target_arch = "aarch64")]
     {
-        // Raspberry Pi / ARM configuration
-        glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
-        glfw.window_hint(glfw::WindowHint::OpenGlProfile(
-            glfw::OpenGlProfileHint::Compat,
-        ));
-        glfw.window_hint(glfw::WindowHint::Samples(Some(2))); // Lower MSAA for ARM GPUs
+        // Raspberry Pi / ARM configuration - let driver pick defaults
+        // No OpenGL version hints, no profile hints, no MSAA
     }
     
     #[cfg(not(target_arch = "aarch64"))]
