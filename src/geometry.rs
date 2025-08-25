@@ -121,6 +121,30 @@ impl From<Vector<f32>> for Vector<i32> {
     }
 }
 
+impl<T> From<taffy::geometry::Point<T>> for Vector<T>
+where
+    T: Num + Copy + std::fmt::Debug + PartialOrd,
+{
+    fn from(value: taffy::geometry::Point<T>) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
+impl<T> From<taffy::geometry::Size<T>> for Vector<T>
+where
+    T: Num + Copy + std::fmt::Debug + PartialOrd,
+{
+    fn from(value: taffy::geometry::Size<T>) -> Self {
+        Self {
+            x: value.width,
+            y: value.height,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Rect<T> {
     /// Top left
@@ -187,5 +211,17 @@ where
 
     pub fn contains(&self, v: Vector<T>) -> bool {
         self.x0.x < v.x && self.x1.x > v.x && self.x0.y < v.y && self.x1.y > v.y
+    }
+}
+
+impl<T> From<taffy::geometry::Rect<T>> for Rect<T>
+where
+    T: Num + Copy + std::fmt::Debug + PartialOrd,
+{
+    fn from(value: taffy::geometry::Rect<T>) -> Self {
+        Self {
+            x0: Vector::new(value.left, value.top),
+            x1: Vector::new(value.right, value.bottom),
+        }
     }
 }

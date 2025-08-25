@@ -55,6 +55,8 @@ fn init_open_gl(
         }
     });
 
+    glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
+
     unsafe {
         gl::Viewport(0, 0, width as i32, height as i32);
         gl::Enable(gl::BLEND);
@@ -87,18 +89,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut state = State {
-        width: 1000,
-        height: 800,
-        mouse_left_down: false,
-        mouse_left_was_down: false,
-        rect_r: RectRenderer::new(rect_shader),
-        text_r: TextRenderer::new(
-            text_shader,
-            &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
-        )
-        .unwrap(),
-    };
+    let mut state = State::new(rect_shader, text_shader);
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
@@ -126,11 +117,12 @@ fn main() {
                         action == glfw::Action::Press || action == glfw::Action::Repeat;
                 }
                 glfw::WindowEvent::CursorPos(x, y) => {
-                    // state.mouse_x = x;
-                    // state.mouse_y = y;
+                    state.last_mouse_pos.x = state.mouse_pos.x;
+                    state.last_mouse_pos.y = state.mouse_pos.y;
+                    state.mouse_pos.x = x as f32;
+                    state.mouse_pos.y = y as f32;
                 }
                 glfw::WindowEvent::FramebufferSize(width, height) => {
-                    info!("Width {width}, {height}");
                     state.window_size((width, height));
                     unsafe {
                         gl::Viewport(0, 0, width, height);
@@ -139,6 +131,7 @@ fn main() {
                 _ => {}
             }
         }
+        state.update();
 
         let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
@@ -174,8 +167,11 @@ fn main() {
             } else {
                 0.0
             };
-            info!("Avg sleep time: {:.2}ms per frame ({} frames)", avg_sleep_ms, frame_count);
-            
+            info!(
+                "Avg sleep time: {:.2}ms per frame ({} frames)",
+                avg_sleep_ms, frame_count
+            );
+
             sleep_time_accumulator = Duration::ZERO;
             frame_count = 0;
             last_log_time = Instant::now();

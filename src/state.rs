@@ -1,12 +1,15 @@
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
 use tracing::{debug, info};
 
 use crate::{
     geometry::Vector,
     render::{
-        Border, BorderRadius, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color,
+        Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
     },
+    shader::Shader,
 };
 use taffy::{prelude::*, print_tree};
 
@@ -24,8 +27,10 @@ pub struct NodeContext {
     bg_color: Color,
     text: String,
     font_size: u32,
-    on_hover: Option<Box<dyn Fn(&mut State)>>,
-    on_click: Option<Box<dyn Fn(&mut State)>>,
+    on_mouse_enter: Option<Arc<dyn Fn(&mut State)>>,
+    on_mouse_exit: Option<Arc<dyn Fn(&mut State)>>,
+    on_mouse_down: Option<Arc<dyn Fn(&mut State)>>,
+    on_mouse_up: Option<Arc<dyn Fn(&mut State)>>,
 }
 
 pub struct State {
@@ -33,14 +38,48 @@ pub struct State {
     pub height: u32,
     pub mouse_left_down: bool,
     pub mouse_left_was_down: bool,
+    pub mouse_pos: Vector<f32>,
+    pub last_mouse_pos: Vector<f32>,
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
+    pending_event_listeners: Vec<Arc<dyn Fn(&mut State)>>,
+    header_bg: Color,
+    hover_states: HashMap<NodeId, bool>,
 }
 
 impl State {
-    pub fn draw_and_render(&mut self) {
-        let mut tree: TaffyTree<NodeContext> = TaffyTree::new();
+    pub fn new(rect_shader: Shader, text_shader: Shader) -> Self {
+        Self {
+            width: 1000,
+            height: 800,
+            mouse_left_down: false,
+            mouse_left_was_down: false,
+            mouse_pos: Vector::zero(),
+            last_mouse_pos: Vector::zero(),
+            rect_r: RectRenderer::new(rect_shader),
+            text_r: TextRenderer::new(
+                text_shader,
+                &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
+            )
+            .unwrap(),
+            pending_event_listeners: vec![],
+            header_bg: COLOR_LIGHT,
+            hover_states: HashMap::new(),
+        }
+    }
 
+    fn run_event_listeners(&mut self) {
+        while let Some(el) = self.pending_event_listeners.pop() {
+            (*el)(self)
+        }
+    }
+
+    pub fn update(&mut self) {
+        self.run_event_listeners();
+    }
+
+    pub fn draw_and_render(&mut self) {
+        let mut tree = TaffyTree::new();
         let header_node = tree
             .new_leaf_with_context(
                 Style {
@@ -54,7 +93,21 @@ impl State {
                     flags: flags::TEXT,
                     text: "Hello from taffy! gggggg lask jwal aj wkja ljw klaj w".into(),
                     font_size: 18,
-                    bg_color: COLOR_LIGHT,
+                    bg_color: self.header_bg,
+                    on_mouse_enter: Some(Arc::new(|state| {
+                        info!("Entering");
+                        state.header_bg = COLOR_DANGER;
+                    })),
+                    on_mouse_exit: Some(Arc::new(|state| {
+                        info!("Exiting");
+                        state.header_bg = COLOR_LIGHT;
+                    })),
+                    on_mouse_down: Some(Arc::new(|_| {
+                        info!("Mouse down");
+                    })),
+                    on_mouse_up: Some(Arc::new(|_| {
+                        info!("Mouse up");
+                    })),
                     ..Default::default()
                 },
             )
@@ -90,7 +143,6 @@ impl State {
                 &[header_node, body_node],
             )
             .unwrap();
-        // TODO: Text wrapping?
         tree.compute_layout_with_measure(
             root_node,
             Size::MAX_CONTENT,
@@ -105,11 +157,16 @@ impl State {
         )
         .unwrap();
 
+        self.render_tree(&tree, root_node);
+    }
+
+    fn render_tree(&mut self, tree: &TaffyTree<NodeContext>, root_node: NodeId) {
         let mut stack: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, taffy::Point::zero())];
         while let Some((id, parent_pos)) = stack.pop() {
             let layout = tree.layout(id).unwrap();
             let context = tree.get_node_context(id);
 
+            // Drawing
             let abs_pos = layout.location + parent_pos;
             self.rect_r.draw(
                 crate::geometry::Rect {
@@ -139,6 +196,46 @@ impl State {
                         Color::new(0.0, 0.0, 0.0, 1.0),
                         layout.size,
                     );
+                }
+                // End of Drawing
+
+                let abs_bbox = crate::geometry::Rect {
+                    x0: abs_pos.into(),
+                    x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
+                };
+                // Event listeners
+                if let Some(on_mouse_enter) = &ctx.on_mouse_enter
+                    && abs_bbox.contains(self.mouse_pos)
+                    && !*self.hover_states.get(&id).unwrap_or(&false)
+                {
+                    self.pending_event_listeners.push(on_mouse_enter.clone());
+                }
+                if let Some(on_mouse_exit) = &ctx.on_mouse_exit
+                    && !abs_bbox.contains(self.mouse_pos)
+                    && *self.hover_states.get(&id).unwrap_or(&false)
+                {
+                    self.pending_event_listeners.push(on_mouse_exit.clone());
+                }
+                if let Some(on_mouse_down) = &ctx.on_mouse_down
+                    && abs_bbox.contains(self.mouse_pos)
+                    && self.mouse_left_down
+                    && !self.mouse_left_was_down
+                {
+                    self.pending_event_listeners.push(on_mouse_down.clone());
+                }
+                if let Some(on_mouse_up) = &ctx.on_mouse_up
+                    && abs_bbox.contains(self.mouse_pos)
+                    && !self.mouse_left_down
+                    && self.mouse_left_was_down
+                {
+                    self.pending_event_listeners.push(on_mouse_up.clone());
+                }
+                if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
+                    if abs_bbox.contains(self.mouse_pos) {
+                        self.hover_states.insert(id, true);
+                    } else {
+                        self.hover_states.insert(id, false);
+                    }
                 }
             }
 
