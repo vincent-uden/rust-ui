@@ -1,4 +1,4 @@
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     geometry::Vector,
@@ -122,7 +122,7 @@ impl State {
 
             if let Some(ctx) = context {
                 if ctx.flags & flags::TEXT == 1 {
-                    self.text_r.draw_text(
+                    self.text_r.draw_line(
                         &ctx.text,
                         Vector::new(abs_pos.x, abs_pos.y),
                         ctx.font_size,
@@ -163,6 +163,10 @@ fn measure_function(
     if let Some(ctx) = node_context {
         if ctx.flags & flags::TEXT == 1 {
             let size = text_renderer.measure_text_size(&ctx.text, ctx.font_size);
+            debug!(
+                "Known: {:?} Available: {:?}",
+                known_dimensions, available_space
+            );
             return Size {
                 width: size.x,
                 height: size.y,

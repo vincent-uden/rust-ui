@@ -157,7 +157,7 @@ impl TextRenderer {
         true
     }
 
-    pub fn draw_text(
+    pub fn draw_line(
         &mut self,
         text: &str,
         position: Vector<f32>,
@@ -305,7 +305,7 @@ mod tests {
     use std::path::Path;
 
     fn get_test_font_path() -> &'static Path {
-        Path::new("/media/hdd/programming/rust-ui/assets/fonts/LiberationMono.ttf")
+        Path::new("./assets/fonts/LiberationMono.ttf")
     }
 
     #[test]

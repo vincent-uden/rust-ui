@@ -77,9 +77,9 @@ impl Shader {
     }
 
     pub fn compile_shader(vertex_src: &str, frag_src: &str, geo_src: Option<&str>) -> Result<Self> {
-        let vertex_src: Vec<i8> = vertex_src.bytes().map(|x| x as i8).collect();
-        let frag_src: Vec<i8> = frag_src.bytes().map(|x| x as i8).collect();
-        let geo_src: Option<Vec<i8>> = geo_src.map(|x| x.bytes().map(|x| x as i8).collect());
+        let vertex_src = CString::new(vertex_src)?;
+        let frag_src = CString::new(frag_src)?;
+        let geo_src = geo_src.map(|x| CString::new(x).unwrap());
         unsafe {
             let s_vertex = gl::CreateShader(gl::VERTEX_SHADER);
             gl::ShaderSource(s_vertex, 1, &(vertex_src.as_ptr()), std::ptr::null());
