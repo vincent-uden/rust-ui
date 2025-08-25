@@ -156,7 +156,7 @@ impl Shader {
 
 fn check_compile_errors(id: u32, shader_type: ShaderType) -> bool {
     let mut success: i32 = 0;
-    let mut info_log: Vec<i8> = vec![0; 1024];
+    let mut info_log: Vec<gl::types::GLchar> = vec![0; 1024];
     let mut length: i32 = 0;
     unsafe {
         match shader_type {
