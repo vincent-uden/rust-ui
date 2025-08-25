@@ -4,11 +4,10 @@ use std::time::{Duration, Instant};
 
 use glfw;
 use glfw::Context;
+use sysinfo::{ProcessesToUpdate, System};
 use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
-use crate::render::rect::RectRenderer;
-use crate::render::text::TextRenderer;
 use crate::shader::Shader;
 use crate::state::State;
 
@@ -100,9 +99,15 @@ fn main() {
     text_shader.use_shader();
     text_shader.set_uniform("projection", &projection);
 
+    // Perf stats
     let mut sleep_time_accumulator = Duration::ZERO;
     let mut frame_count = 0u64;
     let mut last_log_time = Instant::now();
+    let mut avg_sleep_ms = 0.0;
+    let mut sys = System::new_all();
+    let pid = sysinfo::get_current_pid().unwrap();
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
+    let mut ram_usage = sys.process(pid).unwrap().memory();
 
     while !window.should_close() {
         let frame_start = Instant::now();
@@ -128,10 +133,13 @@ fn main() {
                         gl::Viewport(0, 0, width, height);
                     }
                 }
+                glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
+                    state.handle_key(key, scancode, action, modifiers);
+                }
                 _ => {}
             }
         }
-        state.update();
+        state.update(avg_sleep_ms, ram_usage);
 
         let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
@@ -162,23 +170,18 @@ fn main() {
         frame_count += 1;
 
         if last_log_time.elapsed() >= Duration::from_secs(1) {
-            let avg_sleep_ms = if frame_count > 0 {
+            avg_sleep_ms = if frame_count > 0 {
                 sleep_time_accumulator.as_micros() as f64 / frame_count as f64 / 1000.0
             } else {
                 0.0
             };
-            info!(
-                "Avg sleep time: {:.2}ms per frame ({} frames)",
-                avg_sleep_ms, frame_count
-            );
-
             sleep_time_accumulator = Duration::ZERO;
             frame_count = 0;
             last_log_time = Instant::now();
+            sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
+            ram_usage = sys.process(pid).unwrap().memory();
         }
     }
-
-    // TODO: callbacks
 
     unsafe {
         gl::Flush();

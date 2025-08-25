@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
 use num::Num;
-use taffy::AvailableSpace;
+use taffy::{AvailableSpace, Dimension, prelude::length};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Vector<T> {
@@ -175,6 +175,15 @@ impl From<Vector<f32>> for taffy::geometry::Size<AvailableSpace> {
         Self {
             width: AvailableSpace::Definite(value.x),
             height: AvailableSpace::Definite(value.y),
+        }
+    }
+}
+
+impl From<Vector<f32>> for taffy::geometry::Size<Dimension> {
+    fn from(value: Vector<f32>) -> Self {
+        Self {
+            width: length(value.x),
+            height: length(value.y),
         }
     }
 }

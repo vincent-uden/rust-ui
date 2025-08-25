@@ -1,8 +1,10 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use glfw::{Action, Key, Modifiers, Scancode};
 use tracing::{debug, info};
 
 use crate::{
+    FRAME_TIME,
     geometry::Vector,
     render::{
         Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color, Text,
@@ -37,6 +39,13 @@ pub struct NodeContext {
     on_mouse_up: Option<Arc<dyn Fn(&mut State)>>,
 }
 
+#[derive(Default)]
+struct PerfStats {
+    visible: bool,
+    avg_sleep_ms: f64,
+    ram_usage: u64,
+}
+
 pub struct State {
     pub width: u32,
     pub height: u32,
@@ -49,6 +58,7 @@ pub struct State {
     pending_event_listeners: Vec<Arc<dyn Fn(&mut State)>>,
     header_bg: Color,
     hover_states: HashMap<NodeId, bool>,
+    perf_stats: PerfStats,
 }
 
 impl State {
@@ -69,6 +79,7 @@ impl State {
             pending_event_listeners: vec![],
             header_bg: COLOR_LIGHT,
             hover_states: HashMap::new(),
+            perf_stats: PerfStats::default(),
         }
     }
 
@@ -78,8 +89,28 @@ impl State {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, avg_sleep_ms: f64, ram_usage: u64) {
+        self.perf_stats.avg_sleep_ms = avg_sleep_ms;
+        self.perf_stats.ram_usage = ram_usage;
         self.run_event_listeners();
+    }
+
+    pub fn handle_key(
+        &mut self,
+        key: Key,
+        _scancode: Scancode,
+        action: Action,
+        _modifiers: Modifiers,
+    ) {
+        match key {
+            Key::F12 => match action {
+                Action::Release => {
+                    self.perf_stats.visible = !self.perf_stats.visible;
+                }
+                _ => {}
+            },
+            _ => {}
+        }
     }
 
     fn stats_overlay(
@@ -105,6 +136,39 @@ impl State {
             )
             .unwrap();
 
+        let frame_time = tree
+            .new_leaf_with_context(
+                Style::default(),
+                NodeContext {
+                    flags: flags::TEXT,
+                    text: Text {
+                        text: format!(
+                            "Frame time: {:.2} ms",
+                            FRAME_TIME.as_millis() as f64 - self.perf_stats.avg_sleep_ms
+                        ),
+                        font_size: 14,
+                        color: Color::new(1.0, 1.0, 1.0, 1.0),
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let ram_usage = tree
+            .new_leaf_with_context(
+                Style::default(),
+                NodeContext {
+                    flags: flags::TEXT,
+                    text: Text {
+                        text: format!("RAM: {:.2} MB", self.perf_stats.ram_usage / 1_000_000,),
+                        font_size: 14,
+                        color: Color::new(1.0, 1.0, 1.0, 1.0),
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
         let root_node = tree
             .new_leaf_with_context(
                 Style {
@@ -113,6 +177,11 @@ impl State {
                         width: Dimension::percent(1.0),
                         height: Dimension::percent(1.0),
                     },
+                    gap: Size {
+                        width: length(0.0),
+                        height: length(8.0),
+                    },
+                    max_size: size.into(),
                     padding: Rect::length(12.0),
                     ..Default::default()
                 },
@@ -124,6 +193,8 @@ impl State {
             .unwrap();
 
         tree.add_child(root_node, title).unwrap();
+        tree.add_child(root_node, frame_time).unwrap();
+        tree.add_child(root_node, ram_usage).unwrap();
 
         tree.compute_layout_with_measure(
             root_node,
@@ -254,16 +325,18 @@ impl State {
     pub fn draw_and_render(&mut self) {
         let (tree, root_node) = self.generate_layout();
         self.render_tree(&tree, root_node, Vector::zero());
-        let (tree, root_node) = self.stats_overlay(Vector::new(400.0, 400.0));
-        let stats_layout = tree.layout(root_node).unwrap();
-        self.render_tree(
-            &tree,
-            root_node,
-            Vector::new(
-                self.width as f32 - stats_layout.size.width,
-                self.height as f32 - stats_layout.size.height,
-            ),
-        );
+        if self.perf_stats.visible {
+            let (tree, root_node) = self.stats_overlay(Vector::new(400.0, 400.0));
+            let stats_layout = tree.layout(root_node).unwrap();
+            self.render_tree(
+                &tree,
+                root_node,
+                Vector::new(
+                    self.width as f32 - stats_layout.size.width,
+                    self.height as f32 - stats_layout.size.height,
+                ),
+            );
+        }
     }
 
     /// Draws a populated layout tree to the screen and queues up event listeners for the drawn
