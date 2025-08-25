@@ -3,6 +3,7 @@ use std::{collections::HashMap, ffi::c_void, path::Path};
 use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
+use taffy::AvailableSpace;
 
 use crate::{geometry::Vector, render::Color, shader::Shader};
 
@@ -18,6 +19,13 @@ pub struct Character {
     size: Vector<i32>,
     bearing: Vector<i32>,
     advance: i32,
+}
+
+#[derive(Debug)]
+pub struct TextLine {
+    position: Vector<f32>,
+    size: Vector<f32>,
+    contents: String,
 }
 
 pub struct TextRenderer {
@@ -235,6 +243,32 @@ impl TextRenderer {
         }
     }
 
+    pub fn draw_in_box(
+        &mut self,
+        text: String,
+        position: Vector<f32>,
+        font_size: u32,
+        color: Color,
+        size: taffy::geometry::Size<f32>,
+    ) {
+        for line in self.layout_text(
+            taffy::Size {
+                width: AvailableSpace::Definite(size.width),
+                height: AvailableSpace::Definite(size.height),
+            },
+            text,
+            font_size,
+        ) {
+            self.draw_line(
+                &line.contents,
+                position + line.position,
+                font_size,
+                1.0,
+                color,
+            );
+        }
+    }
+
     pub fn measure_text_size(&mut self, text: &str, font_size: u32) -> Vector<f32> {
         if text.is_empty() {
             return Vector::new(0.0, font_size as f32);
@@ -279,6 +313,53 @@ impl TextRenderer {
 
         Vector::new(width, height)
     }
+
+    pub fn layout_text(
+        &mut self,
+        available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
+        text: String,
+        font_size: u32,
+    ) -> Vec<TextLine> {
+        let mut out = vec![];
+
+        let mut y = 0.0;
+        let mut current_line = String::new();
+        let mut pending_line = String::new();
+        for word in split_with_trailing_whitespace(&text) {
+            pending_line.push_str(word);
+            let pending_size = self.measure_text_size(&pending_line, font_size);
+            // TODO: Think about non-definite cases
+            if pending_size.x
+                > (match available_space.width {
+                    AvailableSpace::Definite(px) => px,
+                    AvailableSpace::MinContent => 0.0,
+                    AvailableSpace::MaxContent => 9999.0,
+                })
+                && !current_line.is_empty()
+            {
+                let size = self.measure_text_size(&current_line, font_size);
+                out.push(TextLine {
+                    position: Vector::new(0.0, y),
+                    size,
+                    contents: current_line.clone(),
+                });
+                y += (font_size as f32) * 1.2;
+                current_line.clear();
+                pending_line.clear();
+                pending_line.push_str(word);
+            }
+            current_line.clone_from(&pending_line);
+        }
+        if !current_line.is_empty() {
+            out.push(TextLine {
+                position: Vector::new(0.0, y),
+                size: self.measure_text_size(&current_line, font_size),
+                contents: current_line.clone(),
+            });
+        }
+
+        out
+    }
 }
 
 impl Drop for TextRenderer {
@@ -295,6 +376,38 @@ impl Drop for TextRenderer {
             gl::DeleteBuffers(1, &self.quad_vbo);
         }
     }
+}
+
+pub fn total_size(lines: &[TextLine]) -> Vector<f32> {
+    let mut out = Vector::<f32>::zero();
+
+    for line in lines {
+        out.x = out.x.max(line.position.x + line.size.x);
+        out.y = out.y.max(line.position.y + line.size.y);
+    }
+
+    out
+}
+
+fn split_with_trailing_whitespace(s: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut i = 0;
+    let bytes = s.as_bytes();
+    while i < s.len() {
+        if bytes[i].is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < s.len() && !bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        while i < s.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        parts.push(&s[start..i]);
+    }
+    parts
 }
 
 #[cfg(test)]

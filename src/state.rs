@@ -2,7 +2,11 @@ use tracing::{debug, info};
 
 use crate::{
     geometry::Vector,
-    render::{Border, BorderRadius, COLOR_LIGHT, Color, rect::RectRenderer, text::TextRenderer},
+    render::{
+        Border, BorderRadius, COLOR_LIGHT, Color,
+        rect::RectRenderer,
+        text::{TextRenderer, total_size},
+    },
 };
 use taffy::{CacheTree, prelude::*, print_tree};
 
@@ -48,7 +52,7 @@ impl State {
                 },
                 NodeContext {
                     flags: flags::TEXT,
-                    text: "Hello from taffy!".into(),
+                    text: "Hello from taffy! gggggg lask jwal aj wkja ljw klaj w".into(),
                     font_size: 18,
                     bg_color: COLOR_LIGHT,
                     ..Default::default()
@@ -122,12 +126,12 @@ impl State {
 
             if let Some(ctx) = context {
                 if ctx.flags & flags::TEXT == 1 {
-                    self.text_r.draw_line(
-                        &ctx.text,
+                    self.text_r.draw_in_box(
+                        ctx.text.clone(),
                         Vector::new(abs_pos.x, abs_pos.y),
                         ctx.font_size,
-                        1.0,
                         Color::new(0.0, 0.0, 0.0, 1.0),
+                        layout.size,
                     );
                 }
             }
@@ -162,10 +166,11 @@ fn measure_function(
 
     if let Some(ctx) = node_context {
         if ctx.flags & flags::TEXT == 1 {
-            let size = text_renderer.measure_text_size(&ctx.text, ctx.font_size);
+            let lines = text_renderer.layout_text(available_space, ctx.text.clone(), ctx.font_size);
+            let size = total_size(&lines);
             debug!(
-                "Known: {:?} Available: {:?}",
-                known_dimensions, available_space
+                "Known: {:?} Available: {:?} Computed {:?}\nLines {:#?}",
+                known_dimensions, available_space, size, lines
             );
             return Size {
                 width: size.x,
