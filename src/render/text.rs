@@ -28,6 +28,15 @@ pub struct Character {
     descent: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct CharacterInstance {
+    position: [f32; 2],
+    size: [f32; 2], 
+    atlas_coords: [f32; 2],
+    atlas_size: [f32; 2],
+}
+
 #[derive(Debug)]
 pub struct FontAtlas {
     texture_id: GLuint,
@@ -49,6 +58,7 @@ pub struct TextRenderer {
     shader: Shader,
     quad_vao: GLuint,
     quad_vbo: GLuint,
+    instance_vbo: GLuint,
     ft_library: ft::Library,
     ft_face: ft::Face,
     atlases: HashMap<u32, FontAtlas>,
@@ -60,6 +70,7 @@ impl std::fmt::Debug for TextRenderer {
             .field("shader", &self.shader)
             .field("quad_vao", &self.quad_vao)
             .field("quad_vbo", &self.quad_vbo)
+            .field("instance_vbo", &self.instance_vbo)
             .field("atlases", &self.atlases)
             .finish_non_exhaustive()
     }
@@ -82,18 +93,36 @@ impl TextRenderer {
         let atlases = HashMap::new();
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
+        let mut instance_vbo = 0;
+
+        #[rustfmt::skip]
+        let quad_vertices: [f32; 24] = [
+            // pos   // tex
+            0.0, 1.0, 0.0, 1.0,
+            1.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 0.0,
+            
+            0.0, 1.0, 0.0, 1.0,
+            1.0, 1.0, 1.0, 1.0,
+            1.0, 0.0, 1.0, 0.0
+        ];
 
         unsafe {
             gl::GenVertexArrays(1, &mut quad_vao);
             gl::GenBuffers(1, &mut quad_vbo);
+            gl::GenBuffers(1, &mut instance_vbo);
+            
             gl::BindVertexArray(quad_vao);
+            
+            // Setup static quad geometry
             gl::BindBuffer(gl::ARRAY_BUFFER, quad_vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (std::mem::size_of::<f32>() * 6 * 4) as isize,
-                std::ptr::null(),
-                gl::DYNAMIC_DRAW,
+                (std::mem::size_of::<f32>() * quad_vertices.len()) as isize,
+                quad_vertices.as_ptr() as *const c_void,
+                gl::STATIC_DRAW,
             );
+            
             gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(
                 0,
@@ -103,6 +132,49 @@ impl TextRenderer {
                 (4 * std::mem::size_of::<f32>()) as i32,
                 std::ptr::null(),
             );
+            
+            gl::BindBuffer(gl::ARRAY_BUFFER, instance_vbo);
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                std::mem::size_of::<CharacterInstance>() as i32,
+                std::ptr::null(),
+            );
+            gl::VertexAttribDivisor(1, 1);
+            gl::EnableVertexAttribArray(2);
+            gl::VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                std::mem::size_of::<CharacterInstance>() as i32,
+                (2 * std::mem::size_of::<f32>()) as *const c_void,
+            );
+            gl::VertexAttribDivisor(2, 1);
+            gl::EnableVertexAttribArray(3);
+            gl::VertexAttribPointer(
+                3,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                std::mem::size_of::<CharacterInstance>() as i32,
+                (4 * std::mem::size_of::<f32>()) as *const c_void,
+            );
+            gl::VertexAttribDivisor(3, 1);
+            gl::EnableVertexAttribArray(4);
+            gl::VertexAttribPointer(
+                4,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                std::mem::size_of::<CharacterInstance>() as i32,
+                (6 * std::mem::size_of::<f32>()) as *const c_void,
+            );
+            gl::VertexAttribDivisor(4, 1);
+            
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
         }
@@ -111,6 +183,7 @@ impl TextRenderer {
             shader,
             quad_vao,
             quad_vbo,
+            instance_vbo,
             ft_library,
             ft_face,
             atlases,
@@ -246,37 +319,22 @@ impl TextRenderer {
         scale: f32,
         color: Color,
     ) {
-        self.shader.use_shader();
-        let text_unit = 0;
-        self.shader.set_uniform("text", &text_unit);
-        let color_vec = glm::make_vec3(&[color.r, color.g, color.b]);
-        self.shader.set_uniform("textColor", &color_vec);
-
-        unsafe {
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindVertexArray(self.quad_vao);
+        if text.is_empty() {
+            return;
         }
 
+        // Load all characters and build instance data
+        let mut instances = Vec::new();
         let size = self.measure_text_size(text, font_size);
         let mut x = position.x;
         let baseline_y = position.y + size.y * 0.8;
 
-        let atlas_texture_id = if let Some(atlas) = self.atlases.get(&font_size) {
-            atlas.texture_id
-        } else {
-            // Create atlas if it doesn't exist by loading first character
-            if let Some(first_char) = text.chars().next() {
-                if self.load_character(first_char, font_size).is_err() {
-                    return;
-                }
-                self.atlases[&font_size].texture_id
-            } else {
+        if let Some(first_char) = text.chars().next() {
+            if self.load_character(first_char, font_size).is_err() {
                 return;
             }
-        };
-
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, atlas_texture_id);
+        } else {
+            return;
         }
 
         for c in text.chars() {
@@ -288,42 +346,51 @@ impl TextRenderer {
             // Round to nearest pixel for crisp text rendering
             let xpos = f32::floor(x + ch.bearing.x as f32 * scale + 0.5);
             let ypos = f32::floor(baseline_y - ch.bearing.y as f32 * scale + 0.5);
-
+            
             let w = ch.size.x as f32 * scale;
             let h = ch.size.y as f32 * scale;
 
-            // Calculate atlas UV coordinates
-            let u1 = ch.atlas_coords.x;
-            let v1 = ch.atlas_coords.y;
-            let u2 = ch.atlas_coords.x + ch.atlas_size.x;
-            let v2 = ch.atlas_coords.y + ch.atlas_size.y;
-
-            // Each vertex: [x, y, tex_x, tex_y]
-            let vertices: [[f32; 4]; 6] = [
-                [xpos, ypos + h, u1, v2],
-                [xpos, ypos, u1, v1],
-                [xpos + w, ypos, u2, v1],
-                [xpos, ypos + h, u1, v2],
-                [xpos + w, ypos, u2, v1],
-                [xpos + w, ypos + h, u2, v2],
-            ];
-
-            unsafe {
-                gl::BindBuffer(gl::ARRAY_BUFFER, self.quad_vbo);
-                gl::BufferSubData(
-                    gl::ARRAY_BUFFER,
-                    0,
-                    (std::mem::size_of::<f32>() * 4 * 6) as isize,
-                    vertices.as_ptr() as *const c_void,
-                );
-                gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-                gl::DrawArrays(gl::TRIANGLES, 0, 6);
-            }
-
+            // Create instance data
+            let instance = CharacterInstance {
+                position: [xpos, ypos],
+                size: [w, h],
+                atlas_coords: [ch.atlas_coords.x, ch.atlas_coords.y],
+                atlas_size: [ch.atlas_size.x, ch.atlas_size.y],
+            };
+            
+            instances.push(instance);
             x += ch.advance * scale;
         }
 
+        if instances.is_empty() {
+            return;
+        }
+
+        // Batch render all characters
+        self.shader.use_shader();
+        let text_unit = 0;
+        self.shader.set_uniform("text", &text_unit);
+        let color_vec = glm::make_vec3(&[color.r, color.g, color.b]);
+        self.shader.set_uniform("textColor", &color_vec);
+
+        let atlas_texture_id = self.atlases[&font_size].texture_id;
+
         unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, atlas_texture_id);
+            gl::BindVertexArray(self.quad_vao);
+            
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (std::mem::size_of::<CharacterInstance>() * instances.len()) as isize,
+                instances.as_ptr() as *const c_void,
+                gl::DYNAMIC_DRAW,
+            );
+            
+            // Draw all characters in one call
+            gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);
+            
             gl::BindVertexArray(0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
@@ -437,6 +504,7 @@ impl Drop for TextRenderer {
         unsafe {
             gl::DeleteVertexArrays(1, &self.quad_vao);
             gl::DeleteBuffers(1, &self.quad_vbo);
+            gl::DeleteBuffers(1, &self.instance_vbo);
         }
     }
 }
