@@ -28,6 +28,7 @@ pub struct Character {
     descent: f32,
 }
 
+/// Used to draw characters with GPU instancing
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct CharacterInstance {
@@ -54,6 +55,8 @@ pub struct TextLine {
     contents: String,
 }
 
+/// Renders text using caches for each character at each font size with OpenGL(ES, on Raspberry Pi)
+/// and Freetype
 pub struct TextRenderer {
     shader: Shader,
     quad_vao: GLuint,
@@ -309,6 +312,7 @@ impl TextRenderer {
         Ok(char_info)
     }
 
+    /// Draws a single line of text
     pub fn draw_line(
         &mut self,
         text: &str,
@@ -394,6 +398,7 @@ impl TextRenderer {
         }
     }
 
+    /// Wraps text as well as it can inside `size` and draws the layed out lines at `position`
     pub fn draw_in_box(
         &mut self,
         text: Text,
@@ -418,7 +423,7 @@ impl TextRenderer {
         }
     }
 
-    pub fn measure_text_size(&mut self, text: &str, font_size: u32) -> Vector<f32> {
+    fn measure_text_size(&mut self, text: &str, font_size: u32) -> Vector<f32> {
         if text.is_empty() {
             return Vector::new(0.0, font_size as f32);
         }
@@ -442,6 +447,8 @@ impl TextRenderer {
         Vector::new(width, height)
     }
 
+    /// Wraps text inside the given `available_space`. Always respects the horizontal spacing but
+    /// might overflow over the bottom
     pub fn layout_text(
         &mut self,
         available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
@@ -507,6 +514,7 @@ impl Drop for TextRenderer {
     }
 }
 
+/// Calculates a single bounding box for a collection of [TextLine]s
 pub fn total_size(lines: &[TextLine]) -> Vector<f32> {
     let mut out = Vector::<f32>::zero();
 
@@ -518,6 +526,8 @@ pub fn total_size(lines: &[TextLine]) -> Vector<f32> {
     out
 }
 
+/// Splits a string slice into on ascii whitespace, but keeps the whitespace at the end of each
+/// split segment since we still want the whitespace included when rendering the text
 fn split_with_trailing_whitespace(s: &str) -> Vec<&str> {
     let mut parts = Vec::new();
     let mut i = 0;
@@ -546,7 +556,7 @@ mod tests {
     use std::path::Path;
 
     fn get_test_font_path() -> &'static Path {
-        Path::new("./assets/fonts/LiberationMono.ttf")
+        Path::new("../assets/fonts/LiberationMono.ttf")
     }
 
     #[test]

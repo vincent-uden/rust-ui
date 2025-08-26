@@ -17,11 +17,14 @@ type Flag = u8;
 
 pub mod flags {
     use super::Flag;
+    /// Enables text drawing in a node
     pub const TEXT: Flag = 0b00000001;
 }
 
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
 
+/// Contains relevant information for a UI node in addition to the sizing and position information
+/// stored in [taffy::TaffyTree].
 #[derive(Default)]
 pub struct NodeContext<T>
 where
@@ -40,20 +43,29 @@ where
     pub on_mouse_up: Option<EventListener<T>>,
 }
 
+/// Renders a [taffy::TaffyTree] and handles event listeners associated with UI nodes.
 pub struct Renderer<T>
 where
     T: AppState + std::default::Default,
 {
+    /// The window width
     pub width: u32,
+    /// The window height
     pub height: u32,
+    /// Is the mouse left mouse button currently pressed down
     pub mouse_left_down: bool,
+    /// Was the mouse left mouse button pressed down last frame
     pub mouse_left_was_down: bool,
+    /// The current mouse position
     pub mouse_pos: Vector<f32>,
+    /// The mouse position last frame
     pub last_mouse_pos: Vector<f32>,
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
+    /// Event listeners which have been triggered and are waiting to be called
     pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
+    /// The application state to be provided by a consumer of the library
     pub app_state: T,
 }
 
@@ -81,16 +93,20 @@ where
         }
     }
 
+    /// Runs all the triggered but not yet called event listeners
     fn run_event_listeners(&mut self) {
         while let Some(el) = self.pending_event_listeners.pop() {
             (*el)(self)
         }
     }
 
+    /// Should be called on every frame, before the application states update method *(if it has
+    /// any)*
     pub fn update(&mut self) {
         self.run_event_listeners();
     }
 
+    /// Passes key presses to the application state
     pub fn handle_key(
         &mut self,
         key: Key,
@@ -101,6 +117,8 @@ where
         self.app_state.handle_key(key, scancode, action, modifiers);
     }
 
+    /// Fetches a layout tree for each layer from the application state, draws them to the screen
+    /// and checks if any event listeners should run (calls [Renderer::render_tree]).
     pub fn compute_layout_and_render(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
         let mut layers = self.app_state.generate_layout(window_size);
@@ -227,6 +245,7 @@ where
     }
 }
 
+/// Helps taffy decide how big nodes containing text need to be.
 pub fn measure_function<T>(
     known_dimensions: taffy::geometry::Size<Option<f32>>,
     available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
@@ -255,6 +274,9 @@ where
     }
 }
 
+/// Chooses a corner of the window or its center as the origin for a layer. Any offset provided
+/// from the anchor will be towards the middle of the screen, or towards the bottom right corner if
+/// anchored to the center.
 pub enum Anchor {
     TopLeft,
     TopRight,

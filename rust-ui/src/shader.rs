@@ -76,6 +76,7 @@ impl Shader {
         }
     }
 
+    /// Compiles a set of shaders to an OpenGL program
     pub fn compile_shader(vertex_src: &str, frag_src: &str, geo_src: Option<&str>) -> Result<Self> {
         let vertex_src = CString::new(vertex_src)?;
         let frag_src = CString::new(frag_src)?;
@@ -127,6 +128,7 @@ impl Shader {
         }
     }
 
+    /// Wrapper for [Self::compile_shader]
     pub fn from_paths(
         vertex_path: &Path,
         frag_path: &Path,
@@ -154,6 +156,7 @@ impl Shader {
     }
 }
 
+/// Fetches shader compiler b
 fn check_compile_errors(id: u32, shader_type: ShaderType) -> bool {
     let mut success: i32 = 0;
     let mut info_log: Vec<gl::types::GLchar> = vec![0; 1024];
@@ -218,14 +221,14 @@ mod tests {
     #[test]
     fn can_load_rectangle_rendering_shader() {
         #[cfg(target_arch = "aarch64")]
-        let vertex_src = include_str!("../shaders/gles300/rounded_rect.vs");
+        let vertex_src = include_str!("../../shaders/gles300/rounded_rect.vs");
         #[cfg(target_arch = "aarch64")]
-        let frag_src = include_str!("../shaders/gles300/rounded_rect.frag");
-        
+        let frag_src = include_str!("../../shaders/gles300/rounded_rect.frag");
+
         #[cfg(not(target_arch = "aarch64"))]
-        let vertex_src = include_str!("../shaders/glsl330/rounded_rect.vs");
+        let vertex_src = include_str!("../../shaders/glsl330/rounded_rect.vs");
         #[cfg(not(target_arch = "aarch64"))]
-        let frag_src = include_str!("../shaders/glsl330/rounded_rect.frag");
+        let frag_src = include_str!("../../shaders/glsl330/rounded_rect.frag");
 
         let _window = init_window();
 

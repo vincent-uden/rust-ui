@@ -9,7 +9,6 @@ use std::{
 
 use glfw::{Action, Context as _, Key, Modifiers, Scancode};
 use rust_ui::{
-    FRAME_TIME,
     geometry::Vector,
     init_open_gl,
     render::{
@@ -25,6 +24,9 @@ use taffy::{
 };
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+
+pub const TARGET_FPS: u64 = 60;
+pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
 #[derive(Default)]
 struct PerfStats {

@@ -8,9 +8,6 @@ pub mod geometry;
 pub mod render;
 pub mod shader;
 
-pub const TARGET_FPS: u64 = 60;
-pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
-
 pub fn init_open_gl(
     width: u32,
     height: u32,
