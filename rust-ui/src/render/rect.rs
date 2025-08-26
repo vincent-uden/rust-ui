@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 
 use crate::{
-    geometry::{Rect, Vector},
+    geometry::Rect,
     render::{Border, Color},
     shader::Shader,
 };

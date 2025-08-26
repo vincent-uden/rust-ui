@@ -1,15 +1,8 @@
-use std::io;
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
+#![allow(clippy::uninlined_format_args)]
 
-use glfw;
+use std::time::Duration;
+
 use glfw::Context;
-use sysinfo::{ProcessesToUpdate, System};
-
-use tracing_subscriber::EnvFilter;
-
-use crate::shader::Shader;
-use crate::state::State;
 
 pub mod geometry;
 pub mod render;

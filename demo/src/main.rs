@@ -1,3 +1,5 @@
+#![allow(clippy::uninlined_format_args)]
+
 use std::{
     io,
     path::PathBuf,
@@ -12,11 +14,11 @@ use rust_ui::{
     init_open_gl,
     render::{Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Color, Text},
     shader::Shader,
-    state::{Anchor, AppState, NodeContext, RenderLayout, State, flags, measure_function},
+    state::{Anchor, AppState, NodeContext, RenderLayout, State, flags},
 };
 use sysinfo::{ProcessesToUpdate, System};
 use taffy::{
-    AvailableSpace, Dimension, FlexDirection, NodeId, Rect, Size, Style, TaffyTree,
+    AvailableSpace, Dimension, FlexDirection, Rect, Size, Style, TaffyTree,
     prelude::{TaffyMaxContent, auto, length},
 };
 use tracing::info;
@@ -269,6 +271,7 @@ impl AppState for PerfStats {
     }
 
     fn handle_key(&mut self, key: Key, _scancode: Scancode, action: Action, _modifiers: Modifiers) {
+        #[allow(clippy::single_match)]
         match key {
             Key::F12 => match action {
                 Action::Release => {
@@ -309,9 +312,14 @@ fn main() {
     )
     .unwrap();
 
-    let mut app_state = PerfStats::default();
-    app_state.header_bg = COLOR_LIGHT;
-    let mut state = State::new(rect_shader, text_shader, app_state);
+    let mut state = State::new(
+        rect_shader,
+        text_shader,
+        PerfStats {
+            header_bg: COLOR_LIGHT,
+            ..Default::default()
+        },
+    );
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);

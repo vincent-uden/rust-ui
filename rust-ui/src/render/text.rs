@@ -59,6 +59,7 @@ pub struct TextRenderer {
     quad_vao: GLuint,
     quad_vbo: GLuint,
     instance_vbo: GLuint,
+    #[allow(dead_code)] // This holds on to some important information until its dropped
     ft_library: ft::Library,
     ft_face: ft::Face,
     atlases: HashMap<u32, FontAtlas>,
@@ -191,7 +192,7 @@ impl TextRenderer {
     }
 
     fn get_or_create_atlas(&mut self, font_size: u32) -> &mut FontAtlas {
-        if !self.atlases.contains_key(&font_size) {
+        self.atlases.entry(font_size).or_insert_with(|| {
             let atlas_size = Vector::new(512, 512);
             let mut texture_id: GLuint = 0;
 
@@ -217,19 +218,16 @@ impl TextRenderer {
                 gl::BindTexture(gl::TEXTURE_2D, 0);
             }
 
-            let atlas = FontAtlas {
+            FontAtlas {
                 texture_id,
                 size: atlas_size,
                 characters: HashMap::new(),
                 current_x: 2,
                 current_y: 2,
                 line_height: 0,
-            };
+            }
 
-            self.atlases.insert(font_size, atlas);
-        }
-
-        self.atlases.get_mut(&font_size).unwrap()
+        })
     }
 
     fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
@@ -543,7 +541,6 @@ fn split_with_trailing_whitespace(s: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::geometry::Vector;
     use freetype as ft;
     use image::{GrayImage, ImageBuffer};
     use std::path::Path;
@@ -579,13 +576,13 @@ mod tests {
 
         // Render printable ASCII characters
         for char in 32..=126 {
-            if let Err(_) = ft_face.load_char(char as usize, ft::face::LoadFlag::DEFAULT) {
+            if ft_face.load_char(char as usize, ft::face::LoadFlag::DEFAULT).is_err() {
                 println!("Failed to load character: {}", char as u8 as char);
                 continue;
             }
 
             let glyph = ft_face.glyph();
-            if let Err(_) = glyph.render_glyph(ft::render_mode::RenderMode::Normal) {
+            if glyph.render_glyph(ft::render_mode::RenderMode::Normal).is_err() {
                 println!("Failed to render character: {}", char as u8 as char);
                 continue;
             }

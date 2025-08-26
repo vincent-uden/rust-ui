@@ -1,19 +1,17 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use glfw::{Action, Key, Modifiers, Scancode};
-use tracing::{debug, info};
 
 use crate::{
-    FRAME_TIME,
     geometry::Vector,
     render::{
-        Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SUCCESS, Color, Text,
+        Border, Color, Text,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
     },
     shader::Shader,
 };
-use taffy::{prelude::*, print_tree};
+use taffy::prelude::*;
 
 type Flag = u8;
 
@@ -22,6 +20,8 @@ pub mod flags {
 
     pub const TEXT: Flag = 0b00000001;
 }
+
+pub type EventListener<T> = Arc<dyn Fn(&mut State<T>)>;
 
 #[derive(Default)]
 pub struct NodeContext<T>
@@ -35,10 +35,10 @@ where
     pub border: Border,
     pub text: Text,
     // Event listeners
-    pub on_mouse_enter: Option<Arc<dyn Fn(&mut State<T>)>>,
-    pub on_mouse_exit: Option<Arc<dyn Fn(&mut State<T>)>>,
-    pub on_mouse_down: Option<Arc<dyn Fn(&mut State<T>)>>,
-    pub on_mouse_up: Option<Arc<dyn Fn(&mut State<T>)>>,
+    pub on_mouse_enter: Option<EventListener<T>>,
+    pub on_mouse_exit: Option<EventListener<T>>,
+    pub on_mouse_down: Option<EventListener<T>>,
+    pub on_mouse_up: Option<EventListener<T>>,
 }
 
 pub struct State<T>
@@ -53,7 +53,7 @@ where
     pub last_mouse_pos: Vector<f32>,
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
-    pending_event_listeners: Vec<Arc<dyn Fn(&mut State<T>)>>,
+    pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
     pub app_state: T,
 }
@@ -150,7 +150,7 @@ where
         while let Some((id, parent_pos)) = stack.pop() {
             let layout = tree.layout(id).unwrap();
             let default_ctx = &NodeContext::default();
-            let ctx = tree.get_node_context(id).unwrap_or(&default_ctx);
+            let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
 
             // Drawing
             let abs_pos = layout.location + parent_pos;
@@ -245,22 +245,15 @@ where
         return Size { width, height };
     }
 
-    if let Some(ctx) = node_context {
-        if ctx.flags & flags::TEXT == 1 {
-            let lines = text_renderer.layout_text(
-                available_space,
-                ctx.text.text.clone(),
-                ctx.text.font_size,
-            );
-            let size = total_size(&lines);
-            return Size {
-                width: size.x,
-                height: size.y,
-            };
-        }
+    if let Some(ctx) = node_context
+        && ctx.flags & flags::TEXT == 1
+    {
+        let lines =
+            text_renderer.layout_text(available_space, ctx.text.text.clone(), ctx.text.font_size);
+        total_size(&lines).into()
+    } else {
+        Size::ZERO
     }
-
-    return Size::ZERO;
 }
 
 pub enum Anchor {
