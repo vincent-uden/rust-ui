@@ -1,21 +1,6 @@
-[package]
-name = "rust-ui"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-anyhow = "1.0.99"
-freetype-rs = "0.38.0"
-gl = "0.14.0"
-glfw = "0.60.0"
-glm = {package ="nalgebra-glm", version = "0.20.0"}
-num = "0.4.3"
-tracing = "0.1.41"
-tracing-log = "0.2.0"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-image = "0.24.7"  # For PNG writing in tests
-taffy = "0.9.1"
-sysinfo = "0.37.0"
+[workspace]
+members = ["rust-ui"]
+resolver = "2"
 
 [profile.release]
 debug = true
