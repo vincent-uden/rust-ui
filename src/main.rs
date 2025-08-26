@@ -28,14 +28,14 @@ fn init_open_gl(
     glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
 ) {
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-    
+
     // Configure OpenGL context based on target architecture
     #[cfg(target_arch = "aarch64")]
     {
         // Raspberry Pi / ARM configuration - let driver choose defaults
         // No OpenGL version or profile hints for maximum compatibility
     }
-    
+
     #[cfg(not(target_arch = "aarch64"))]
     {
         // x86/x64 desktop configuration
@@ -46,7 +46,7 @@ fn init_open_gl(
         ));
         glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
     }
-    
+
     glfw.window_hint(glfw::WindowHint::Resizable(true));
 
     let (mut window, events) = glfw
