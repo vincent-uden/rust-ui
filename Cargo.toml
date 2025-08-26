@@ -1,6 +1,6 @@
 [workspace]
-members = ["rust-ui"]
-resolver = "2"
+members = ["demo","rust-ui"]
+resolver = "3"
 
 [profile.release]
 debug = true

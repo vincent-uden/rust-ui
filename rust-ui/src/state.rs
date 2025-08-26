@@ -17,36 +17,34 @@ use taffy::{prelude::*, print_tree};
 
 type Flag = u8;
 
-mod flags {
+pub mod flags {
     use crate::state::Flag;
 
     pub const TEXT: Flag = 0b00000001;
 }
 
 #[derive(Default)]
-pub struct NodeContext {
-    flags: Flag,
+pub struct NodeContext<T>
+where
+    T: AppState + std::default::Default,
+{
+    pub flags: Flag,
     // Colors
-    bg_color: Color,
+    pub bg_color: Color,
     // Border
-    border: Border,
-    // Text
-    text: Text,
+    pub border: Border,
+    pub text: Text,
     // Event listeners
-    on_mouse_enter: Option<Arc<dyn Fn(&mut State)>>,
-    on_mouse_exit: Option<Arc<dyn Fn(&mut State)>>,
-    on_mouse_down: Option<Arc<dyn Fn(&mut State)>>,
-    on_mouse_up: Option<Arc<dyn Fn(&mut State)>>,
+    pub on_mouse_enter: Option<Arc<dyn Fn(&mut State<T>)>>,
+    pub on_mouse_exit: Option<Arc<dyn Fn(&mut State<T>)>>,
+    pub on_mouse_down: Option<Arc<dyn Fn(&mut State<T>)>>,
+    pub on_mouse_up: Option<Arc<dyn Fn(&mut State<T>)>>,
 }
 
-#[derive(Default)]
-struct PerfStats {
-    visible: bool,
-    avg_sleep_ms: f64,
-    ram_usage: u64,
-}
-
-pub struct State {
+pub struct State<T>
+where
+    T: AppState + std::default::Default,
+{
     pub width: u32,
     pub height: u32,
     pub mouse_left_down: bool,
@@ -55,14 +53,16 @@ pub struct State {
     pub last_mouse_pos: Vector<f32>,
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
-    pending_event_listeners: Vec<Arc<dyn Fn(&mut State)>>,
-    header_bg: Color,
+    pending_event_listeners: Vec<Arc<dyn Fn(&mut State<T>)>>,
     hover_states: HashMap<NodeId, bool>,
-    perf_stats: PerfStats,
+    pub app_state: T,
 }
 
-impl State {
-    pub fn new(rect_shader: Shader, text_shader: Shader) -> Self {
+impl<T> State<T>
+where
+    T: AppState + std::default::Default,
+{
+    pub fn new(rect_shader: Shader, text_shader: Shader, initial_state: T) -> Self {
         Self {
             width: 1000,
             height: 800,
@@ -77,9 +77,8 @@ impl State {
             )
             .unwrap(),
             pending_event_listeners: vec![],
-            header_bg: COLOR_LIGHT,
             hover_states: HashMap::new(),
-            perf_stats: PerfStats::default(),
+            app_state: initial_state,
         }
     }
 
@@ -89,253 +88,53 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, avg_sleep_ms: f64, ram_usage: u64) {
-        self.perf_stats.avg_sleep_ms = avg_sleep_ms;
-        self.perf_stats.ram_usage = ram_usage;
+    pub fn update(&mut self) {
         self.run_event_listeners();
     }
 
     pub fn handle_key(
         &mut self,
         key: Key,
-        _scancode: Scancode,
+        scancode: Scancode,
         action: Action,
-        _modifiers: Modifiers,
+        modifiers: Modifiers,
     ) {
-        match key {
-            Key::F12 => match action {
-                Action::Release => {
-                    self.perf_stats.visible = !self.perf_stats.visible;
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-    }
-
-    fn stats_overlay(
-        &mut self,
-        size: crate::geometry::Vector<f32>,
-    ) -> (TaffyTree<NodeContext>, NodeId) {
-        let mut tree = TaffyTree::new();
-
-        let title = tree
-            .new_leaf_with_context(
-                Style {
-                    ..Default::default()
-                },
-                NodeContext {
-                    flags: flags::TEXT,
-                    text: Text {
-                        text: "Performance stats".into(),
-                        font_size: 18,
-                        color: Color::new(1.0, 1.0, 1.0, 1.0),
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let frame_time = tree
-            .new_leaf_with_context(
-                Style::default(),
-                NodeContext {
-                    flags: flags::TEXT,
-                    text: Text {
-                        text: format!(
-                            "Frame time: {:.2} ms",
-                            FRAME_TIME.as_millis() as f64 - self.perf_stats.avg_sleep_ms
-                        ),
-                        font_size: 14,
-                        color: Color::new(1.0, 1.0, 1.0, 1.0),
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let ram_usage = tree
-            .new_leaf_with_context(
-                Style::default(),
-                NodeContext {
-                    flags: flags::TEXT,
-                    text: Text {
-                        text: format!("RAM: {:.2} MB", self.perf_stats.ram_usage / 1_000_000,),
-                        font_size: 14,
-                        color: Color::new(1.0, 1.0, 1.0, 1.0),
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let root_node = tree
-            .new_leaf_with_context(
-                Style {
-                    flex_direction: FlexDirection::Column,
-                    size: Size {
-                        width: Dimension::percent(1.0),
-                        height: Dimension::percent(1.0),
-                    },
-                    gap: Size {
-                        width: length(0.0),
-                        height: length(8.0),
-                    },
-                    max_size: size.into(),
-                    padding: Rect::length(12.0),
-                    ..Default::default()
-                },
-                NodeContext {
-                    bg_color: Color::new(0.0, 0.0, 0.0, 0.5),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        tree.add_child(root_node, title).unwrap();
-        tree.add_child(root_node, frame_time).unwrap();
-        tree.add_child(root_node, ram_usage).unwrap();
-
-        tree.compute_layout_with_measure(
-            root_node,
-            Size {
-                width: AvailableSpace::MaxContent,
-                height: AvailableSpace::MinContent,
-            },
-            |known_dimensions, available_space, _node_id, node_context, _style| {
-                measure_function(
-                    known_dimensions,
-                    available_space,
-                    node_context,
-                    &mut self.text_r,
-                )
-            },
-        )
-        .unwrap();
-        (tree, root_node)
-    }
-
-    fn generate_layout(&mut self) -> (TaffyTree<NodeContext>, NodeId) {
-        let mut tree = TaffyTree::new();
-        let header_node = tree
-            .new_leaf_with_context(
-                Style {
-                    size: Size {
-                        width: length(self.width as f32),
-                        height: length(100.0),
-                    },
-                    ..Default::default()
-                },
-                NodeContext {
-                    flags: flags::TEXT,
-                    text: Text {
-                        text: "Flygande bäckasiner söka hwila på mjuka tuvor".into(),
-                        font_size: 18,
-                        ..Default::default()
-                    },
-                    bg_color: self.header_bg,
-                    border: Border {
-                        radius: BorderRadius {
-                            bottom_left: 40.0,
-                            bottom_right: 40.0,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                    on_mouse_enter: Some(Arc::new(|state| {
-                        info!("Entering");
-                        state.header_bg = COLOR_DANGER;
-                    })),
-                    on_mouse_exit: Some(Arc::new(|state| {
-                        info!("Exiting");
-                        state.header_bg = COLOR_LIGHT;
-                    })),
-                    on_mouse_down: Some(Arc::new(|_| {
-                        info!("Mouse down");
-                    })),
-                    on_mouse_up: Some(Arc::new(|_| {
-                        info!("Mouse up");
-                    })),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let body_node = tree
-            .new_leaf_with_context(
-                Style {
-                    size: Size {
-                        width: length(self.width as f32),
-                        height: auto(),
-                    },
-                    border: Rect {
-                        left: length(40.0),
-                        right: length(40.0),
-                        top: length(40.0),
-                        bottom: length(40.0),
-                    },
-                    flex_grow: 1.0,
-                    ..Default::default()
-                },
-                NodeContext {
-                    bg_color: COLOR_SUCCESS,
-                    border: Border {
-                        thickness: 20.0,
-                        radius: BorderRadius::all(40.0),
-                        color: COLOR_LIGHT,
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let root_node = tree
-            .new_with_children(
-                Style {
-                    flex_direction: FlexDirection::Column,
-                    size: Size {
-                        width: length(self.width as f32),
-                        height: length(self.height as f32),
-                    },
-                    gap: Size {
-                        width: length(16.0),
-                        height: length(16.0),
-                    },
-                    ..Default::default()
-                },
-                &[header_node, body_node],
-            )
-            .unwrap();
-        tree.compute_layout_with_measure(
-            root_node,
-            Size::MAX_CONTENT,
-            |known_dimensions, available_space, _node_id, node_context, _style| {
-                measure_function(
-                    known_dimensions,
-                    available_space,
-                    node_context,
-                    &mut self.text_r,
-                )
-            },
-        )
-        .unwrap();
-        (tree, root_node)
+        self.app_state.handle_key(key, scancode, action, modifiers);
     }
 
     pub fn draw_and_render(&mut self) {
-        let (tree, root_node) = self.generate_layout();
-        self.render_tree(&tree, root_node, Vector::zero());
-        if self.perf_stats.visible {
-            let (tree, root_node) = self.stats_overlay(Vector::new(400.0, 400.0));
-            let stats_layout = tree.layout(root_node).unwrap();
-            self.render_tree(
-                &tree,
-                root_node,
-                Vector::new(
-                    self.width as f32 - stats_layout.size.width,
-                    self.height as f32 - stats_layout.size.height,
-                ),
-            );
+        let window_size = Vector::new(self.width as f32, self.height as f32);
+        let mut layers = self.app_state.generate_layout(window_size);
+
+        for layer in layers.iter_mut() {
+            layer
+                .tree
+                .compute_layout_with_measure(
+                    layer.root,
+                    layer.desired_size,
+                    |known_dimensions, available_space, _node_id, node_context, _style| {
+                        measure_function(
+                            known_dimensions,
+                            available_space,
+                            node_context,
+                            &mut self.text_r,
+                        )
+                    },
+                )
+                .unwrap();
+            let size: Vector<f32> = layer.tree.layout(layer.root).unwrap().size.into();
+            let pos = match layer.anchor {
+                Anchor::TopLeft => layer.root_pos,
+                Anchor::TopRight => {
+                    Vector::new(window_size.x - layer.root_pos.x - size.x, layer.root_pos.y)
+                }
+                Anchor::BottomLeft => {
+                    Vector::new(layer.root_pos.x, window_size.y - layer.root_pos.y - size.y)
+                }
+                Anchor::BottomRight => window_size - layer.root_pos - size,
+                Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
+            };
+            self.render_tree(&layer.tree, layer.root, pos);
         }
     }
 
@@ -343,7 +142,7 @@ impl State {
     /// nodes.
     fn render_tree(
         &mut self,
-        tree: &TaffyTree<NodeContext>,
+        tree: &TaffyTree<NodeContext<T>>,
         root_node: NodeId,
         position: Vector<f32>,
     ) {
@@ -429,12 +228,15 @@ impl State {
     }
 }
 
-fn measure_function(
+pub fn measure_function<T>(
     known_dimensions: taffy::geometry::Size<Option<f32>>,
     available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
-    node_context: Option<&mut NodeContext>,
+    node_context: Option<&mut NodeContext<T>>,
     text_renderer: &mut TextRenderer,
-) -> Size<f32> {
+) -> Size<f32>
+where
+    T: AppState + std::default::Default,
+{
     if let Size {
         width: Some(width),
         height: Some(height),
@@ -459,4 +261,28 @@ fn measure_function(
     }
 
     return Size::ZERO;
+}
+
+pub enum Anchor {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    Center,
+}
+
+pub struct RenderLayout<T>
+where
+    T: AppState + Default,
+{
+    pub tree: TaffyTree<NodeContext<T>>,
+    pub root: NodeId,
+    pub desired_size: Size<AvailableSpace>,
+    pub root_pos: Vector<f32>,
+    pub anchor: Anchor,
+}
+
+pub trait AppState: Default {
+    fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
+    fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers);
 }
