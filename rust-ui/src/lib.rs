@@ -7,7 +7,6 @@ use glfw::Context;
 pub mod geometry;
 pub mod render;
 pub mod shader;
-pub mod state;
 
 pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);

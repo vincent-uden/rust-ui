@@ -16,12 +16,11 @@ use taffy::prelude::*;
 type Flag = u8;
 
 pub mod flags {
-    use crate::state::Flag;
-
+    use super::Flag;
     pub const TEXT: Flag = 0b00000001;
 }
 
-pub type EventListener<T> = Arc<dyn Fn(&mut State<T>)>;
+pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
 
 #[derive(Default)]
 pub struct NodeContext<T>
@@ -41,7 +40,7 @@ where
     pub on_mouse_up: Option<EventListener<T>>,
 }
 
-pub struct State<T>
+pub struct Renderer<T>
 where
     T: AppState + std::default::Default,
 {
@@ -58,7 +57,7 @@ where
     pub app_state: T,
 }
 
-impl<T> State<T>
+impl<T> Renderer<T>
 where
     T: AppState + std::default::Default,
 {
@@ -102,7 +101,7 @@ where
         self.app_state.handle_key(key, scancode, action, modifiers);
     }
 
-    pub fn draw_and_render(&mut self) {
+    pub fn compute_layout_and_render(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
         let mut layers = self.app_state.generate_layout(window_size);
 

@@ -1,5 +1,6 @@
 pub mod clay;
 pub mod rect;
+pub mod renderer;
 pub mod text;
 
 #[derive(Debug, Default, Clone, Copy)]

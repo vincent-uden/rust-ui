@@ -12,9 +12,11 @@ use rust_ui::{
     FRAME_TIME,
     geometry::Vector,
     init_open_gl,
-    render::{Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Color, Text},
+    render::{
+        Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Color, Text,
+        renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
+    },
     shader::Shader,
-    state::{Anchor, AppState, NodeContext, RenderLayout, State, flags},
 };
 use sysinfo::{ProcessesToUpdate, System};
 use taffy::{
@@ -152,7 +154,7 @@ impl PerfStats {
                         },
                         ..Default::default()
                     },
-                    on_mouse_enter: Some(Arc::new(|state: &mut State<Self>| {
+                    on_mouse_enter: Some(Arc::new(|state: &mut Renderer<Self>| {
                         info!("Entering");
                         state.app_state.header_bg = COLOR_DANGER;
                     })),
@@ -312,7 +314,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut state = State::new(
+    let mut state = Renderer::new(
         rect_shader,
         text_shader,
         PerfStats {
@@ -385,7 +387,7 @@ fn main() {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-        state.draw_and_render();
+        state.compute_layout_and_render();
 
         window.swap_buffers();
 
