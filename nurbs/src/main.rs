@@ -308,6 +308,7 @@ fn generate_curve() -> (Vec<Vertex>, Vec<u32>) {
     let interpolated = NurbsCurve3D::<f64>::try_interpolate(&points, 3).unwrap();
 
     // NURBS curve & surface can be transformed by nalgebra's matrix
+    // let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), FRAC_PI_2);
     let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), FRAC_PI_2);
     let translation = Translation3::new(0., 0., 3.);
     let transform_matrix = translation * rotation; // nalgebra::Isometry3
@@ -324,7 +325,7 @@ fn generate_curve() -> (Vec<Vertex>, Vec<u32>) {
 
     // Tessellate the surface in adaptive manner about curvature for efficient rendering
     let option = AdaptiveTessellationOptions {
-        norm_tolerance: 1e-4,
+        norm_tolerance: 1e-2,
         ..Default::default()
     };
     let tessellation = lofted.tessellate(Some(option));
@@ -420,6 +421,11 @@ fn main() {
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let mut ram_usage = sys.process(pid).unwrap().memory();
 
+    let mut polar_angle = 0.0;
+    let mut horizontal_angle = 0.0;
+    let mut delta_polar = 0.0;
+    let mut delta_horiz = 0.0;
+
     while !window.should_close() {
         let frame_start = Instant::now();
 
@@ -446,10 +452,51 @@ fn main() {
                 }
                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
                     state.handle_key(key, scancode, action, modifiers);
+                    match key {
+                        Key::A => match action {
+                            Action::Release => {
+                                delta_polar = 0.0;
+                            }
+                            Action::Press => {
+                                delta_polar = -0.01;
+                            }
+                            _ => {}
+                        },
+                        Key::D => match action {
+                            Action::Release => {
+                                delta_polar = 0.0;
+                            }
+                            Action::Press => {
+                                delta_polar = 0.01;
+                            }
+                            _ => {}
+                        },
+                        Key::W => match action {
+                            Action::Release => {
+                                delta_horiz = 0.0;
+                            }
+                            Action::Press => {
+                                delta_horiz = -0.01;
+                            }
+                            _ => {}
+                        },
+                        Key::S => match action {
+                            Action::Release => {
+                                delta_horiz = 0.0;
+                            }
+                            Action::Press => {
+                                delta_horiz = 0.01;
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
                 }
                 _ => {}
             }
         }
+        polar_angle += delta_polar;
+        horizontal_angle += delta_horiz;
         state.update();
         state.app_state.update(avg_sleep_ms, ram_usage);
 
@@ -466,7 +513,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         state.compute_layout_and_render();
-        mesh_r.draw();
+        mesh_r.draw(polar_angle, horizontal_angle);
 
         window.swap_buffers();
 
