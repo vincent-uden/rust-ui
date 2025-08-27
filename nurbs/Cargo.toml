@@ -1,0 +1,17 @@
+[package]
+name = "nurbs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glfw = "0.60.0"
+gl = "0.14.0"
+glm = {package ="nalgebra-glm", version = "0.20.0"}
+taffy = "0.9.1"
+tracing = "0.1.41"
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+rust-ui = { path = "../rust-ui"}
+sysinfo = "0.37.0"
+curvo = "0.1.66"
+nalgebra = "0.34.0"

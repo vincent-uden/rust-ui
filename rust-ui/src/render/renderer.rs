@@ -6,6 +6,7 @@ use crate::{
     geometry::Vector,
     render::{
         Border, Color, Text,
+        mesh::MeshRenderer,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
     },
