@@ -1,5 +1,5 @@
 [workspace]
-members = ["cad","demo", "nurbs","rust-ui"]
+members = ["cad", "cad-frontend", "demo", "nurbs","rust-ui"]
 resolver = "3"
 
 [profile.release]

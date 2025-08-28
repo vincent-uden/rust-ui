@@ -299,5 +299,5 @@ where
 
 pub trait AppState: Default {
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
-    fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers);
+    fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers) {}
 }
