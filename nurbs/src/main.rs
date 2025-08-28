@@ -299,8 +299,6 @@ fn generate_curve() -> (Vec<Vertex>, Vec<u32>) {
         Point3::new(1.0, -1.0, 0.),
         Point3::new(1.0, 1.0, 0.),
         Point3::new(-1.0, 1.0, 0.),
-        Point3::new(-1.0, 2.0, 0.),
-        Point3::new(1.0, 2.5, 0.),
     ];
 
     // Create a NURBS curve that interpolates the given points with degree 3
@@ -309,7 +307,7 @@ fn generate_curve() -> (Vec<Vertex>, Vec<u32>) {
 
     // NURBS curve & surface can be transformed by nalgebra's matrix
     // let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), FRAC_PI_2);
-    let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), FRAC_PI_2);
+    let rotation = Rotation3::from_axis_angle(&Vector3::z_axis(), FRAC_PI_2 * 1.0);
     let translation = Translation3::new(0., 0., 3.);
     let transform_matrix = translation * rotation; // nalgebra::Isometry3
 
@@ -332,7 +330,6 @@ fn generate_curve() -> (Vec<Vertex>, Vec<u32>) {
     to_vertices(&tessellation)
 }
 
-// TODO: Figure out if this works
 fn to_vertices(tesselation: &SurfaceTessellation3D<f64>) -> (Vec<Vertex>, Vec<u32>) {
     let mut vertices = vec![];
     let mut indicies = vec![];

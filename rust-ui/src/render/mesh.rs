@@ -84,8 +84,8 @@ impl MeshRenderer {
     pub fn draw(&self, polar_angle: f32, vertical_angle: f32) {
         self.shader.use_shader();
         let mut model = glm::Mat4::identity();
-        model = glm::rotate(&model, polar_angle, &glm::vec3(0.0, 0.0, 1.0));
-        model = glm::rotate(&model, vertical_angle, &glm::vec3(0.0, 1.0, 0.0));
+        model = glm::rotate(&model, polar_angle, &glm::vec3(0.0, 1.0, 0.0));
+        model = glm::rotate(&model, vertical_angle, &glm::vec3(1.0, 0.0, 0.0));
         let view = glm::look_at(
             &glm::vec3(0.0, 0.0, 10.0), // camera position
             &glm::vec3(0.0, 0.0, 0.0),  // look at origin
