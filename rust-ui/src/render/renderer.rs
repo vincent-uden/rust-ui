@@ -278,7 +278,9 @@ where
 /// Chooses a corner of the window or its center as the origin for a layer. Any offset provided
 /// from the anchor will be towards the middle of the screen, or towards the bottom right corner if
 /// anchored to the center.
+#[derive(Default)]
 pub enum Anchor {
+    #[default]
     TopLeft,
     TopRight,
     BottomLeft,
@@ -295,6 +297,23 @@ where
     pub desired_size: Size<AvailableSpace>,
     pub root_pos: Vector<f32>,
     pub anchor: Anchor,
+    pub scissor: bool,
+}
+
+impl<T> Default for RenderLayout<T>
+where
+    T: AppState + Default,
+{
+    fn default() -> Self {
+        Self {
+            tree: TaffyTree::new(),
+            root: NodeId::new(u64::MAX),
+            desired_size: Size::MAX_CONTENT,
+            root_pos: Vector::zero(),
+            anchor: Anchor::default(),
+            scissor: false,
+        }
+    }
 }
 
 pub trait AppState: Default {

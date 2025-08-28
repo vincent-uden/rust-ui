@@ -201,10 +201,12 @@ dependencies = [
 name = "cad-frontend"
 version = "0.1.0"
 dependencies = [
+ "cad",
  "gl",
  "glfw",
  "nalgebra-glm",
  "rust-ui",
+ "serde",
  "sysinfo",
  "taffy",
  "tracing",

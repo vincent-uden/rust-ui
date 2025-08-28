@@ -128,6 +128,7 @@ impl PerformanceOverlay {
             },
             root_pos: Vector::zero(),
             anchor: Anchor::BottomRight,
+            scissor: false,
         }
     }
 }

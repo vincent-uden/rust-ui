@@ -1,6 +1,6 @@
-mod entity;
-mod registry;
-mod sketch;
+pub mod entity;
+pub mod registry;
+pub mod sketch;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right

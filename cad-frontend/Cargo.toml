@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cad = { path = "../cad"}
 glfw = "0.60.0"
 gl = "0.14.0"
 glm = {package ="nalgebra-glm", version = "0.20.0"}
@@ -13,3 +14,4 @@ tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 rust-ui = { path = "../rust-ui"}
 sysinfo = "0.37.0"
+serde = { version = "1.0.219", features = ["derive"] }

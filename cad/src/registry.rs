@@ -7,12 +7,21 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Registry<K: RegId + Eq + Hash + Copy + fmt::Debug, V> {
+pub struct Registry<K: RegId + Eq + Hash + Copy + fmt::Debug + Default, V> {
     map: HashMap<K, V>,
     next_id: K,
 }
 
-impl<K: RegId + Eq + Hash + Copy + fmt::Debug, V> Registry<K, V> {
+impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default, V> Default for Registry<K, V> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new(),
+            next_id: K::default(),
+        }
+    }
+}
+
+impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default, V> Registry<K, V> {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -91,7 +100,7 @@ impl<K: RegId + Eq + Hash + Copy + fmt::Debug, V> Registry<K, V> {
     }
 }
 
-impl<K: RegId + Eq + Hash + Copy + fmt::Debug, V> Index<K> for Registry<K, V> {
+impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default, V> Index<K> for Registry<K, V> {
     type Output = V;
 
     #[inline(always)]
@@ -100,7 +109,7 @@ impl<K: RegId + Eq + Hash + Copy + fmt::Debug, V> Index<K> for Registry<K, V> {
     }
 }
 
-impl<K: RegId + Eq + Hash + Copy + fmt::Debug, V> IndexMut<K> for Registry<K, V> {
+impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default, V> IndexMut<K> for Registry<K, V> {
     #[inline(always)]
     fn index_mut(&mut self, index: K) -> &mut V {
         self.map.get_mut(&index).unwrap()
