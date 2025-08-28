@@ -131,6 +131,7 @@ impl PerfStats {
             },
             root_pos: Vector::zero(),
             anchor: Anchor::BottomRight,
+            ..Default::default()
         }
     }
 
@@ -244,6 +245,7 @@ impl PerfStats {
             desired_size: Size::MAX_CONTENT,
             root_pos: Vector::zero(),
             anchor: Anchor::TopLeft,
+            ..Default::default()
         }
     }
 }

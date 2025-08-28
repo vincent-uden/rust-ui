@@ -1,9 +1,10 @@
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
 use num::Num;
+use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, prelude::length};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct Vector<T> {
     pub x: T,
     pub y: T,
@@ -188,7 +189,7 @@ impl From<Vector<f32>> for taffy::geometry::Size<Dimension> {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct Rect<T> {
     /// Top left
     pub x0: Vector<T>,
@@ -254,6 +255,34 @@ where
 
     pub fn contains(&self, v: Vector<T>) -> bool {
         self.x0.x < v.x && self.x1.x > v.x && self.x0.y < v.y && self.x1.y > v.y
+    }
+
+    /// Divides a rect into two equally sized rects to the left and right of each other
+    pub fn split_horizontally(&self) -> (Self, Self) {
+        (
+            Rect {
+                x0: self.x0,
+                x1: Vector::new(self.x0.x + self.width() / (T::one() + T::one()), self.x1.y),
+            },
+            Rect {
+                x0: Vector::new(self.x0.x + self.width() / (T::one() + T::one()), self.x0.y),
+                x1: self.x1,
+            },
+        )
+    }
+
+    /// Divides a rect into two equally sized rects to above and below each other
+    pub fn split_vertically(&self) -> (Self, Self) {
+        (
+            Rect {
+                x0: self.x0,
+                x1: Vector::new(self.x1.x, self.x0.y + self.height() / (T::one() + T::one())),
+            },
+            Rect {
+                x0: Vector::new(self.x0.x, self.x0.y + self.height() / (T::one() + T::one())),
+                x1: self.x1,
+            },
+        )
     }
 }
 

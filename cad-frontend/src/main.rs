@@ -26,7 +26,7 @@ pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
-        .with_env_filter(EnvFilter::new("demo"))
+        .with_env_filter(EnvFilter::new("cad_frontend"))
         .init();
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);
@@ -89,6 +89,8 @@ fn main() {
                     state.last_mouse_pos.y = state.mouse_pos.y;
                     state.mouse_pos.x = x as f32;
                     state.mouse_pos.y = y as f32;
+                    state.app_state.mouse_pos.x = x as f32;
+                    state.app_state.mouse_pos.y = y as f32;
                 }
                 glfw::WindowEvent::FramebufferSize(width, height) => {
                     state.window_size((width, height));

@@ -1,6 +1,6 @@
 use cad::registry::RegId;
 use rust_ui::{
-    geometry::Vector,
+    geometry::{Rect, Vector},
     render::{
         Color, NORD9, NORD11, NORD14,
         renderer::{Anchor, NodeContext, RenderLayout},
@@ -38,18 +38,23 @@ impl Default for AreaId {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Area {
     pub id: AreaId,
     pub area_type: AreaType,
+    pub bbox: Rect<f32>,
 }
 
 impl Area {
-    pub fn new(id: AreaId, area_type: AreaType) -> Self {
-        Self { id, area_type }
+    pub fn new(id: AreaId, area_type: AreaType, bbox: Rect<f32>) -> Self {
+        Self {
+            id,
+            area_type,
+            bbox,
+        }
     }
 
-    pub fn generate_layout(&mut self, size: rust_ui::geometry::Vector<f32>) -> RenderLayout<App> {
+    pub fn generate_layout(&mut self) -> RenderLayout<App> {
         let mut tree = TaffyTree::new();
 
         // TODO:
@@ -79,10 +84,10 @@ impl Area {
             tree,
             root,
             desired_size: Size {
-                width: AvailableSpace::Definite(size.x),
-                height: AvailableSpace::Definite(size.y),
+                width: AvailableSpace::Definite(self.bbox.width()),
+                height: AvailableSpace::Definite(self.bbox.height()),
             },
-            root_pos: Vector::zero(),
+            root_pos: self.bbox.x0,
             anchor: Anchor::TopLeft,
             scissor: true,
         }
