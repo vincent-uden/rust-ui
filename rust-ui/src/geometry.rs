@@ -254,7 +254,7 @@ where
     }
 
     pub fn contains(&self, v: Vector<T>) -> bool {
-        self.x0.x < v.x && self.x1.x > v.x && self.x0.y < v.y && self.x1.y > v.y
+        self.x0.x <= v.x && self.x1.x >= v.x && self.x0.y <= v.y && self.x1.y >= v.y
     }
 
     /// Divides a rect into two equally sized rects to the left and right of each other

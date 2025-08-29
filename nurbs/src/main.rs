@@ -390,9 +390,17 @@ fn main() {
     let (vertices, indices) = generate_curve();
     let mesh_r = MeshRenderer::new(vertices, indices, mesh_shader);
 
+    let line_shader = Shader::from_paths(
+        &PathBuf::from(format!("{}/line.vs", shader_dir)),
+        &PathBuf::from(format!("{}/line.frag", shader_dir)),
+        None,
+    )
+    .unwrap();
+
     let mut state = Renderer::new(
         rect_shader,
         text_shader,
+        line_shader,
         PerfStats {
             header_bg: COLOR_LIGHT,
             ..Default::default()

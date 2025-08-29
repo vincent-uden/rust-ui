@@ -1,8 +1,14 @@
+use core::f32;
+
 use cad::registry::Registry;
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
-    render::renderer::{AppState, RenderLayout},
+    render::{
+        Color,
+        line::LineRenderer,
+        renderer::{AppState, RenderLayout},
+    },
 };
 use tracing::{debug, error};
 
@@ -12,16 +18,17 @@ use crate::ui::{
     perf_overlay::PerformanceOverlay,
 };
 
+const BDRY_TOLERANCE: f32 = 5.0;
+
 pub struct App {
     pub perf_overlay: PerformanceOverlay,
     pub mouse_pos: Vector<f32>,
+    pub debug_draw: bool, // Eventually turn this into a menu
     area_map: Registry<AreaId, Area>,
     bdry_map: Registry<BoundaryId, Boundary>,
 }
 
 impl App {
-    pub fn update(&mut self) {}
-
     fn base_layer(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
         let mut out = vec![];
         // Areas can't be calculated using taffy since they're a directed graph, not a tree.
@@ -37,6 +44,8 @@ impl App {
         out
     }
 
+    // TODO: (Next) Horizontal -> Vertical split should result in a vertical split that isnt
+    // collapsable. Currently it is. Which is wrong
     fn split_area(&mut self, pos: Vector<f32>, orientation: BoundaryOrientation) {
         let next_aid = self.area_map.next_id();
         let to_split_aid = self.find_area(pos).unwrap();
@@ -76,7 +85,7 @@ impl App {
         }
         for id in self.further_up_bdry_tree(&to_split_aid) {
             if let Some(existing_bdry) = self.bdry_map.get_mut(&id) {
-                if existing_bdry.orientation != existing_bdry.orientation {
+                if existing_bdry.orientation != bdry.orientation {
                     existing_bdry.side2.push(next_aid);
                 }
             }
@@ -84,11 +93,58 @@ impl App {
         self.bdry_map.insert(bdry);
     }
 
+    fn collapse_boundary(&mut self, pos: Vector<f32>) {
+        if let Some(hovered) = self.find_boundary(pos) {
+            if self.bdry_map[hovered].can_collapse() {
+                let mut bdry = self.bdry_map.remove(&hovered).unwrap();
+                let deleted_dims = self.area_map[bdry.side2[0]].bbox;
+                let remaining_area = &mut self.area_map[bdry.side1[0]];
+                match bdry.orientation {
+                    BoundaryOrientation::Horizontal => {
+                        remaining_area.bbox.x1.y += deleted_dims.height();
+                    }
+                    BoundaryOrientation::Vertical => {
+                        remaining_area.bbox.x1.x += deleted_dims.width();
+                    }
+                }
+                let to_delete = &self.area_map[bdry.side2[0]];
+                if let Some(bid) = self.further_down_bdry_tree(&to_delete.id).first() {
+                    let bdry = &mut self.bdry_map[*bid];
+                    if !bdry.side1.contains(&bdry.side1[0]) {
+                        bdry.side1.push(bdry.side1[0]);
+                    }
+                }
+                for b in self.bdry_map.values_mut() {
+                    b.side1.retain(|x| *x != to_delete.id);
+                    b.side2.retain(|x| *x != to_delete.id);
+                }
+                self.area_map.remove(&bdry.side2[0]);
+            }
+        }
+    }
+
     fn find_area(&self, pos: Vector<f32>) -> Option<AreaId> {
         self.area_map
             .iter()
             .find(|(_, area)| area.bbox.contains(pos))
             .map(|(id, _)| *id)
+    }
+
+    fn find_boundary(&self, pos: Vector<f32>) -> Option<BoundaryId> {
+        let mut out = None;
+        let mut closest_dist = f32::INFINITY;
+        for (id, bdry) in self.bdry_map.iter() {
+            let dist = self.distance_to_point(bdry, pos);
+            if dist < closest_dist {
+                out = Some(*id);
+                closest_dist = dist;
+            }
+        }
+        if closest_dist < BDRY_TOLERANCE {
+            out
+        } else {
+            None
+        }
     }
 
     fn further_down_bdry_tree(&self, id: &AreaId) -> Vec<BoundaryId> {
@@ -110,6 +166,74 @@ impl App {
         }
         out
     }
+
+    fn distance_to_point(&self, bdry: &Boundary, pos: Vector<f32>) -> f32 {
+        let area = &self.area_map[bdry.side2[0]];
+        match bdry.orientation {
+            BoundaryOrientation::Horizontal => {
+                if pos.x > area.bbox.x0.x && pos.x < area.bbox.x0.x + self.extent(bdry) {
+                    return (area.bbox.x0.y - pos.y).abs();
+                }
+            }
+            BoundaryOrientation::Vertical => {
+                if pos.y > area.bbox.x0.y && pos.y < area.bbox.x0.y + self.extent(bdry) {
+                    return (area.bbox.x0.x - pos.x).abs();
+                }
+            }
+        }
+        f32::INFINITY
+    }
+
+    fn extent(&self, bdry: &Boundary) -> f32 {
+        let total;
+        match bdry.orientation {
+            BoundaryOrientation::Horizontal => {
+                let mut total1 = 0.0;
+                let mut total2 = 0.0;
+                for area_id in &bdry.side1 {
+                    let area = &self.area_map[*area_id];
+                    total1 += area.bbox.width();
+                }
+                for area_id in &bdry.side2 {
+                    let area = &self.area_map[*area_id];
+                    total2 += area.bbox.width();
+                }
+                total = total1.max(total2);
+            }
+            BoundaryOrientation::Vertical => {
+                let mut total1 = 0.0;
+                let mut total2 = 0.0;
+                for area_id in &bdry.side1 {
+                    let area = &self.area_map[*area_id];
+                    total1 += area.bbox.height();
+                }
+                for area_id in &bdry.side2 {
+                    let area = &self.area_map[*area_id];
+                    total2 += area.bbox.height();
+                }
+                total = total1.max(total2);
+            }
+        }
+        total
+    }
+
+    pub fn debug_draw(&mut self, line_renderer: &LineRenderer, window_size: Vector<f32>) {
+        for bdry in self.bdry_map.values() {
+            for aid1 in &bdry.side1 {
+                let a1 = &self.area_map[*aid1];
+                for aid2 in &bdry.side2 {
+                    let a2 = &self.area_map[*aid2];
+                    line_renderer.draw(
+                        a1.bbox.center(),
+                        a2.bbox.center(),
+                        Color::new(1.0, 0.0, 0.0, 1.0),
+                        2.0,
+                        window_size,
+                    );
+                }
+            }
+        }
+    }
 }
 
 impl Default for App {
@@ -129,6 +253,7 @@ impl Default for App {
             mouse_pos: Vector::zero(),
             area_map,
             bdry_map: Registry::new(),
+            debug_draw: false,
         }
     }
 }
@@ -147,6 +272,9 @@ impl AppState for App {
         #[allow(clippy::single_match)]
         match action {
             Action::Release => match key {
+                Key::F10 => {
+                    self.debug_draw = true;
+                }
                 Key::F12 => {
                     self.perf_overlay.visible = !self.perf_overlay.visible;
                 }
@@ -155,6 +283,9 @@ impl AppState for App {
                 }
                 Key::V => {
                     self.split_area(self.mouse_pos, BoundaryOrientation::Vertical);
+                }
+                Key::D => {
+                    self.collapse_boundary(self.mouse_pos);
                 }
                 _ => {}
             },

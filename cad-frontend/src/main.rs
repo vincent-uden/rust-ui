@@ -8,8 +8,9 @@ use std::{
 
 use glfw::Context as _;
 use rust_ui::{
+    geometry::Vector,
     init_open_gl,
-    render::{COLOR_LIGHT, renderer::Renderer},
+    render::{COLOR_LIGHT, line::LineRenderer, renderer::Renderer},
     shader::Shader,
 };
 use sysinfo::{ProcessesToUpdate, System};
@@ -51,7 +52,14 @@ fn main() {
     )
     .unwrap();
 
-    let mut state = Renderer::new(rect_shader, text_shader, App::default());
+    let line_shader = Shader::from_paths(
+        &PathBuf::from(format!("{}/line.vs", shader_dir)),
+        &PathBuf::from(format!("{}/line.frag", shader_dir)),
+        None,
+    )
+    .unwrap();
+
+    let mut state = Renderer::new(rect_shader, text_shader, line_shader, App::default());
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
@@ -71,6 +79,8 @@ fn main() {
     let pid = sysinfo::get_current_pid().unwrap();
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let mut ram_usage = sys.process(pid).unwrap().memory();
+
+    let debug_renderer = LineRenderer::new(line_shader.clone());
 
     while !window.should_close() {
         let frame_start = Instant::now();
@@ -120,6 +130,12 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         state.compute_layout_and_render();
+        if state.app_state.debug_draw {
+            state.app_state.debug_draw(
+                &debug_renderer,
+                Vector::new(state.width as f32, state.height as f32),
+            )
+        }
 
         window.swap_buffers();
 

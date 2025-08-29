@@ -56,4 +56,8 @@ impl Boundary {
             hovered: false,
         }
     }
+
+    pub fn can_collapse(&self) -> bool {
+        self.side1.len() == 1 && self.side2.len() == 1
+    }
 }

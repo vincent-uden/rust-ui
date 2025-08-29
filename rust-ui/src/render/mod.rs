@@ -1,4 +1,5 @@
 pub mod clay;
+pub mod line;
 pub mod mesh;
 pub mod rect;
 pub mod renderer;

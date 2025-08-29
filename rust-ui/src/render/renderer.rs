@@ -6,6 +6,7 @@ use crate::{
     geometry::Vector,
     render::{
         Border, Color, Text,
+        line::LineRenderer,
         mesh::MeshRenderer,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
@@ -63,6 +64,7 @@ where
     pub last_mouse_pos: Vector<f32>,
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
+    pub line_r: LineRenderer,
     /// Event listeners which have been triggered and are waiting to be called
     pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
@@ -74,7 +76,12 @@ impl<T> Renderer<T>
 where
     T: AppState + std::default::Default,
 {
-    pub fn new(rect_shader: Shader, text_shader: Shader, initial_state: T) -> Self {
+    pub fn new(
+        rect_shader: Shader,
+        text_shader: Shader,
+        line_shader: Shader,
+        initial_state: T,
+    ) -> Self {
         Self {
             width: 1000,
             height: 800,
@@ -88,6 +95,7 @@ where
                 &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
             )
             .unwrap(),
+            line_r: LineRenderer::new(line_shader),
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,

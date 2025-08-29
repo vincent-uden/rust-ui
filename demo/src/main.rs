@@ -318,9 +318,17 @@ fn main() {
     )
     .unwrap();
 
+    let line_shader = Shader::from_paths(
+        &PathBuf::from(format!("{}/line.vs", shader_dir)),
+        &PathBuf::from(format!("{}/line.frag", shader_dir)),
+        None,
+    )
+    .unwrap();
+
     let mut state = Renderer::new(
         rect_shader,
         text_shader,
+        line_shader,
         PerfStats {
             header_bg: COLOR_LIGHT,
             ..Default::default()
@@ -392,6 +400,35 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         state.compute_layout_and_render();
+
+        // Demonstrate line rendering
+        use rust_ui::{geometry::Vector, render::{COLOR_DANGER, COLOR_SUCCESS, COLOR_PRIMARY}};
+        let window_size = Vector::new(state.width as f32, state.height as f32);
+        
+        // Draw some sample lines
+        state.line_r.draw(
+            Vector::new(50.0, 50.0),
+            Vector::new(200.0, 100.0),
+            COLOR_DANGER,
+            2.0,
+            window_size,
+        );
+        
+        state.line_r.draw(
+            Vector::new(50.0, 120.0),
+            Vector::new(300.0, 120.0),
+            COLOR_SUCCESS,
+            3.0,
+            window_size,
+        );
+        
+        state.line_r.draw(
+            Vector::new(100.0, 150.0),
+            Vector::new(100.0, 250.0),
+            COLOR_PRIMARY,
+            1.5,
+            window_size,
+        );
 
         window.swap_buffers();
 
