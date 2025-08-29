@@ -291,11 +291,28 @@ impl App {
         std::fs::write("layout.json", json).expect("Failed to write layout file");
         info!("Layout saved to layout.json");
     }
-}
 
-impl Default for App {
-    fn default() -> Self {
-        let original_size = Vector::new(1000.0, 800.0);
+    pub fn load_layout(&mut self) {
+        match std::fs::read_to_string("layout.json") {
+            Ok(json) => {
+                match serde_json::from_str::<AreaSerializer>(&json) {
+                    Ok(serializer) => {
+                        self.area_map = serializer.area_map;
+                        self.bdry_map = serializer.bdry_map;
+                        info!("Layout loaded from layout.json");
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to deserialize layout: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to read layout file: {}", e);
+            }
+        }
+    }
+
+    fn create_default_layout(original_size: Vector<f32>) -> (Registry<AreaId, Area>, Registry<BoundaryId, Boundary>) {
         let mut area_map = Registry::new();
         let id = area_map.next_id();
         area_map.insert(Area::new(
@@ -306,13 +323,42 @@ impl Default for App {
                 x1: original_size,
             },
         ));
+        (area_map, Registry::new())
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let original_size = Vector::new(1000.0, 800.0);
+        
+        // Try to load saved layout first
+        let (area_map, bdry_map) = match std::fs::read_to_string("layout.json") {
+            Ok(json) => {
+                match serde_json::from_str::<AreaSerializer>(&json) {
+                    Ok(serializer) => {
+                        println!("Loaded layout from layout.json on startup");
+                        (serializer.area_map, serializer.bdry_map)
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to deserialize layout on startup: {}", e);
+                        Self::create_default_layout(original_size)
+                    }
+                }
+            }
+            Err(_) => {
+                // File doesn't exist, create default layout
+                println!("No saved layout found, creating default layout");
+                Self::create_default_layout(original_size)
+            }
+        };
+
         Self {
             perf_overlay: PerformanceOverlay::default(),
             dragging_boundary: None,
             mouse_pos: Vector::zero(),
             original_window_size: original_size,
             area_map,
-            bdry_map: Registry::new(),
+            bdry_map,
             debug_draw: false,
             settings: Settings {},
             settings_open: false,

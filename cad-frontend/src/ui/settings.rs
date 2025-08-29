@@ -118,9 +118,42 @@ impl Settings {
             )
             .unwrap();
 
+        let load_layout_btn = tree
+            .new_leaf_with_context(
+                Style {
+                    padding: Rect {
+                        left: length(8.0),
+                        right: length(8.0),
+                        top: length(8.0),
+                        bottom: length(8.0),
+                    },
+                    ..Default::default()
+                },
+                NodeContext {
+                    flags: flags::TEXT | flags::HOVER_BG,
+                    text: Text {
+                        text: "Load layout".into(),
+                        font_size: 18,
+                        color: COLOR_LIGHT,
+                    },
+                    bg_color: COLOR_SUCCESS,
+                    bg_color_hover: COLOR_SECONDARY,
+                    border: Border {
+                        radius: BorderRadius::all(8.0),
+                        ..Default::default()
+                    },
+                    on_mouse_up: Some(Arc::new(move |state: &mut Renderer<App>| {
+                        state.app_state.load_layout();
+                    })),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
         tree.add_child(root, modal).unwrap();
         tree.add_child(modal, title).unwrap();
         tree.add_child(modal, save_layout_btn).unwrap();
+        tree.add_child(modal, load_layout_btn).unwrap();
 
         RenderLayout {
             tree,
