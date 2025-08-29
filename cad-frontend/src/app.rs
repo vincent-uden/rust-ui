@@ -2,6 +2,7 @@ use core::f32;
 
 use cad::registry::Registry;
 use glfw::{Action, Key, Modifiers, Scancode};
+use glm::orientation;
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
@@ -96,7 +97,7 @@ impl App {
     fn collapse_boundary(&mut self, pos: Vector<f32>) {
         if let Some(hovered) = self.find_boundary(pos) {
             if self.bdry_map[hovered].can_collapse() {
-                let mut bdry = self.bdry_map.remove(&hovered).unwrap();
+                let bdry = self.bdry_map.remove(&hovered).unwrap();
                 let deleted_dims = self.area_map[bdry.side2[0]].bbox;
                 let remaining_area = &mut self.area_map[bdry.side1[0]];
                 match bdry.orientation {
@@ -108,10 +109,10 @@ impl App {
                     }
                 }
                 let to_delete = &self.area_map[bdry.side2[0]];
-                if let Some(bid) = self.further_down_bdry_tree(&to_delete.id).first() {
-                    let bdry = &mut self.bdry_map[*bid];
-                    if !bdry.side1.contains(&bdry.side1[0]) {
-                        bdry.side1.push(bdry.side1[0]);
+                for bid in self.further_down_bdry_tree(&to_delete.id) {
+                    let b = &mut self.bdry_map[bid];
+                    if !b.side1.contains(&bdry.side1[0]) {
+                        b.side1.push(bdry.side1[0]);
                     }
                 }
                 for b in self.bdry_map.values_mut() {
@@ -291,5 +292,30 @@ impl AppState for App {
             },
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// Produces a layout with 3 area next to each other
+    pub fn collapse_area_edge_case_reconnection() {
+        let mut app = App::default();
+        app.split_area(Vector::new(275.0, 385.0), BoundaryOrientation::Vertical);
+        app.split_area(Vector::new(718.0, 391.0), BoundaryOrientation::Vertical);
+        app.collapse_boundary(Vector::new(500.0, 442.0));
+
+        assert!(app.bdry_map.len() == 1, "There should be 1 boundary left");
+        let bdry = &app.bdry_map[BoundaryId(1)];
+        assert!(
+            bdry.side1 == vec![AreaId(0)],
+            "The root area should be on the left of the boundary"
+        );
+        assert!(
+            bdry.side2 == vec![AreaId(2)],
+            "The leaf area should be on the right of the boundary"
+        );
     }
 }
