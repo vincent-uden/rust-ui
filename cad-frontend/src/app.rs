@@ -2,7 +2,6 @@ use core::f32;
 
 use cad::registry::Registry;
 use glfw::{Action, Key, Modifiers, Scancode};
-use glm::orientation;
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
@@ -11,13 +10,21 @@ use rust_ui::{
         renderer::{AppState, RenderLayout},
     },
 };
-use tracing::{debug, error};
+use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::ui::{
     area::{Area, AreaId, AreaType},
     boundary::{Boundary, BoundaryId, BoundaryOrientation},
     perf_overlay::PerformanceOverlay,
+    settings::Settings,
 };
+
+#[derive(Serialize, Deserialize)]
+struct AreaSerializer {
+    pub area_map: Registry<AreaId, Area>,
+    pub bdry_map: Registry<BoundaryId, Boundary>,
+}
 
 const BDRY_TOLERANCE: f32 = 5.0;
 
@@ -29,10 +36,12 @@ pub struct App {
     pub original_window_size: Vector<f32>,
     pub area_map: Registry<AreaId, Area>,
     pub bdry_map: Registry<BoundaryId, Boundary>,
+    pub settings: Settings,
+    pub settings_open: bool,
 }
 
 impl App {
-    fn base_layer(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
+    fn base_layer(&mut self, _window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
         let mut out = vec![];
         // Areas can't be calculated using taffy since they're a directed graph, not a tree.
         // Return one RenderLayout per area. They will technically be on different layers, but that
@@ -255,16 +264,6 @@ impl App {
         self.original_window_size = new_window_size;
     }
 
-    pub fn area_menu_item_enter(&mut self, from: AreaId, i: usize) {
-        self.area_map[from].hovered = Some(i);
-    }
-
-    pub fn area_menu_item_exit(&mut self, from: AreaId, i: usize) {
-        if self.area_map[from].hovered == Some(i) {
-            self.area_map[from].hovered = None;
-        }
-    }
-
     pub fn debug_draw(&mut self, line_renderer: &LineRenderer, window_size: Vector<f32>) {
         for bdry in self.bdry_map.values() {
             for aid1 in &bdry.side1 {
@@ -281,6 +280,16 @@ impl App {
                 }
             }
         }
+    }
+
+    pub fn save_layout(&self) {
+        let out = AreaSerializer {
+            area_map: self.area_map.clone(),
+            bdry_map: self.bdry_map.clone(),
+        };
+        let json = serde_json::to_string_pretty(&out).expect("Failed to serialize layout");
+        std::fs::write("layout.json", json).expect("Failed to write layout file");
+        info!("Layout saved to layout.json");
     }
 }
 
@@ -305,6 +314,8 @@ impl Default for App {
             area_map,
             bdry_map: Registry::new(),
             debug_draw: false,
+            settings: Settings {},
+            settings_open: false,
         }
     }
 }
@@ -315,6 +326,9 @@ impl AppState for App {
         out.extend(self.base_layer(window_size));
         if self.perf_overlay.visible {
             out.push(self.perf_overlay.generate_layout(window_size));
+        }
+        if self.settings_open {
+            out.push(self.settings.generate_layout(window_size));
         }
         out
     }
@@ -337,6 +351,9 @@ impl AppState for App {
                 }
                 Key::D => {
                     self.collapse_boundary(self.mouse_pos);
+                }
+                Key::Escape => {
+                    self.settings_open = !self.settings_open;
                 }
                 _ => {}
             },

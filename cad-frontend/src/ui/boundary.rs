@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ui::area::AreaId;
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum BoundaryOrientation {
     Horizontal,
     Vertical,
@@ -29,7 +29,7 @@ impl Default for BoundaryId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Boundary {
     pub id: BoundaryId,
     pub orientation: BoundaryOrientation,

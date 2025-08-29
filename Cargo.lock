@@ -207,6 +207,7 @@ dependencies = [
  "nalgebra-glm",
  "rust-ui",
  "serde",
+ "serde_json",
  "sysinfo",
  "taffy",
  "tracing",

@@ -2,18 +2,14 @@ use std::sync::Arc;
 
 use cad::registry::RegId;
 use rust_ui::{
-    geometry::{Rect, Vector},
+    geometry::Rect,
     render::{
         COLOR_BLACK, COLOR_LIGHT, Color, NORD3, NORD9, NORD11, NORD14, Text,
         renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags},
     },
 };
 use serde::{Deserialize, Serialize};
-use taffy::{
-    AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree,
-    prelude::{TaffyMinContent, auto, length},
-};
-use tracing::debug;
+use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
 
 use crate::app::App;
 
@@ -58,7 +54,7 @@ impl Default for AreaId {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Area {
     pub id: AreaId,
     pub area_type: AreaType,
@@ -66,6 +62,19 @@ pub struct Area {
     pub hovered: Option<usize>,
     pub expanded: Option<usize>,
     pub expand_hovered: Option<usize>,
+}
+
+impl Clone for Area {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            area_type: self.area_type,
+            bbox: self.bbox,
+            hovered: self.hovered,
+            expanded: self.expanded,
+            expand_hovered: self.expand_hovered,
+        }
+    }
 }
 
 impl Area {
@@ -225,7 +234,7 @@ impl Area {
         tree.add_child(expanded, kind_tab).unwrap();
 
         if self.expanded.is_some() {
-            for (i, kind) in AreaType::all().into_iter().enumerate() {
+            for (_i, kind) in AreaType::all().into_iter().enumerate() {
                 let id = self.id;
                 let node = tree
                     .new_leaf_with_context(
