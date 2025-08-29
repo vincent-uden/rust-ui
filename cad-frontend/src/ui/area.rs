@@ -181,17 +181,14 @@ impl Area {
                     ..Default::default()
                 },
                 NodeContext {
-                    flags: flags::TEXT,
+                    flags: flags::TEXT | flags::HOVER_BG,
                     text: Text {
                         text: "Area type".into(),
                         font_size: 18,
                         color: COLOR_LIGHT,
                     },
-                    bg_color: if self.expand_hovered.is_some() {
-                        NORD3
-                    } else {
-                        COLOR_BLACK
-                    },
+                    bg_color: COLOR_BLACK,
+                    bg_color_hover: NORD3,
                     on_mouse_down: Some(Arc::new(move |state: &mut Renderer<App>| {
                         let area = &mut state.app_state.area_map[id];
                         if let Some(_) = area.expanded {
@@ -199,14 +196,6 @@ impl Area {
                         } else {
                             area.expanded = Some(0);
                         }
-                    })),
-                    on_mouse_enter: Some(Arc::new(move |state: &mut Renderer<App>| {
-                        let area = &mut state.app_state.area_map[id];
-                        area.expand_hovered = Some(0);
-                    })),
-                    on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
-                        let area = &mut state.app_state.area_map[id];
-                        area.expand_hovered = None;
                     })),
                     ..Default::default()
                 },
@@ -251,25 +240,16 @@ impl Area {
                             ..Default::default()
                         },
                         NodeContext {
-                            flags: flags::TEXT,
+                            flags: flags::TEXT | flags::HOVER_BG,
                             text: Text {
                                 text: kind.name().into(),
                                 font_size: 18,
                                 color: COLOR_LIGHT,
                             },
-                            bg_color: if self.hovered.unwrap_or(usize::MAX) == i {
-                                NORD3
-                            } else {
-                                COLOR_BLACK
-                            },
+                            bg_color: COLOR_BLACK,
+                            bg_color_hover: NORD3,
                             on_mouse_up: Some(Arc::new(move |state| {
                                 state.app_state.area_map[id].area_type = kind;
-                            })),
-                            on_mouse_enter: Some(Arc::new(move |state: &mut Renderer<App>| {
-                                state.app_state.area_menu_item_enter(id, i);
-                            })),
-                            on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
-                                state.app_state.area_menu_item_exit(id, i);
                             })),
                             ..Default::default()
                         },

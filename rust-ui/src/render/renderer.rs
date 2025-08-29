@@ -26,6 +26,7 @@ pub mod flags {
     use super::Flag;
     /// Enables text drawing in a node
     pub const TEXT: Flag = 0b00000001;
+    pub const HOVER_BG: Flag = 0b00000010;
 }
 
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
@@ -40,6 +41,7 @@ where
     pub flags: Flag,
     // Colors
     pub bg_color: Color,
+    pub bg_color_hover: Color,
     // Border
     pub border: Border,
     pub text: Text,
@@ -237,8 +239,21 @@ where
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
 
-            // Drawing
             let abs_pos = layout.location + parent_pos;
+            let bbox = crate::geometry::Rect {
+                x0: Vector::new(abs_pos.x, abs_pos.y),
+                x1: Vector::new(
+                    abs_pos.x + layout.size.width,
+                    abs_pos.y + layout.size.height,
+                ),
+            };
+            let bg_color = if (ctx.flags & flags::HOVER_BG != 0) && bbox.contains(self.mouse_pos) {
+                ctx.bg_color_hover
+            } else {
+                ctx.bg_color
+            };
+
+            // Drawing
             self.rect_r.draw(
                 crate::geometry::Rect {
                     x0: Vector::new(abs_pos.x, abs_pos.y),
@@ -247,12 +262,12 @@ where
                         abs_pos.y + layout.size.height,
                     ),
                 },
-                ctx.bg_color,
+                bg_color,
                 ctx.border,
                 1.0,
             );
 
-            if ctx.flags & flags::TEXT == 1 {
+            if ctx.flags & flags::TEXT != 0 {
                 self.text_r.draw_in_box(
                     ctx.text.clone(),
                     Vector::new(
