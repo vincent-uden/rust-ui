@@ -27,7 +27,7 @@ pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
-        .with_env_filter(EnvFilter::new("cad_frontend"))
+        .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))
         .init();
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);

@@ -1,6 +1,11 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
+use tracing::debug;
 
 use crate::{
     geometry::Vector,
@@ -13,7 +18,7 @@ use crate::{
     },
     shader::Shader,
 };
-use taffy::prelude::*;
+use taffy::{prelude::*, print_tree};
 
 type Flag = u8;
 
@@ -204,13 +209,13 @@ where
                 Anchor::BottomRight => window_size - layer.root_pos - size,
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
-            
+
             if layer.scissor {
                 self.enable_scissor_for_layer(pos, size);
             }
-            
+
             self.render_tree(&layer.tree, layer.root, pos);
-            
+
             if layer.scissor {
                 self.disable_scissor();
             }
@@ -225,8 +230,9 @@ where
         root_node: NodeId,
         position: Vector<f32>,
     ) {
-        let mut stack: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
-        while let Some((id, parent_pos)) = stack.pop() {
+        let mut stack: VecDeque<(NodeId, taffy::Point<f32>)> =
+            vec![(root_node, position.into())].into();
+        while let Some((id, parent_pos)) = stack.pop_front() {
             let layout = tree.layout(id).unwrap();
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
@@ -249,8 +255,14 @@ where
             if ctx.flags & flags::TEXT == 1 {
                 self.text_r.draw_in_box(
                     ctx.text.clone(),
-                    Vector::new(abs_pos.x, abs_pos.y),
-                    layout.size,
+                    Vector::new(
+                        abs_pos.x + layout.padding.left,
+                        abs_pos.y + layout.padding.top,
+                    ),
+                    Size {
+                        width: layout.size.width - layout.padding.left - layout.padding.right,
+                        height: layout.size.height - layout.padding.top - layout.padding.bottom,
+                    },
                 );
             }
 
@@ -295,7 +307,7 @@ where
 
             if let Ok(children) = tree.children(id) {
                 for child in children {
-                    stack.push((child, layout.location + parent_pos));
+                    stack.push_back((child, layout.location + parent_pos));
                 }
             }
         }

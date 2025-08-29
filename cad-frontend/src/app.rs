@@ -27,8 +27,8 @@ pub struct App {
     pub mouse_pos: Vector<f32>,
     pub debug_draw: bool, // Eventually turn this into a menu
     pub original_window_size: Vector<f32>,
-    area_map: Registry<AreaId, Area>,
-    bdry_map: Registry<BoundaryId, Boundary>,
+    pub area_map: Registry<AreaId, Area>,
+    pub bdry_map: Registry<BoundaryId, Boundary>,
 }
 
 impl App {
@@ -37,10 +37,12 @@ impl App {
         // Areas can't be calculated using taffy since they're a directed graph, not a tree.
         // Return one RenderLayout per area. They will technically be on different layers, but that
         // doesn' matter as they'll all be scissored.
-        let root_area = self.area_map.get(&AreaId(0));
 
         for area in self.area_map.values_mut() {
             out.push(area.generate_layout());
+        }
+        for area in self.area_map.values_mut() {
+            out.push(area.area_kind_picker_layout());
         }
 
         out
@@ -242,15 +244,25 @@ impl App {
     pub fn resize_areas(&mut self, new_window_size: Vector<f32>) {
         let scale_x = new_window_size.x / self.original_window_size.x;
         let scale_y = new_window_size.y / self.original_window_size.y;
-        
+
         for area in self.area_map.values_mut() {
             area.bbox.x0.x *= scale_x;
             area.bbox.x0.y *= scale_y;
             area.bbox.x1.x *= scale_x;
             area.bbox.x1.y *= scale_y;
         }
-        
+
         self.original_window_size = new_window_size;
+    }
+
+    pub fn area_menu_item_enter(&mut self, from: AreaId, i: usize) {
+        self.area_map[from].hovered = Some(i);
+    }
+
+    pub fn area_menu_item_exit(&mut self, from: AreaId, i: usize) {
+        if self.area_map[from].hovered == Some(i) {
+            self.area_map[from].hovered = None;
+        }
     }
 
     pub fn debug_draw(&mut self, line_renderer: &LineRenderer, window_size: Vector<f32>) {

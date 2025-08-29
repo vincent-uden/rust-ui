@@ -372,7 +372,7 @@ impl TextRenderer {
         self.shader.use_shader();
         let text_unit = 0;
         self.shader.set_uniform("text", &text_unit);
-        let color_vec = glm::make_vec3(&[color.r, color.g, color.b]);
+        let color_vec = glm::make_vec4(&[color.r, color.g, color.b, color.a]);
         self.shader.set_uniform("textColor", &color_vec);
 
         let atlas_texture_id = self.atlases[&font_size].texture_id;
@@ -457,7 +457,7 @@ impl TextRenderer {
     ) -> Vec<TextLine> {
         let mut out = vec![];
 
-        let mut y = 0.0;
+        let mut y = font_size as f32 * 0.2;
         let mut current_line = String::new();
         let mut pending_line = String::new();
         for word in split_with_trailing_whitespace(&text) {
