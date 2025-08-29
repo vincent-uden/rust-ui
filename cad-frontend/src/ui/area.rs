@@ -11,18 +11,24 @@ use rust_ui::{
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
 
-use crate::app::App;
+use crate::{app::App, ui::viewport::Viewport};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub enum AreaType {
     Red,
     Green,
     Blue,
+    Viewport,
 }
 
 impl AreaType {
-    pub fn all() -> [AreaType; 3] {
-        [AreaType::Red, AreaType::Green, AreaType::Blue]
+    pub fn all() -> [AreaType; 4] {
+        [
+            AreaType::Red,
+            AreaType::Green,
+            AreaType::Blue,
+            AreaType::Viewport,
+        ]
     }
 
     pub fn name(&self) -> &'static str {
@@ -30,6 +36,7 @@ impl AreaType {
             AreaType::Red => "Red",
             AreaType::Green => "Green",
             AreaType::Blue => "Blue",
+            AreaType::Viewport => "Viewport",
         }
     }
 }
@@ -107,6 +114,7 @@ impl Area {
                         AreaType::Red => NORD11,
                         AreaType::Green => NORD14,
                         AreaType::Blue => NORD9,
+                        AreaType::Viewport => COLOR_BLACK,
                     },
                     on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
                         let area = &mut state.app_state.area_map[id];
