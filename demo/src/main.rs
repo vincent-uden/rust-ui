@@ -255,8 +255,10 @@ impl AppState for PerfStats {
         if self.visible {
             let mut top_left = self.stats_overlay(window_size);
             top_left.anchor = Anchor::TopLeft;
+            top_left.scissor = true;
             let mut top_right = self.stats_overlay(window_size);
             top_right.anchor = Anchor::TopRight;
+            top_right.scissor = true;
             let mut bottom_left = self.stats_overlay(window_size);
             bottom_left.anchor = Anchor::BottomLeft;
             let mut bottom_right = self.stats_overlay(window_size);

@@ -102,6 +102,25 @@ where
         }
     }
 
+    fn enable_scissor_for_layer(&self, root_pos: Vector<f32>, size: Vector<f32>) {
+        let opengl_y = self.height as f32 - root_pos.y - size.y;
+        unsafe {
+            gl::Enable(gl::SCISSOR_TEST);
+            gl::Scissor(
+                root_pos.x as i32,
+                opengl_y as i32,
+                size.x as i32,
+                size.y as i32,
+            );
+        }
+    }
+
+    fn disable_scissor(&self) {
+        unsafe {
+            gl::Disable(gl::SCISSOR_TEST);
+        }
+    }
+
     /// Runs all the triggered but not yet called event listeners
     fn run_event_listeners(&mut self) {
         while let Some(el) = self.pending_event_listeners.pop() {
@@ -185,7 +204,16 @@ where
                 Anchor::BottomRight => window_size - layer.root_pos - size,
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
+            
+            if layer.scissor {
+                self.enable_scissor_for_layer(pos, size);
+            }
+            
             self.render_tree(&layer.tree, layer.root, pos);
+            
+            if layer.scissor {
+                self.disable_scissor();
+            }
         }
     }
 
