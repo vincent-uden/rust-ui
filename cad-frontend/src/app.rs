@@ -23,6 +23,7 @@ const BDRY_TOLERANCE: f32 = 5.0;
 
 pub struct App {
     pub perf_overlay: PerformanceOverlay,
+    pub dragging_boundary: Option<BoundaryId>,
     pub mouse_pos: Vector<f32>,
     pub debug_draw: bool, // Eventually turn this into a menu
     area_map: Registry<AreaId, Area>,
@@ -38,15 +39,12 @@ impl App {
         let root_area = self.area_map.get(&AreaId(0));
 
         for area in self.area_map.values_mut() {
-            // TODO: Replace with the areas actual size
             out.push(area.generate_layout());
         }
 
         out
     }
 
-    // TODO: (Next) Horizontal -> Vertical split should result in a vertical split that isnt
-    // collapsable. Currently it is. Which is wrong
     fn split_area(&mut self, pos: Vector<f32>, orientation: BoundaryOrientation) {
         let next_aid = self.area_map.next_id();
         let to_split_aid = self.find_area(pos).unwrap();
@@ -218,6 +216,28 @@ impl App {
         total
     }
 
+    fn move_boundary(&mut self, end_pos: Vector<f32>, bid: BoundaryId) {
+        let bdry = &self.bdry_map[bid];
+        match bdry.orientation {
+            BoundaryOrientation::Horizontal => {
+                for aid in &bdry.side1 {
+                    self.area_map[*aid].bbox.x1.y = end_pos.y;
+                }
+                for aid in &bdry.side2 {
+                    self.area_map[*aid].bbox.x0.y = end_pos.y;
+                }
+            }
+            BoundaryOrientation::Vertical => {
+                for aid in &bdry.side1 {
+                    self.area_map[*aid].bbox.x1.x = end_pos.x;
+                }
+                for aid in &bdry.side2 {
+                    self.area_map[*aid].bbox.x0.x = end_pos.x;
+                }
+            }
+        }
+    }
+
     pub fn debug_draw(&mut self, line_renderer: &LineRenderer, window_size: Vector<f32>) {
         for bdry in self.bdry_map.values() {
             for aid1 in &bdry.side1 {
@@ -251,6 +271,7 @@ impl Default for App {
         ));
         Self {
             perf_overlay: PerformanceOverlay::default(),
+            dragging_boundary: None,
             mouse_pos: Vector::zero(),
             area_map,
             bdry_map: Registry::new(),
@@ -291,6 +312,37 @@ impl AppState for App {
                 _ => {}
             },
             _ => {}
+        }
+    }
+
+    fn handle_mouse_position(&mut self, position: Vector<f32>, _delta: Vector<f32>) {
+        self.mouse_pos = position;
+        if let Some(bid) = self.dragging_boundary {
+            self.move_boundary(self.mouse_pos, bid);
+        }
+    }
+
+    fn handle_mouse_button(
+        &mut self,
+        button: glfw::MouseButton,
+        action: Action,
+        _modifiers: Modifiers,
+    ) {
+        match action {
+            Action::Release => {
+                self.dragging_boundary = None;
+            }
+            Action::Press => match button {
+                glfw::MouseButton::Button1 => {
+                    for (bid, bdry) in self.bdry_map.iter() {
+                        if self.distance_to_point(bdry, self.mouse_pos) < BDRY_TOLERANCE {
+                            self.dragging_boundary = Some(*bid);
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Action::Repeat => todo!(),
         }
     }
 }

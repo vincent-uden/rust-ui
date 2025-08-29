@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use glfw::{Action, Key, Modifiers, Scancode};
+use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 
 use crate::{
     geometry::Vector,
@@ -124,6 +124,31 @@ where
         modifiers: Modifiers,
     ) {
         self.app_state.handle_key(key, scancode, action, modifiers);
+    }
+
+    /// Passes mouse button events to the application state
+    pub fn handle_mouse_button(
+        &mut self,
+        button: MouseButton,
+        action: Action,
+        modifiers: Modifiers,
+    ) {
+        self.mouse_left_down = action == glfw::Action::Press || action == glfw::Action::Repeat;
+        self.app_state
+            .handle_mouse_button(button, action, modifiers);
+    }
+
+    /// Passes mouse position changes to the application state
+    pub fn handle_mouse_position(&mut self, position: Vector<f32>) {
+        let delta = position - self.last_mouse_pos;
+        self.last_mouse_pos = self.mouse_pos;
+        self.mouse_pos = position;
+        self.app_state.handle_mouse_position(position, delta);
+    }
+
+    /// Passes mouse scroll events to the application state
+    pub fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
+        self.app_state.handle_mouse_scroll(scroll_delta);
     }
 
     /// Fetches a layout tree for each layer from the application state, draws them to the screen
@@ -326,5 +351,21 @@ where
 
 pub trait AppState: Default {
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
-    fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers) {}
+    fn handle_key(
+        &mut self,
+        _key: Key,
+        _scancode: Scancode,
+        _action: Action,
+        _modifiers: Modifiers,
+    ) {
+    }
+    fn handle_mouse_button(
+        &mut self,
+        _button: MouseButton,
+        _action: Action,
+        _modifiers: Modifiers,
+    ) {
+    }
+    fn handle_mouse_position(&mut self, _position: Vector<f32>, _delta: Vector<f32>) {}
+    fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
 }

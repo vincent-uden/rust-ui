@@ -10,7 +10,7 @@ use glfw::Context as _;
 use rust_ui::{
     geometry::Vector,
     init_open_gl,
-    render::{COLOR_LIGHT, line::LineRenderer, renderer::Renderer},
+    render::{line::LineRenderer, renderer::Renderer},
     shader::Shader,
 };
 use sysinfo::{ProcessesToUpdate, System};
@@ -90,17 +90,11 @@ fn main() {
         state.mouse_left_was_down = state.mouse_left_down;
         for (_, event) in glfw::flush_messages(&events) {
             match event {
-                glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1, action, _) => {
-                    state.mouse_left_down =
-                        action == glfw::Action::Press || action == glfw::Action::Repeat;
+                glfw::WindowEvent::MouseButton(button, action, modifiers) => {
+                    state.handle_mouse_button(button, action, modifiers);
                 }
                 glfw::WindowEvent::CursorPos(x, y) => {
-                    state.last_mouse_pos.x = state.mouse_pos.x;
-                    state.last_mouse_pos.y = state.mouse_pos.y;
-                    state.mouse_pos.x = x as f32;
-                    state.mouse_pos.y = y as f32;
-                    state.app_state.mouse_pos.x = x as f32;
-                    state.app_state.mouse_pos.y = y as f32;
+                    state.handle_mouse_position(Vector::new(x as f32, y as f32));
                 }
                 glfw::WindowEvent::FramebufferSize(width, height) => {
                     state.window_size((width, height));
