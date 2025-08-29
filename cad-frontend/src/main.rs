@@ -97,6 +97,8 @@ fn main() {
                     state.handle_mouse_position(Vector::new(x as f32, y as f32));
                 }
                 glfw::WindowEvent::FramebufferSize(width, height) => {
+                    let new_size = Vector::new(width as f32, height as f32);
+                    state.app_state.resize_areas(new_size);
                     state.window_size((width, height));
                     unsafe {
                         gl::Viewport(0, 0, width, height);

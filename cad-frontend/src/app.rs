@@ -26,6 +26,7 @@ pub struct App {
     pub dragging_boundary: Option<BoundaryId>,
     pub mouse_pos: Vector<f32>,
     pub debug_draw: bool, // Eventually turn this into a menu
+    pub original_window_size: Vector<f32>,
     area_map: Registry<AreaId, Area>,
     bdry_map: Registry<BoundaryId, Boundary>,
 }
@@ -238,6 +239,20 @@ impl App {
         }
     }
 
+    pub fn resize_areas(&mut self, new_window_size: Vector<f32>) {
+        let scale_x = new_window_size.x / self.original_window_size.x;
+        let scale_y = new_window_size.y / self.original_window_size.y;
+        
+        for area in self.area_map.values_mut() {
+            area.bbox.x0.x *= scale_x;
+            area.bbox.x0.y *= scale_y;
+            area.bbox.x1.x *= scale_x;
+            area.bbox.x1.y *= scale_y;
+        }
+        
+        self.original_window_size = new_window_size;
+    }
+
     pub fn debug_draw(&mut self, line_renderer: &LineRenderer, window_size: Vector<f32>) {
         for bdry in self.bdry_map.values() {
             for aid1 in &bdry.side1 {
@@ -259,6 +274,7 @@ impl App {
 
 impl Default for App {
     fn default() -> Self {
+        let original_size = Vector::new(1000.0, 800.0);
         let mut area_map = Registry::new();
         let id = area_map.next_id();
         area_map.insert(Area::new(
@@ -266,13 +282,14 @@ impl Default for App {
             AreaType::Red,
             Rect {
                 x0: Vector::new(0.0, 0.0),
-                x1: Vector::new(1000.0, 800.0),
+                x1: original_size,
             },
         ));
         Self {
             perf_overlay: PerformanceOverlay::default(),
             dragging_boundary: None,
             mouse_pos: Vector::zero(),
+            original_window_size: original_size,
             area_map,
             bdry_map: Registry::new(),
             debug_draw: false,
