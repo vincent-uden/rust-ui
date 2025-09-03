@@ -66,7 +66,7 @@ impl PerformanceOverlay {
                     flags: flags::TEXT,
                     text: Text {
                         text: format!(
-                            "Sleep time: {:.2} ms",
+                            "Frame time: {:.2} ms",
                             self.max_frame_time.as_millis() as f64 - self.avg_sleep_ms
                         ),
                         font_size: 14,

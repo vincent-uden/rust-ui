@@ -19,10 +19,17 @@ use tracing_subscriber::EnvFilter;
 use crate::app::App;
 
 mod app;
+mod sketch_renderer;
 mod ui;
 
 pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
+
+// Select shader directory based on target architecture
+#[cfg(target_arch = "aarch64")]
+pub const SHADER_DIR: &str = "./shaders/gles300";
+#[cfg(not(target_arch = "aarch64"))]
+pub const SHADER_DIR: &str = "./shaders/glsl330";
 
 fn main() {
     tracing_subscriber::fmt()
@@ -32,29 +39,23 @@ fn main() {
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);
 
-    // Select shader directory based on target architecture
-    #[cfg(target_arch = "aarch64")]
-    let shader_dir = "./shaders/gles300";
-    #[cfg(not(target_arch = "aarch64"))]
-    let shader_dir = "./shaders/glsl330";
-
     let rect_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/rounded_rect.vs", shader_dir)),
-        &PathBuf::from(format!("{}/rounded_rect.frag", shader_dir)),
+        &PathBuf::from(format!("{}/rounded_rect.vs", SHADER_DIR)),
+        &PathBuf::from(format!("{}/rounded_rect.frag", SHADER_DIR)),
         None,
     )
     .unwrap();
 
     let text_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/text.vs", shader_dir)),
-        &PathBuf::from(format!("{}/text.frag", shader_dir)),
+        &PathBuf::from(format!("{}/text.vs", SHADER_DIR)),
+        &PathBuf::from(format!("{}/text.frag", SHADER_DIR)),
         None,
     )
     .unwrap();
 
     let line_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/line.vs", shader_dir)),
-        &PathBuf::from(format!("{}/line.frag", shader_dir)),
+        &PathBuf::from(format!("{}/line.vs", SHADER_DIR)),
+        &PathBuf::from(format!("{}/line.frag", SHADER_DIR)),
         None,
     )
     .unwrap();
