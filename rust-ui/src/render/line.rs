@@ -85,8 +85,6 @@ impl LineRenderer {
         self.shader.set_uniform("model", model);
         self.shader.set_uniform("view", view);
         self.shader.set_uniform("projection", projection);
-
-        // Set uniforms
         let color_vec = glm::make_vec4(&[color.r, color.g, color.b, color.a]);
         self.shader.set_uniform("color", &color_vec);
 

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use cad::registry::RegId;
+use glm::Vec3;
 use rust_ui::{
     geometry::Rect,
     render::{
@@ -61,27 +62,38 @@ impl Default for AreaId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy)]
+enum AreaData {
+    #[default]
+    None,
+    Viewport(ViewportData),
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct ViewportData {
+    /// Angle from the horizon up to the camera in radians. At 0.0 degrees the camera is parallel
+    /// to the ground. At 90.0 degrees the camera is looking straight at the ground.
+    horizontal_angle: f32,
+    /// Angle "around" the pole. At 0.0 degrees the camera is looking towards the negative x-axis,
+    /// at 90.0 degrees it is looking towards the negative y-axis. (I think)
+    polar_angle: f32,
+    /// The point around which the camera is orbiting. Panning moves this point
+    looking_at: Vec3,
+    /// The distance the camera is from [ViewportData::looking_at], similar to a zoom, but not
+    /// quite
+    distance: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Area {
     pub id: AreaId,
     pub area_type: AreaType,
+    #[serde(skip)]
+    pub area_data: AreaData,
     pub bbox: Rect<f32>,
     pub hovered: Option<usize>,
     pub expanded: Option<usize>,
     pub expand_hovered: Option<usize>,
-}
-
-impl Clone for Area {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            area_type: self.area_type,
-            bbox: self.bbox,
-            hovered: self.hovered,
-            expanded: self.expanded,
-            expand_hovered: self.expand_hovered,
-        }
-    }
 }
 
 impl Area {
@@ -89,6 +101,10 @@ impl Area {
         Self {
             id,
             area_type,
+            area_data: match area_type {
+                AreaType::Viewport => AreaData::Viewport(ViewportData::default()),
+                _ => AreaData::None,
+            },
             bbox,
             hovered: None,
             expanded: None,
