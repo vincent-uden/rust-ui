@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
 use cad::{
-    entity::{FundamentalEntity, GuidedEntity, Point},
+    entity::{GuidedEntity, Point},
     sketch::Sketch,
 };
 use rust_ui::{
     geometry::Vector,
-    render::{COLOR_LIGHT, Color, line::LineRenderer},
+    render::{Color, line::LineRenderer},
     shader::Shader,
 };
 use tracing::debug;
@@ -47,12 +47,20 @@ impl SketchRenderer {
                     let projection =
                         glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 1000.0);
                     let model = glm::Mat4::identity();
-                    let mut view = glm::Mat4::identity();
-                    view =
-                        glm::Mat4::new_rotation(glm::Vec3::new(state.horizontal_angle, 0.0, 0.0))
-                            * view;
-                    view =
-                        glm::Mat4::new_rotation(glm::Vec3::new(0.0, 0.0, state.polar_angle)) * view;
+
+                    // Create camera position using spherical coordinates
+                    let camera_distance = 5.0;
+                    let camera_pos = glm::Vec3::new(
+                        camera_distance * state.horizontal_angle.sin() * state.polar_angle.cos(),
+                        camera_distance * state.horizontal_angle.cos(),
+                        camera_distance * state.horizontal_angle.sin() * state.polar_angle.sin(),
+                    );
+
+                    let view = glm::look_at(
+                        &camera_pos,                    // Camera position
+                        &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
+                        &glm::Vec3::new(0.0, 1.0, 0.0), // Up vector
+                    );
                     self.line_r.draw_3d(
                         s,
                         e,
@@ -62,7 +70,6 @@ impl SketchRenderer {
                         &model,
                         &view,
                     );
-                    debug!("Drawing line {:?} {:?}", s, e);
                 }
                 _ => {} // TODO: Implement
             }
