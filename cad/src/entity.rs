@@ -32,6 +32,39 @@ pub enum FundamentalEntity {
     Circle(Circle),
 }
 
+impl TryFrom<FundamentalEntity> for Point {
+    type Error = FundamentalEntity;
+
+    fn try_from(value: FundamentalEntity) -> Result<Self, Self::Error> {
+        match value {
+            FundamentalEntity::Point(p) => Ok(p),
+            a => Err(a),
+        }
+    }
+}
+
+impl TryFrom<FundamentalEntity> for Line {
+    type Error = FundamentalEntity;
+
+    fn try_from(value: FundamentalEntity) -> Result<Self, Self::Error> {
+        match value {
+            FundamentalEntity::Line(l) => Ok(l),
+            a => Err(a),
+        }
+    }
+}
+
+impl TryFrom<FundamentalEntity> for Circle {
+    type Error = FundamentalEntity;
+
+    fn try_from(value: FundamentalEntity) -> Result<Self, Self::Error> {
+        match value {
+            FundamentalEntity::Circle(c) => Ok(c),
+            a => Err(a),
+        }
+    }
+}
+
 fn vector_angle(a: Vector2<f64>) -> f64 {
     let angle = f64::atan2(a.y, a.x);
     if angle < 0.0 {
@@ -497,12 +530,14 @@ pub enum GuidedEntity {
     Point {
         id: EntityId,
     },
+    /// An infinte line such as the Cartesian axes
     Line {
         id: EntityId,
     },
     Circle {
         id: EntityId,
     },
+    /// A finite line between two points
     CappedLine {
         start: EntityId,
         end: EntityId,

@@ -1,6 +1,9 @@
 use core::f32;
 
-use cad::registry::Registry;
+use cad::{
+    entity::{FundamentalEntity, GuidedEntity, Line, Point},
+    registry::Registry,
+};
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
@@ -13,11 +16,14 @@ use rust_ui::{
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use crate::ui::{
-    area::{Area, AreaId, AreaType},
-    boundary::{Boundary, BoundaryId, BoundaryOrientation},
-    perf_overlay::PerformanceOverlay,
-    settings::Settings,
+use crate::{
+    sketch_renderer::SketchRenderer,
+    ui::{
+        area::{Area, AreaId, AreaType},
+        boundary::{Boundary, BoundaryId, BoundaryOrientation},
+        perf_overlay::PerformanceOverlay,
+        settings::Settings,
+    },
 };
 
 #[derive(Serialize, Deserialize)]
@@ -38,6 +44,7 @@ pub struct App {
     pub bdry_map: Registry<BoundaryId, Boundary>,
     pub settings: Settings,
     pub settings_open: bool,
+    pub sketch_renderer: SketchRenderer,
 }
 
 impl App {
@@ -311,6 +318,60 @@ impl App {
         }
     }
 
+    /// Some areas contain stuff that isn't part of the regular UI tree such as the viewport that
+    /// renders 3D scenes. Those are rendered here, before the UI pass.
+    pub fn draw_special_areas(&mut self) {
+        let mut sketch = cad::sketch::Sketch::new("Test sketch".into());
+        let p1 = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Point(Point {
+                pos: glm::vec2(0.0, 0.0),
+            }));
+        let p2 = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Point(Point {
+                pos: glm::vec2(1.0, 0.0),
+            }));
+        let p3 = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Point(Point {
+                pos: glm::vec2(0.0, 1.0),
+            }));
+        // Doesnt matter for rendering atm
+        let l1 = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Line(Line {
+                offset: glm::vec2(0.0, 0.0),
+                direction: glm::vec2(0.0, 0.0),
+            }));
+        let l2 = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Line(Line {
+                offset: glm::vec2(0.0, 0.0),
+                direction: glm::vec2(0.0, 0.0),
+            }));
+        sketch.guided_entities.insert(GuidedEntity::CappedLine {
+            start: p1,
+            end: p2,
+            line: l1,
+        });
+        sketch.guided_entities.insert(GuidedEntity::CappedLine {
+            start: p1,
+            end: p3,
+            line: l2,
+        });
+
+        for area in self.area_map.values() {
+            match area.area_type {
+                AreaType::Viewport => {
+                    let data = (&area.area_data).try_into().unwrap();
+                    self.sketch_renderer.draw(&sketch, data);
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn create_default_layout(
         original_size: Vector<f32>,
     ) -> (Registry<AreaId, Area>, Registry<BoundaryId, Boundary>) {
@@ -361,6 +422,7 @@ impl Default for App {
             debug_draw: false,
             settings: Settings {},
             settings_open: false,
+            sketch_renderer: SketchRenderer::new(),
         }
     }
 }

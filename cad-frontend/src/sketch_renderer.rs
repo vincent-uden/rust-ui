@@ -1,8 +1,17 @@
 use std::path::PathBuf;
 
-use rust_ui::{render::line::LineRenderer, shader::Shader};
+use cad::{
+    entity::{FundamentalEntity, GuidedEntity, Point},
+    sketch::Sketch,
+};
+use rust_ui::{
+    geometry::Vector,
+    render::{COLOR_LIGHT, line::LineRenderer},
+    shader::Shader,
+};
+use tracing::debug;
 
-use crate::SHADER_DIR;
+use crate::{SHADER_DIR, ui::viewport::ViewportData};
 
 pub struct SketchRenderer {
     line_r: LineRenderer,
@@ -19,6 +28,35 @@ impl SketchRenderer {
 
         Self {
             line_r: LineRenderer::new(line_shader),
+        }
+    }
+
+    pub fn draw(&mut self, sketch: &Sketch, state: &ViewportData) {
+        for eid in sketch.guided_entities.values() {
+            match eid {
+                GuidedEntity::CappedLine {
+                    start,
+                    end,
+                    line: _,
+                } => {
+                    let start: Point = sketch.fundamental_entities[*start].try_into().unwrap();
+                    let end: Point = sketch.fundamental_entities[*end].try_into().unwrap();
+                    let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
+                    let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
+                    let projection =
+                        glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 1000.0);
+                    let model = glm::Mat4::identity();
+                    let mut view = glm::Mat4::identity();
+                    view =
+                        glm::Mat4::new_rotation(glm::Vec3::new(state.horizontal_angle, 0.0, 0.0))
+                            * view;
+                    view =
+                        glm::Mat4::new_rotation(glm::Vec3::new(0.0, 0.0, state.polar_angle)) * view;
+                    self.line_r
+                        .draw_3d(s, e, COLOR_LIGHT, 2.0, &projection, &model, &view);
+                }
+                _ => {} // TODO: Implement
+            }
         }
     }
 }
