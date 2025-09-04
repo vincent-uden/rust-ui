@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use cad::registry::RegId;
-use glm::Vec3;
 use rust_ui::{
     geometry::Rect,
     render::{
@@ -12,10 +11,7 @@ use rust_ui::{
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
 
-use crate::{
-    app::App,
-    ui::viewport::{Viewport, ViewportData},
-};
+use crate::{app::App, ui::viewport::ViewportData};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub enum AreaType {
@@ -94,16 +90,76 @@ impl<'a> TryFrom<&'a AreaData> for &'a ViewportData {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl<'a> TryFrom<&'a mut AreaData> for &'a mut ViewportData {
+    type Error = &'a mut AreaData;
+
+    fn try_from(value: &'a mut AreaData) -> Result<Self, Self::Error> {
+        match value {
+            AreaData::Viewport(viewport_data) => Ok(viewport_data),
+            _ => Err(value),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Area {
     pub id: AreaId,
     pub area_type: AreaType,
-    #[serde(skip)]
     pub area_data: AreaData,
     pub bbox: Rect<f32>,
     pub hovered: Option<usize>,
     pub expanded: Option<usize>,
     pub expand_hovered: Option<usize>,
+}
+
+impl Serialize for Area {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut state = serializer.serialize_struct("Area", 6)?;
+        state.serialize_field("id", &self.id)?;
+        state.serialize_field("area_type", &self.area_type)?;
+        state.serialize_field("bbox", &self.bbox)?;
+        state.serialize_field("hovered", &self.hovered)?;
+        state.serialize_field("expanded", &self.expanded)?;
+        state.serialize_field("expand_hovered", &self.expand_hovered)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Area {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct AreaHelper {
+            id: AreaId,
+            area_type: AreaType,
+            bbox: Rect<f32>,
+            hovered: Option<usize>,
+            expanded: Option<usize>,
+            expand_hovered: Option<usize>,
+        }
+
+        let helper = AreaHelper::deserialize(deserializer)?;
+
+        Ok(Area {
+            id: helper.id,
+            area_type: helper.area_type,
+            area_data: match helper.area_type {
+                AreaType::Viewport => AreaData::Viewport(ViewportData::default()),
+                _ => AreaData::None,
+            },
+            bbox: helper.bbox,
+            hovered: helper.hovered,
+            expanded: helper.expanded,
+            expand_hovered: helper.expand_hovered,
+        })
+    }
 }
 
 impl Area {

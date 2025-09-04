@@ -6,7 +6,7 @@ use cad::{
 };
 use rust_ui::{
     geometry::Vector,
-    render::{COLOR_LIGHT, line::LineRenderer},
+    render::{COLOR_LIGHT, Color, line::LineRenderer},
     shader::Shader,
 };
 use tracing::debug;
@@ -31,7 +31,8 @@ impl SketchRenderer {
         }
     }
 
-    pub fn draw(&mut self, sketch: &Sketch, state: &ViewportData) {
+    pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
+        state.horizontal_angle += 0.01;
         for eid in sketch.guided_entities.values() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -52,8 +53,16 @@ impl SketchRenderer {
                             * view;
                     view =
                         glm::Mat4::new_rotation(glm::Vec3::new(0.0, 0.0, state.polar_angle)) * view;
-                    self.line_r
-                        .draw_3d(s, e, COLOR_LIGHT, 2.0, &projection, &model, &view);
+                    self.line_r.draw_3d(
+                        s,
+                        e,
+                        Color::new(1.0, 1.0, 1.0, 1.0),
+                        2.0,
+                        &projection,
+                        &model,
+                        &view,
+                    );
+                    debug!("Drawing line {:?} {:?}", s, e);
                 }
                 _ => {} // TODO: Implement
             }

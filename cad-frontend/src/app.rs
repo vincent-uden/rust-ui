@@ -361,10 +361,10 @@ impl App {
             line: l2,
         });
 
-        for area in self.area_map.values() {
+        for area in self.area_map.values_mut() {
             match area.area_type {
                 AreaType::Viewport => {
-                    let data = (&area.area_data).try_into().unwrap();
+                    let data = (&mut area.area_data).try_into().unwrap();
                     self.sketch_renderer.draw(&sketch, data);
                 }
                 _ => {}
