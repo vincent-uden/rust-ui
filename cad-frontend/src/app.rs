@@ -23,6 +23,7 @@ use crate::{
         boundary::{Boundary, BoundaryId, BoundaryOrientation},
         perf_overlay::PerformanceOverlay,
         settings::Settings,
+        viewport::ViewportData,
     },
 };
 
@@ -364,7 +365,8 @@ impl App {
         for area in self.area_map.values_mut() {
             match area.area_type {
                 AreaType::Viewport => {
-                    let data = (&mut area.area_data).try_into().unwrap();
+                    let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
+                    data.size = area.bbox.size();
                     self.sketch_renderer.draw(&sketch, data);
                 }
                 _ => {}

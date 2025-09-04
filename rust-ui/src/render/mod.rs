@@ -4,7 +4,7 @@ pub mod rect;
 pub mod renderer;
 pub mod text;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Color {
     pub r: f32,
     pub g: f32,

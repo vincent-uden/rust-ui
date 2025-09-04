@@ -74,6 +74,9 @@ impl RectRenderer {
     }
 
     pub fn draw(&self, rect: Rect<f32>, bg_color: Color, border: Border, edge_softness: f32) {
+        if bg_color == Color::new(0.0, 0.0, 0.0, 0.0) {
+            return;
+        }
         self.shader.use_shader();
         let mut model = glm::Mat4::identity();
         model *= &glm::translation(&glm::Vec3::new(-0.5, -0.5, 0.0));

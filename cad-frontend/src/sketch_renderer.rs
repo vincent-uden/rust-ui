@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{f32::consts::PI, path::PathBuf};
 
 use cad::{
     entity::{GuidedEntity, Point},
@@ -32,7 +32,8 @@ impl SketchRenderer {
     }
 
     pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
-        state.horizontal_angle += 0.01;
+        state.horizontal_angle = PI / 4.0;
+        state.polar_angle += 0.01;
         for eid in sketch.guided_entities.values() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -49,7 +50,7 @@ impl SketchRenderer {
                     let model = glm::Mat4::identity();
 
                     // Create camera position using spherical coordinates
-                    let camera_distance = 5.0;
+                    let camera_distance = 1.0;
                     let camera_pos = glm::Vec3::new(
                         camera_distance * state.horizontal_angle.sin() * state.polar_angle.cos(),
                         camera_distance * state.horizontal_angle.cos(),
