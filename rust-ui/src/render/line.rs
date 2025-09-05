@@ -5,7 +5,7 @@ use crate::{geometry::Vector, render::Color, shader::Shader};
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 struct LineVertex {
-    pub position: [f32; 2],
+    pub position: [f32; 3],
 }
 
 #[derive(Debug)]
@@ -31,7 +31,7 @@ impl LineRenderer {
             gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(
                 0,
-                2,
+                3,
                 gl::FLOAT,
                 gl::FALSE,
                 std::mem::size_of::<LineVertex>() as i32,
@@ -56,11 +56,10 @@ impl LineRenderer {
     ) {
         let ident: glm::Mat4 = glm::identity();
         let projection = glm::ortho(0.0, window_size.x, window_size.y, 0.0, -1.0, 1.0);
-        self.draw_3d(start, end, color, thickness, &projection, &ident, &ident);
+        self.draw_3d(start, end, color, thickness, &projection, &ident, &ident, 0.0, 0.0);
     }
 
-    /// Allows you to specify your own projection matrix for a more general drawing. All positions
-    /// are still points in the xy-plane. All z positions are set to zero in the shader.
+    /// Allows you to specify your own projection matrix for a more general drawing. Supports 3D positions.
     pub fn draw_3d(
         &self,
         start: Vector<f32>,
@@ -70,13 +69,15 @@ impl LineRenderer {
         projection: &glm::Mat4,
         model: &glm::Mat4,
         view: &glm::Mat4,
+        z_start: f32,
+        z_end: f32,
     ) {
         let vertices = [
             LineVertex {
-                position: [start.x, start.y],
+                position: [start.x, start.y, z_start],
             },
             LineVertex {
-                position: [end.x, end.y],
+                position: [end.x, end.y, z_end],
             },
         ];
 
@@ -119,4 +120,3 @@ impl Drop for LineRenderer {
         }
     }
 }
-

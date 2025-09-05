@@ -9,7 +9,6 @@ use rust_ui::{
     render::{Color, line::LineRenderer},
     shader::Shader,
 };
-use tracing::debug;
 
 use crate::{SHADER_DIR, ui::viewport::ViewportData};
 
@@ -31,9 +30,40 @@ impl SketchRenderer {
         }
     }
 
+    pub fn draw_axes(&mut self, state: &ViewportData) {
+        let projection = glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 100.0);
+        let model = glm::scaling(&glm::vec3(1.0, -1.0, 1.0));
+
+        // Create camera position using spherical coordinates
+        let camera_distance = 1.0;
+        let camera_pos = glm::Vec3::new(
+            camera_distance * state.horizontal_angle.sin() * state.polar_angle.cos(),
+            camera_distance * state.horizontal_angle.cos(),
+            camera_distance * state.horizontal_angle.sin() * state.polar_angle.sin(),
+        );
+        let view = glm::look_at(
+            &camera_pos,                    // Camera position
+            &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
+            &glm::Vec3::new(0.0, 1.0, 0.0), // Up vector
+        );
+
+        // TODO: Draw axes lines here
+        // self.line_r.draw_3d(
+        //     Vector::new(0.0, 0.0),
+        //     Vector::new(1.0, 0.0),
+        //     Color::new(1.0, 1.0, 1.0, 1.0),
+        //     2.0,
+        //     &projection,
+        //     &model,
+        //     &view,
+        //     0.0,
+        //     0.0,
+        // );
+    }
+
     pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
-        state.horizontal_angle = PI / 4.0;
-        state.polar_angle += 0.01;
+        state.horizontal_angle = PI / 2.0;
+        state.polar_angle = PI / 4.0;
         for eid in sketch.guided_entities.values() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -46,8 +76,8 @@ impl SketchRenderer {
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
                     let projection =
-                        glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 1000.0);
-                    let model = glm::Mat4::identity();
+                        glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 100.0);
+                    let model = glm::scaling(&glm::vec3(1.0, -1.0, 1.0));
 
                     // Create camera position using spherical coordinates
                     let camera_distance = 1.0;
@@ -70,6 +100,8 @@ impl SketchRenderer {
                         &projection,
                         &model,
                         &view,
+                        0.0,
+                        0.0,
                     );
                 }
                 _ => {} // TODO: Implement
