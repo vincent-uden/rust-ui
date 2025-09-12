@@ -204,10 +204,12 @@ impl Area {
                         AreaType::Viewport => Color::new(0.0, 0.0, 0.0, 0.0),
                     },
                     on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
-                        let area = &mut state.app_state.area_map[id];
-                        area.expanded = None;
-                        area.expand_hovered = None;
-                        area.hovered = None;
+                        // Might not exist if we exit on the same frame an area is deleted
+                        if let Some(area) = state.app_state.area_map.get_mut(&id) {
+                            area.expanded = None;
+                            area.expand_hovered = None;
+                            area.hovered = None;
+                        }
                     })),
                     ..Default::default()
                 },

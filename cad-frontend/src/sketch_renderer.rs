@@ -32,12 +32,15 @@ impl SketchRenderer {
         }
     }
 
-    pub fn draw_axes(&mut self, state: &ViewportData) {
-        let projection = glm::perspective(state.size.x / state.size.y, 45.0, 0.0001, 100.0);
-        let model = glm::scaling(&glm::vec3(1.0, 1.0, 1.0));
-        // azimuth - phi
-        // polar - theta
+    fn projection(&self, state: &ViewportData) -> glm::Mat4 {
+        glm::perspective(state.size.x / state.size.y, 45.0, 0.0001, 100.0)
+    }
 
+    fn model(&self, _state: &ViewportData) -> glm::Mat4 {
+        glm::scaling(&glm::vec3(1.0, 1.0, 1.0))
+    }
+
+    fn view(&self, state: &ViewportData) -> glm::Mat4 {
         // Create camera position using spherical coordinates
         let camera_distance = state.distance;
         let camera_pos = glm::Vec3::new(
@@ -45,71 +48,39 @@ impl SketchRenderer {
             camera_distance * state.azimuthal_angle.sin() * state.polar_angle.sin(),
             camera_distance * state.azimuthal_angle.cos(),
         );
-        let view = glm::look_at(
+        glm::look_at(
             &camera_pos,                    // Camera position
             &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
             &glm::Vec3::new(0.0, 0.0, 1.0), // Up vector
-        );
+        )
+    }
 
-        self.line_r.draw_3d(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(1.0, 0.0, 0.0),
-            Color::new(1.0, 0.0, 0.0, 1.0),
-            2.0,
-            &projection,
-            &model,
-            &view,
-        );
-        self.line_r.draw_3d(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(0.0, 1.0, 0.0),
-            Color::new(0.0, 1.0, 0.0, 1.0),
-            2.0,
-            &projection,
-            &model,
-            &view,
-        );
-        self.line_r.draw_3d(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(0.0, 0.0, 1.0),
-            Color::new(0.0, 0.0, 1.0, 1.0),
-            2.0,
-            &projection,
-            &model,
-            &view,
-        );
-        self.line_r.draw_3d(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(-1.0, 0.0, 0.0),
-            Color::new(0.2, 0.0, 0.0, 1.0),
-            2.0,
-            &projection,
-            &model,
-            &view,
-        );
-        self.line_r.draw_3d(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(0.0, -1.0, 0.0),
-            Color::new(0.0, 0.2, 0.0, 1.0),
-            2.0,
-            &projection,
-            &model,
-            &view,
-        );
-        self.line_r.draw_3d(
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(0.0, 0.0, -1.0),
-            Color::new(0.0, 0.0, 0.2, 1.0),
-            2.0,
-            &projection,
-            &model,
-            &view,
-        );
+    pub fn draw_axes(&mut self, state: &ViewportData) {
+        let projection = self.projection(state);
+        let model = self.model(state);
+        let view = self.view(state);
+        let axes = &[
+            (glm::vec3(1.0, 0.0, 0.0), Color::new(1.0, 0.0, 0.0, 1.0)),
+            (glm::vec3(0.0, 1.0, 0.0), Color::new(0.0, 1.0, 0.0, 1.0)),
+            (glm::vec3(0.0, 0.0, 1.0), Color::new(0.0, 0.0, 1.0, 1.0)),
+            (glm::vec3(-1.0, 0.0, 0.0), Color::new(0.2, 0.0, 0.0, 1.0)),
+            (glm::vec3(0.0, -1.0, 0.0), Color::new(0.0, 0.2, 0.0, 1.0)),
+            (glm::vec3(0.0, 0.0, -1.0), Color::new(0.0, 0.0, 0.2, 1.0)),
+        ];
+        for (ax, color) in axes {
+            self.line_r.draw_3d(
+                glm::vec3(0.0, 0.0, 0.0),
+                *ax,
+                *color,
+                2.0,
+                &projection,
+                &model,
+                &view,
+            );
+        }
     }
 
     pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
-        //state.horizontal_angle = PI / 2.0;
-        //state.polar_angle = PI / 4.0;
         self.draw_axes(state);
         for eid in sketch.guided_entities.values() {
             match eid {
@@ -122,34 +93,21 @@ impl SketchRenderer {
                     let end: Point = sketch.fundamental_entities[*end].try_into().unwrap();
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
-                    let projection =
-                        glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 100.0);
-                    let model = glm::scaling(&glm::vec3(1.0, -1.0, 1.0));
+                    let projection = self.projection(state);
+                    let model = self.model(state);
+                    let view = self.view(state);
 
-                    // Create camera position using spherical coordinates
-                    let camera_distance = 1.0;
-                    let camera_pos = glm::Vec3::new(
-                        camera_distance * state.azimuthal_angle.sin() * state.polar_angle.cos(),
-                        camera_distance * state.azimuthal_angle.cos(),
-                        camera_distance * state.azimuthal_angle.sin() * state.polar_angle.sin(),
-                    );
-
-                    let view = glm::look_at(
-                        &camera_pos,                    // Camera position
-                        &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
-                        &glm::Vec3::new(0.0, 1.0, 0.0), // Up vector
-                    );
                     let s_3d = glm::vec3(s.x, s.y, 0.0);
                     let e_3d = glm::vec3(e.x, e.y, 0.0);
-                    // self.line_r.draw_3d(
-                    //     s_3d,
-                    //     e_3d,
-                    //     Color::new(1.0, 1.0, 1.0, 1.0),
-                    //     2.0,
-                    //     &projection,
-                    //     &model,
-                    //     &view,
-                    // );
+                    self.line_r.draw_3d(
+                        s_3d,
+                        e_3d,
+                        Color::new(1.0, 1.0, 1.0, 1.0),
+                        2.0,
+                        &projection,
+                        &model,
+                        &view,
+                    );
                 }
                 _ => {} // TODO: Implement
             }

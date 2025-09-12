@@ -352,6 +352,12 @@ impl App {
                 offset: glm::vec2(0.0, 0.0),
                 direction: glm::vec2(0.0, 0.0),
             }));
+        let l3 = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Line(Line {
+                offset: glm::vec2(0.0, 0.0),
+                direction: glm::vec2(0.0, 0.0),
+            }));
         sketch.guided_entities.insert(GuidedEntity::CappedLine {
             start: p1,
             end: p2,
@@ -362,12 +368,18 @@ impl App {
             end: p3,
             line: l2,
         });
+        sketch.guided_entities.insert(GuidedEntity::CappedLine {
+            start: p2,
+            end: p3,
+            line: l3,
+        });
 
         for area in self.area_map.values_mut() {
             match area.area_type {
                 AreaType::Viewport => {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
-                    data.size = area.bbox.size();
+                    // data.size = area.bbox.size();
+                    data.size = self.original_window_size;
                     self.sketch_renderer.draw(&sketch, data);
                 }
                 _ => {}
