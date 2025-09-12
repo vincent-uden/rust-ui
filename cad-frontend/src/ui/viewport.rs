@@ -5,7 +5,7 @@ use rust_ui::{
         renderer::{Anchor, NodeContext, RenderLayout, flags},
     },
 };
-use taffy::{AvailableSpace, Dimension, NodeId, Size, Style, TaffyTree};
+use taffy::{AvailableSpace, Dimension, NodeId, Rect, Size, Style, TaffyTree};
 
 use crate::app::App;
 
@@ -36,27 +36,43 @@ impl Viewport {
         parent: NodeId,
         data: &ViewportData,
     ) {
-        let root = tree
+        let data_disp = tree
             .new_leaf_with_context(
                 Style {
-                    max_size: Size {
-                        width: Dimension::length(200.0),
-                        height: Dimension::auto(),
+                    padding: Rect::length(8.0),
+                    size: Size {
+                        width: Dimension::length(280.0),
+                        height: Dimension::length(240.0),
                     },
                     ..Default::default()
                 },
                 NodeContext {
-                    flags: flags::TEXT,
+                    flags: flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT,
                     bg_color: Color::new(0.0, 0.0, 0.0, 0.2),
                     text: Text {
                         text: format!("{:#?}", data),
-                        font_size: 14,
+                        font_size: 12,
                         color: COLOR_LIGHT,
                     },
                     ..Default::default()
                 },
             )
             .unwrap();
-        tree.add_child(parent, root);
+        let spacer = tree
+            .new_leaf(Style {
+                flex_grow: 1.0,
+                ..Default::default()
+            })
+            .unwrap();
+        let container = tree
+            .new_with_children(
+                Style {
+                    flex_direction: taffy::FlexDirection::Column,
+                    ..Default::default()
+                },
+                &[spacer, data_disp],
+            )
+            .unwrap();
+        tree.add_child(parent, container).unwrap();
     }
 }

@@ -399,6 +399,7 @@ impl TextRenderer {
     }
 
     /// Wraps text as well as it can inside `size` and draws the layed out lines at `position`
+    /// using automatic layout (ignores explicit newlines, trims leading whitespace)
     pub fn draw_in_box(
         &mut self,
         text: Text,
@@ -406,6 +407,32 @@ impl TextRenderer {
         size: taffy::geometry::Size<f32>,
     ) {
         for line in self.layout_text(
+            taffy::Size {
+                width: AvailableSpace::Definite(size.width),
+                height: AvailableSpace::Definite(size.height),
+            },
+            text.text,
+            text.font_size,
+        ) {
+            self.draw_line(
+                &line.contents,
+                position + line.position,
+                text.font_size,
+                1.0,
+                text.color,
+            );
+        }
+    }
+
+    /// Wraps text inside `size` with explicit newline handling and draws the layed out lines at `position`
+    /// (respects explicit newlines, preserves leading whitespace)
+    pub fn draw_in_box_explicit(
+        &mut self,
+        text: Text,
+        position: Vector<f32>,
+        size: taffy::geometry::Size<f32>,
+    ) {
+        for line in self.layout_text_explicit(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
                 height: AvailableSpace::Definite(size.height),
@@ -448,8 +475,58 @@ impl TextRenderer {
     }
 
     /// Wraps text inside the given `available_space`. Always respects the horizontal spacing but
-    /// might overflow over the bottom
+    /// might overflow over the bottom. This is the automatic layout that ignores explicit newlines
+    /// and trims leading whitespace.
     pub fn layout_text(
+        &mut self,
+        available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
+        text: String,
+        font_size: u32,
+    ) -> Vec<TextLine> {
+        let mut out = vec![];
+
+        let mut y = font_size as f32 * 0.2;
+        let mut current_line = String::new();
+        let mut pending_line = String::new();
+        for word in split_with_trailing_whitespace(&text) {
+            pending_line.push_str(word);
+            let pending_size = self.measure_text_size(&pending_line, font_size);
+            // TODO: Think about non-definite cases
+            if pending_size.x
+                > (match available_space.width {
+                    AvailableSpace::Definite(px) => px,
+                    AvailableSpace::MinContent => 0.0,
+                    AvailableSpace::MaxContent => 9999.0,
+                })
+                && !current_line.is_empty()
+            {
+                let size = self.measure_text_size(&current_line, font_size);
+                out.push(TextLine {
+                    position: Vector::new(0.0, y),
+                    size,
+                    contents: current_line.clone(),
+                });
+                y += (font_size as f32) * 1.2;
+                current_line.clear();
+                pending_line.clear();
+                pending_line.push_str(word);
+            }
+            current_line.clone_from(&pending_line);
+        }
+        if !current_line.is_empty() {
+            out.push(TextLine {
+                position: Vector::new(0.0, y),
+                size: self.measure_text_size(&current_line, font_size),
+                contents: current_line.clone(),
+            });
+        }
+
+        out
+    }
+
+    /// Wraps text inside the given `available_space` with explicit newline handling.
+    /// Respects explicit newlines (\n) and preserves leading whitespace/tabs.
+    pub fn layout_text_explicit(
         &mut self,
         available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
         text: String,
@@ -461,7 +538,7 @@ impl TextRenderer {
         for line in text.split('\n') {
             let mut current_line = String::new();
             let mut pending_line = String::new();
-            for word in split_with_trailing_whitespace(line) {
+            for word in split_preserve_leading_whitespace(line) {
                 pending_line.push_str(word);
                 let pending_size = self.measure_text_size(&pending_line, font_size);
                 // TODO: Think about non-definite cases
@@ -541,6 +618,24 @@ fn split_with_trailing_whitespace(s: &str) -> Vec<&str> {
             i += 1;
             continue;
         }
+        let start = i;
+        while i < s.len() && !bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        while i < s.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        parts.push(&s[start..i]);
+    }
+    parts
+}
+
+/// Splits a string slice on ascii whitespace, preserving leading whitespace
+fn split_preserve_leading_whitespace(s: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut i = 0;
+    let bytes = s.as_bytes();
+    while i < s.len() {
         let start = i;
         while i < s.len() && !bytes[i].is_ascii_whitespace() {
             i += 1;

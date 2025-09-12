@@ -27,6 +27,7 @@ pub mod flags {
     /// Enables text drawing in a node
     pub const TEXT: Flag = 0b00000001;
     pub const HOVER_BG: Flag = 0b00000010;
+    pub const EXPLICIT_TEXT_LAYOUT: Flag = 0b00000100;
 }
 
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
@@ -268,17 +269,31 @@ where
             );
 
             if ctx.flags & flags::TEXT != 0 {
-                self.text_r.draw_in_box(
-                    ctx.text.clone(),
-                    Vector::new(
-                        abs_pos.x + layout.padding.left,
-                        abs_pos.y + layout.padding.top,
-                    ),
-                    Size {
-                        width: layout.size.width - layout.padding.left - layout.padding.right,
-                        height: layout.size.height - layout.padding.top - layout.padding.bottom,
-                    },
-                );
+                if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT == 0 {
+                    self.text_r.draw_in_box(
+                        ctx.text.clone(),
+                        Vector::new(
+                            abs_pos.x + layout.padding.left,
+                            abs_pos.y + layout.padding.top,
+                        ),
+                        Size {
+                            width: layout.size.width - layout.padding.left - layout.padding.right,
+                            height: layout.size.height - layout.padding.top - layout.padding.bottom,
+                        },
+                    );
+                } else {
+                    self.text_r.draw_in_box_explicit(
+                        ctx.text.clone(),
+                        Vector::new(
+                            abs_pos.x + layout.padding.left,
+                            abs_pos.y + layout.padding.top,
+                        ),
+                        Size {
+                            width: layout.size.width - layout.padding.left - layout.padding.right,
+                            height: layout.size.height - layout.padding.top - layout.padding.bottom,
+                        },
+                    );
+                }
             }
 
             // Event listeners
