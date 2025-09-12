@@ -4,10 +4,10 @@ use rust_ui::{
     geometry::Vector,
     render::{
         COLOR_LIGHT, Color, Text,
-        renderer::{Anchor, NodeContext, RenderLayout, flags},
+        renderer::{NodeContext, flags},
     },
 };
-use taffy::{AvailableSpace, Dimension, NodeId, Rect, Size, Style, TaffyTree};
+use taffy::{Dimension, NodeId, Rect, Size, Style, TaffyTree};
 
 use crate::app::App;
 

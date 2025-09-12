@@ -5,20 +5,18 @@ use std::{
 };
 
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
-use tracing::debug;
 
 use crate::{
     geometry::Vector,
     render::{
         Border, Color, Text,
         line::LineRenderer,
-        mesh::MeshRenderer,
         rect::RectRenderer,
         text::{TextRenderer, total_size},
     },
     shader::Shader,
 };
-use taffy::{prelude::*, print_tree};
+use taffy::prelude::*;
 
 type Flag = u8;
 

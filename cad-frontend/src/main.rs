@@ -14,7 +14,6 @@ use rust_ui::{
     shader::Shader,
 };
 use sysinfo::{ProcessesToUpdate, System};
-use tracing_log::log::debug;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -82,7 +81,7 @@ fn main() {
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let mut ram_usage = sys.process(pid).unwrap().memory();
 
-    let debug_renderer = LineRenderer::new(line_shader.clone());
+    let debug_renderer = LineRenderer::new(line_shader);
 
     while !window.should_close() {
         let frame_start = Instant::now();

@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, path::PathBuf};
+use std::path::PathBuf;
 
 use cad::{
     entity::{GuidedEntity, Point},
@@ -12,7 +12,6 @@ use rust_ui::{
 
 use crate::{SHADER_DIR, ui::viewport::ViewportData};
 
-use glm;
 
 pub struct SketchRenderer {
     line_r: LineRenderer,

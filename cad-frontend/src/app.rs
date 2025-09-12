@@ -378,7 +378,6 @@ impl App {
             match area.area_type {
                 AreaType::Viewport => {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
-                    // data.size = area.bbox.size();
                     data.size = self.original_window_size;
                     self.sketch_renderer.draw(&sketch, data);
                 }

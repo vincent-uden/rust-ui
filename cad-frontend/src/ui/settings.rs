@@ -10,7 +10,7 @@ use rust_ui::{
 };
 use taffy::{
     AlignItems, AvailableSpace, FlexDirection, Rect, Size, Style, TaffyTree,
-    prelude::{auto, length},
+    prelude::length,
 };
 
 use crate::app::App;
