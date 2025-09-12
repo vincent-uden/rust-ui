@@ -14,7 +14,7 @@ use rust_ui::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     sketch_renderer::SketchRenderer,
@@ -509,6 +509,12 @@ impl AppState for App {
         }
         for area in self.area_map.values_mut() {
             area.handle_mouse_button(button, action, modifiers);
+        }
+    }
+
+    fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
+        for area in self.area_map.values_mut() {
+            area.handle_mouse_scroll(scroll_delta);
         }
     }
 }

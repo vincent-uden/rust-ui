@@ -14,6 +14,7 @@ use rust_ui::{
     shader::Shader,
 };
 use sysinfo::{ProcessesToUpdate, System};
+use tracing_log::log::debug;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -91,6 +92,9 @@ fn main() {
         state.mouse_left_was_down = state.mouse_left_down;
         for (_, event) in glfw::flush_messages(&events) {
             match event {
+                glfw::WindowEvent::Scroll(x, y) => {
+                    state.handle_mouse_scroll(Vector::new(x as f32, y as f32));
+                }
                 glfw::WindowEvent::MouseButton(button, action, modifiers) => {
                     state.handle_mouse_button(button, action, modifiers);
                 }

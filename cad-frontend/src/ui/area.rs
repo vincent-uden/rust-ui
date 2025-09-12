@@ -412,10 +412,10 @@ impl Area {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => match viewport_data.interaction_state {
                 viewport::InteractionState::Orbit => {
-                    viewport_data.polar_angle += delta.x * 0.01;
-                    viewport_data.azimuthal_angle += delta.y * 0.01;
+                    viewport_data.polar_angle -= delta.x * 0.01;
+                    viewport_data.azimuthal_angle -= delta.y * 0.01;
                     viewport_data.azimuthal_angle =
-                        viewport_data.azimuthal_angle.clamp(-PI / 2.0, PI / 2.0);
+                        viewport_data.azimuthal_angle.clamp(0.00001, PI - 0.00001);
                 }
                 _ => {}
             },
@@ -451,6 +451,19 @@ impl Area {
                 },
                 _ => {}
             },
+            _ => {}
+        }
+    }
+
+    pub fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
+        match &mut self.area_data {
+            AreaData::Viewport(viewport_data) => {
+                if scroll_delta.y < 0.0 {
+                    viewport_data.distance *= 1.15;
+                } else {
+                    viewport_data.distance /= 1.15;
+                }
+            }
             _ => {}
         }
     }

@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use rust_ui::{
     geometry::Vector,
     render::{
@@ -17,7 +19,7 @@ pub enum InteractionState {
     None,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct ViewportData {
     /// Angle from the horizon up to the camera in radians. At 0.0 degrees the camera is parallel
     /// to the ground. At 90.0 degrees the camera is looking straight at the ground.
@@ -34,6 +36,19 @@ pub struct ViewportData {
     pub size: Vector<f32>,
     /// A possible mouse state
     pub interaction_state: InteractionState,
+}
+
+impl Default for ViewportData {
+    fn default() -> Self {
+        Self {
+            azimuthal_angle: PI / 4.0,
+            polar_angle: PI / 4.0,
+            looking_at: glm::vec3(0.0, 0.0, 0.0),
+            distance: 2.0,
+            size: Vector::default(),
+            interaction_state: InteractionState::default(),
+        }
+    }
 }
 
 // Perhaps each area type will have its own struct like this that can generate a layout?

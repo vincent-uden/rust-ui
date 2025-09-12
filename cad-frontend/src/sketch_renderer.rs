@@ -33,20 +33,22 @@ impl SketchRenderer {
     }
 
     pub fn draw_axes(&mut self, state: &ViewportData) {
-        let projection = glm::perspective(state.size.x / state.size.y, 60.0, 0.0001, 100.0);
-        let model = glm::scaling(&glm::vec3(1.0, -1.0, 1.0));
+        let projection = glm::perspective(state.size.x / state.size.y, 45.0, 0.0001, 100.0);
+        let model = glm::scaling(&glm::vec3(1.0, 1.0, 1.0));
+        // azimuth - phi
+        // polar - theta
 
         // Create camera position using spherical coordinates
-        let camera_distance = 1.0;
+        let camera_distance = state.distance;
         let camera_pos = glm::Vec3::new(
             camera_distance * state.azimuthal_angle.sin() * state.polar_angle.cos(),
-            camera_distance * state.azimuthal_angle.cos(),
             camera_distance * state.azimuthal_angle.sin() * state.polar_angle.sin(),
+            camera_distance * state.azimuthal_angle.cos(),
         );
         let view = glm::look_at(
             &camera_pos,                    // Camera position
             &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
-            &glm::Vec3::new(0.0, 1.0, 0.0), // Up vector
+            &glm::Vec3::new(0.0, 0.0, 1.0), // Up vector
         );
 
         self.line_r.draw_3d(
@@ -71,6 +73,33 @@ impl SketchRenderer {
             glm::vec3(0.0, 0.0, 0.0),
             glm::vec3(0.0, 0.0, 1.0),
             Color::new(0.0, 0.0, 1.0, 1.0),
+            2.0,
+            &projection,
+            &model,
+            &view,
+        );
+        self.line_r.draw_3d(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(-1.0, 0.0, 0.0),
+            Color::new(0.2, 0.0, 0.0, 1.0),
+            2.0,
+            &projection,
+            &model,
+            &view,
+        );
+        self.line_r.draw_3d(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, -1.0, 0.0),
+            Color::new(0.0, 0.2, 0.0, 1.0),
+            2.0,
+            &projection,
+            &model,
+            &view,
+        );
+        self.line_r.draw_3d(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 0.0, -1.0),
+            Color::new(0.0, 0.0, 0.2, 1.0),
             2.0,
             &projection,
             &model,
