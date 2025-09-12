@@ -39,9 +39,9 @@ impl SketchRenderer {
         // Create camera position using spherical coordinates
         let camera_distance = 1.0;
         let camera_pos = glm::Vec3::new(
-            camera_distance * state.horizontal_angle.sin() * state.polar_angle.cos(),
-            camera_distance * state.horizontal_angle.cos(),
-            camera_distance * state.horizontal_angle.sin() * state.polar_angle.sin(),
+            camera_distance * state.azimuthal_angle.sin() * state.polar_angle.cos(),
+            camera_distance * state.azimuthal_angle.cos(),
+            camera_distance * state.azimuthal_angle.sin() * state.polar_angle.sin(),
         );
         let view = glm::look_at(
             &camera_pos,                    // Camera position
@@ -79,8 +79,8 @@ impl SketchRenderer {
     }
 
     pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
-        state.horizontal_angle = PI / 2.0;
-        state.polar_angle = PI / 4.0;
+        //state.horizontal_angle = PI / 2.0;
+        //state.polar_angle = PI / 4.0;
         self.draw_axes(state);
         for eid in sketch.guided_entities.values() {
             match eid {
@@ -100,9 +100,9 @@ impl SketchRenderer {
                     // Create camera position using spherical coordinates
                     let camera_distance = 1.0;
                     let camera_pos = glm::Vec3::new(
-                        camera_distance * state.horizontal_angle.sin() * state.polar_angle.cos(),
-                        camera_distance * state.horizontal_angle.cos(),
-                        camera_distance * state.horizontal_angle.sin() * state.polar_angle.sin(),
+                        camera_distance * state.azimuthal_angle.sin() * state.polar_angle.cos(),
+                        camera_distance * state.azimuthal_angle.cos(),
+                        camera_distance * state.azimuthal_angle.sin() * state.polar_angle.sin(),
                     );
 
                     let view = glm::look_at(

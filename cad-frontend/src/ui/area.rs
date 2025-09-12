@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{f32::consts::PI, sync::Arc};
 
 use cad::registry::RegId;
+use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
-    geometry::Rect,
+    geometry::{Rect, Vector},
     render::{
         COLOR_BLACK, COLOR_LIGHT, Color, NORD3, NORD9, NORD11, NORD14, Text,
         renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags},
@@ -10,6 +11,7 @@ use rust_ui::{
 };
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
+use tracing::debug;
 
 use crate::{
     app::App,
@@ -392,6 +394,64 @@ impl Area {
             root_pos: self.bbox.x0,
             anchor: Anchor::TopLeft,
             scissor: true,
+        }
+    }
+
+    pub fn handle_key(
+        &mut self,
+        key: Key,
+        _scancode: Scancode,
+        action: Action,
+        _modifiers: Modifiers,
+    ) {
+    }
+
+    /// Position is in window coordinates, the area has to decide on its own if it cares about
+    /// out-of-bounds events or not.
+    pub fn handle_mouse_position(&mut self, position: Vector<f32>, delta: Vector<f32>) {
+        match &mut self.area_data {
+            AreaData::Viewport(viewport_data) => match viewport_data.interaction_state {
+                viewport::InteractionState::Orbit => {
+                    viewport_data.polar_angle += delta.x * 0.01;
+                    viewport_data.azimuthal_angle += delta.y * 0.01;
+                    viewport_data.azimuthal_angle =
+                        viewport_data.azimuthal_angle.clamp(-PI / 2.0, PI / 2.0);
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    pub fn handle_mouse_button(
+        &mut self,
+        button: glfw::MouseButton,
+        action: Action,
+        _modifiers: Modifiers,
+    ) {
+        match &mut self.area_data {
+            AreaData::Viewport(viewport_data) => match action {
+                Action::Release => match button {
+                    glfw::MouseButton::Button1 => {
+                        viewport_data.interaction_state = viewport::InteractionState::None;
+                    }
+                    glfw::MouseButton::Button2 => {
+                        viewport_data.interaction_state = viewport::InteractionState::None;
+                    }
+                    _ => {}
+                },
+                Action::Press => match button {
+                    glfw::MouseButton::Button1 => {
+                        viewport_data.interaction_state = viewport::InteractionState::Orbit;
+                    }
+                    glfw::MouseButton::Button2 => {
+                        viewport_data.interaction_state = viewport::InteractionState::Pan;
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+            _ => {}
         }
     }
 }

@@ -443,7 +443,7 @@ impl AppState for App {
         out
     }
 
-    fn handle_key(&mut self, key: Key, _scancode: Scancode, action: Action, _modifiers: Modifiers) {
+    fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers) {
         #[allow(clippy::single_match)]
         match action {
             Action::Release => match key {
@@ -469,12 +469,19 @@ impl AppState for App {
             },
             _ => {}
         }
+
+        for area in self.area_map.values_mut() {
+            area.handle_key(key, scancode, action, modifiers);
+        }
     }
 
-    fn handle_mouse_position(&mut self, position: Vector<f32>, _delta: Vector<f32>) {
+    fn handle_mouse_position(&mut self, position: Vector<f32>, delta: Vector<f32>) {
         self.mouse_pos = position;
         if let Some(bid) = self.dragging_boundary {
             self.move_boundary(self.mouse_pos, bid);
+        }
+        for area in self.area_map.values_mut() {
+            area.handle_mouse_position(position, delta);
         }
     }
 
@@ -482,7 +489,7 @@ impl AppState for App {
         &mut self,
         button: glfw::MouseButton,
         action: Action,
-        _modifiers: Modifiers,
+        modifiers: Modifiers,
     ) {
         match action {
             Action::Release => {
@@ -499,6 +506,9 @@ impl AppState for App {
                 _ => {}
             },
             Action::Repeat => todo!(),
+        }
+        for area in self.area_map.values_mut() {
+            area.handle_mouse_button(button, action, modifiers);
         }
     }
 }
