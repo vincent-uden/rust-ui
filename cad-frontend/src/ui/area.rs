@@ -11,7 +11,6 @@ use rust_ui::{
 };
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
-use tracing::debug;
 
 use crate::{
     app::App,

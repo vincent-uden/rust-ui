@@ -27,7 +27,7 @@ use taffy::{
     AvailableSpace, Dimension, FlexDirection, Rect, Size, Style, TaffyTree,
     prelude::{TaffyMaxContent, auto, length},
 };
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 pub const TARGET_FPS: u64 = 60;
