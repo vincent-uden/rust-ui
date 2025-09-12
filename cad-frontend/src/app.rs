@@ -378,7 +378,13 @@ impl App {
                 AreaType::Viewport => {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
                     data.size = self.original_window_size;
-                    self.sketch_renderer.draw(&sketch, data);
+                    self.sketch_renderer.draw_axes(data);
+                    self.sketch_renderer.draw(
+                        &sketch,
+                        data,
+                        glm::vec3(1.0, 0.0, 0.0),
+                        glm::vec3(0.0, 1.0, 0.0),
+                    );
                 }
                 _ => {}
             }

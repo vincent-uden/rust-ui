@@ -72,8 +72,16 @@ impl SketchRenderer {
         }
     }
 
-    pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
-        self.draw_axes(state);
+    /// `x_axis` and `y_axis` define the plane the sketch lies in and its local coordinate system.
+    /// They must both be normalized. Otherwise entities in the sketch would not be the same size
+    /// as entities elsewhere.
+    pub fn draw(
+        &mut self,
+        sketch: &Sketch,
+        state: &mut ViewportData,
+        x_axis: glm::Vec3,
+        y_axis: glm::Vec3,
+    ) {
         for eid in sketch.guided_entities.values() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -89,8 +97,8 @@ impl SketchRenderer {
                     let model = self.model(state);
                     let view = self.view(state);
 
-                    let s_3d = glm::vec3(s.x, s.y, 0.0);
-                    let e_3d = glm::vec3(e.x, e.y, 0.0);
+                    let s_3d = s.x * x_axis + s.y * y_axis;
+                    let e_3d = e.x * x_axis + e.y * y_axis;
                     self.line_r.draw_3d(
                         s_3d,
                         e_3d,
