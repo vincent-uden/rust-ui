@@ -42,7 +42,7 @@ impl Viewport {
                     padding: Rect::length(8.0),
                     size: Size {
                         width: Dimension::length(280.0),
-                        height: Dimension::length(240.0),
+                        height: Dimension::auto(),
                     },
                     ..Default::default()
                 },

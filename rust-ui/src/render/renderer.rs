@@ -370,9 +370,21 @@ where
     if let Some(ctx) = node_context
         && ctx.flags & flags::TEXT == 1
     {
-        let lines =
-            text_renderer.layout_text(available_space, ctx.text.text.clone(), ctx.text.font_size);
-        total_size(&lines).into()
+        if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT == 0 {
+            let lines = text_renderer.layout_text(
+                available_space,
+                ctx.text.text.clone(),
+                ctx.text.font_size,
+            );
+            total_size(&lines).into()
+        } else {
+            let lines = text_renderer.layout_text_explicit(
+                available_space,
+                ctx.text.text.clone(),
+                ctx.text.font_size,
+            );
+            total_size(&lines).into()
+        }
     } else {
         Size::ZERO
     }
