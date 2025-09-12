@@ -11,7 +11,7 @@ use rust_ui::{
     geometry::Vector,
     init_open_gl,
     render::{line::LineRenderer, renderer::Renderer},
-    shader::Shader,
+    shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
 use tracing_subscriber::EnvFilter;
@@ -25,12 +25,6 @@ mod ui;
 pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
-// Select shader directory based on target architecture
-#[cfg(target_arch = "aarch64")]
-pub const SHADER_DIR: &str = "./shaders/gles300";
-#[cfg(not(target_arch = "aarch64"))]
-pub const SHADER_DIR: &str = "./shaders/glsl330";
-
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
@@ -39,26 +33,9 @@ fn main() {
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);
 
-    let rect_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/rounded_rect.vs", SHADER_DIR)),
-        &PathBuf::from(format!("{}/rounded_rect.frag", SHADER_DIR)),
-        None,
-    )
-    .unwrap();
-
-    let text_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/text.vs", SHADER_DIR)),
-        &PathBuf::from(format!("{}/text.frag", SHADER_DIR)),
-        None,
-    )
-    .unwrap();
-
-    let line_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/line.vs", SHADER_DIR)),
-        &PathBuf::from(format!("{}/line.frag", SHADER_DIR)),
-        None,
-    )
-    .unwrap();
+    let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
+    let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
+    let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
 
     let mut state = Renderer::new(rect_shader, text_shader, line_shader, App::default());
 

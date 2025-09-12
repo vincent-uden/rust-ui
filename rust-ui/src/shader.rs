@@ -1,7 +1,17 @@
-use std::{ffi::CString, fs, path::Path};
+use std::{
+    ffi::CString,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Result, anyhow};
 use tracing::error;
+
+// Select shader directory based on target architecture
+#[cfg(target_arch = "aarch64")]
+pub const SHADER_DIR: &str = "./shaders/gles300";
+#[cfg(not(target_arch = "aarch64"))]
+pub const SHADER_DIR: &str = "./shaders/glsl330";
 
 pub trait UniformValue {
     fn set_uniform(location: gl::types::GLint, value: &Self);
@@ -52,6 +62,33 @@ impl UniformValue for glm::Mat4 {
         unsafe {
             gl::UniformMatrix4fv(location, 1, 0, value.as_ptr());
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ShaderName {
+    Line,
+    Text,
+    Rect,
+    Mesh,
+}
+
+impl ShaderName {
+    /// (vertex, fragment)
+    pub fn paths(&self) -> (PathBuf, PathBuf) {
+        match self {
+            ShaderName::Line => Self::to_paths("line"),
+            ShaderName::Text => Self::to_paths("text"),
+            ShaderName::Rect => Self::to_paths("rounded_rect"),
+            ShaderName::Mesh => Self::to_paths("mesh"),
+        }
+    }
+
+    fn to_paths(name: &str) -> (PathBuf, PathBuf) {
+        (
+            PathBuf::from(format!("{}/{}.vs", SHADER_DIR, name)),
+            PathBuf::from(format!("{}/{}.frag", SHADER_DIR, name)),
+        )
     }
 }
 
@@ -143,6 +180,12 @@ impl Shader {
         };
 
         Self::compile_shader(&vertex_src, &frag_src, geo_src.as_deref())
+    }
+
+    /// Wrapper for [Self::compile_shader]
+    pub fn new_from_name(name: &ShaderName) -> Result<Self> {
+        let (v, f) = name.paths();
+        Self::from_paths(&v, &f, None)
     }
 
     fn find(&self, name: &str) -> gl::types::GLint {

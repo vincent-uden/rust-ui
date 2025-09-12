@@ -7,11 +7,10 @@ use cad::{
 use rust_ui::{
     geometry::Vector,
     render::{Color, line::LineRenderer},
-    shader::Shader,
+    shader::{Shader, ShaderName},
 };
 
-use crate::{SHADER_DIR, ui::viewport::ViewportData};
-
+use crate::ui::viewport::ViewportData;
 
 pub struct SketchRenderer {
     line_r: LineRenderer,
@@ -19,13 +18,7 @@ pub struct SketchRenderer {
 
 impl SketchRenderer {
     pub fn new() -> Self {
-        let line_shader = Shader::from_paths(
-            &PathBuf::from(format!("{}/line.vs", SHADER_DIR)),
-            &PathBuf::from(format!("{}/line.frag", SHADER_DIR)),
-            None,
-        )
-        .unwrap();
-
+        let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
         Self {
             line_r: LineRenderer::new(line_shader),
         }

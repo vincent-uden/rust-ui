@@ -15,7 +15,7 @@ use rust_ui::{
         Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Color, Text,
         renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
     },
-    shader::Shader,
+    shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
 use taffy::{
@@ -306,26 +306,11 @@ fn main() {
     #[cfg(not(target_arch = "aarch64"))]
     let shader_dir = "./shaders/glsl330";
 
-    let rect_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/rounded_rect.vs", shader_dir)),
-        &PathBuf::from(format!("{}/rounded_rect.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
 
-    let text_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/text.vs", shader_dir)),
-        &PathBuf::from(format!("{}/text.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
 
-    let line_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/line.vs", shader_dir)),
-        &PathBuf::from(format!("{}/line.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
 
     let mut state = Renderer::new(
         rect_shader,

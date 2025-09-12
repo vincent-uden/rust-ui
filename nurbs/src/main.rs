@@ -20,7 +20,7 @@ use rust_ui::{
         mesh::{MeshRenderer, Vertex},
         renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
     },
-    shader::Shader,
+    shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
 use taffy::{
@@ -367,35 +367,15 @@ fn main() {
     #[cfg(not(target_arch = "aarch64"))]
     let shader_dir = "./shaders/glsl330";
 
-    let rect_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/rounded_rect.vs", shader_dir)),
-        &PathBuf::from(format!("{}/rounded_rect.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
 
-    let text_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/text.vs", shader_dir)),
-        &PathBuf::from(format!("{}/text.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
 
-    let mesh_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/mesh.vs", shader_dir)),
-        &PathBuf::from(format!("{}/mesh.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let mesh_shader = Shader::new_from_name(&ShaderName::Mesh).unwrap();
     let (vertices, indices) = generate_curve();
     let mesh_r = MeshRenderer::new(vertices, indices, mesh_shader);
 
-    let line_shader = Shader::from_paths(
-        &PathBuf::from(format!("{}/line.vs", shader_dir)),
-        &PathBuf::from(format!("{}/line.frag", shader_dir)),
-        None,
-    )
-    .unwrap();
+    let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
 
     let mut state = Renderer::new(
         rect_shader,
