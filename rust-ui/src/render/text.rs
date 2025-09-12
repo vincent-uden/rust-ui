@@ -458,39 +458,43 @@ impl TextRenderer {
         let mut out = vec![];
 
         let mut y = font_size as f32 * 0.2;
-        let mut current_line = String::new();
-        let mut pending_line = String::new();
-        for word in split_with_trailing_whitespace(&text) {
-            pending_line.push_str(word);
-            let pending_size = self.measure_text_size(&pending_line, font_size);
-            // TODO: Think about non-definite cases
-            if pending_size.x
-                > (match available_space.width {
-                    AvailableSpace::Definite(px) => px,
-                    AvailableSpace::MinContent => 0.0,
-                    AvailableSpace::MaxContent => 9999.0,
-                })
-                && !current_line.is_empty()
-            {
-                let size = self.measure_text_size(&current_line, font_size);
+        for line in text.split('\n') {
+            let mut current_line = String::new();
+            let mut pending_line = String::new();
+            for word in split_with_trailing_whitespace(line) {
+                pending_line.push_str(word);
+                let pending_size = self.measure_text_size(&pending_line, font_size);
+                // TODO: Think about non-definite cases
+                if pending_size.x
+                    > (match available_space.width {
+                        AvailableSpace::Definite(px) => px,
+                        AvailableSpace::MinContent => 0.0,
+                        AvailableSpace::MaxContent => 9999.0,
+                    })
+                    && !current_line.is_empty()
+                {
+                    let size = self.measure_text_size(&current_line, font_size);
+                    out.push(TextLine {
+                        position: Vector::new(0.0, y),
+                        size,
+                        contents: current_line.clone(),
+                    });
+                    y += (font_size as f32) * 1.2;
+                    current_line.clear();
+                    pending_line.clear();
+                    pending_line.push_str(word);
+                }
+                current_line.clone_from(&pending_line);
+            }
+            if !current_line.is_empty() {
                 out.push(TextLine {
                     position: Vector::new(0.0, y),
-                    size,
+                    size: self.measure_text_size(&current_line, font_size),
                     contents: current_line.clone(),
                 });
-                y += (font_size as f32) * 1.2;
-                current_line.clear();
-                pending_line.clear();
-                pending_line.push_str(word);
             }
-            current_line.clone_from(&pending_line);
-        }
-        if !current_line.is_empty() {
-            out.push(TextLine {
-                position: Vector::new(0.0, y),
-                size: self.measure_text_size(&current_line, font_size),
-                contents: current_line.clone(),
-            });
+            // Increment y after each explicit line, even if empty
+            y += (font_size as f32) * 1.2;
         }
 
         out

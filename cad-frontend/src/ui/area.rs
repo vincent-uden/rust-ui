@@ -11,7 +11,10 @@ use rust_ui::{
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
 
-use crate::{app::App, ui::viewport::ViewportData};
+use crate::{
+    app::App,
+    ui::viewport::{self, ViewportData},
+};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub enum AreaType {
@@ -208,6 +211,17 @@ impl Area {
                 },
             )
             .unwrap();
+
+        match self.area_type {
+            AreaType::Viewport => {
+                viewport::Viewport::generate_layout(
+                    &mut tree,
+                    root,
+                    &self.area_data.try_into().unwrap(),
+                );
+            }
+            _ => {}
+        }
 
         RenderLayout {
             tree,

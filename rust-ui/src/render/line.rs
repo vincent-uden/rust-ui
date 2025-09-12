@@ -56,28 +56,28 @@ impl LineRenderer {
     ) {
         let ident: glm::Mat4 = glm::identity();
         let projection = glm::ortho(0.0, window_size.x, window_size.y, 0.0, -1.0, 1.0);
-        self.draw_3d(start, end, color, thickness, &projection, &ident, &ident, 0.0, 0.0);
+        let start_3d = glm::vec3(start.x, start.y, 0.0);
+        let end_3d = glm::vec3(end.x, end.y, 0.0);
+        self.draw_3d(start_3d, end_3d, color, thickness, &projection, &ident, &ident);
     }
 
     /// Allows you to specify your own projection matrix for a more general drawing. Supports 3D positions.
     pub fn draw_3d(
         &self,
-        start: Vector<f32>,
-        end: Vector<f32>,
+        start: glm::Vec3,
+        end: glm::Vec3,
         color: Color,
         thickness: f32,
         projection: &glm::Mat4,
         model: &glm::Mat4,
         view: &glm::Mat4,
-        z_start: f32,
-        z_end: f32,
     ) {
         let vertices = [
             LineVertex {
-                position: [start.x, start.y, z_start],
+                position: [start.x, start.y, start.z],
             },
             LineVertex {
-                position: [end.x, end.y, z_end],
+                position: [end.x, end.y, end.z],
             },
         ];
 

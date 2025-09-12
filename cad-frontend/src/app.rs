@@ -19,6 +19,7 @@ use tracing::{error, info};
 use crate::{
     sketch_renderer::SketchRenderer,
     ui::{
+        self,
         area::{Area, AreaId, AreaType},
         boundary::{Boundary, BoundaryId, BoundaryOrientation},
         perf_overlay::PerformanceOverlay,

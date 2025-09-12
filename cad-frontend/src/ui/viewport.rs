@@ -1,4 +1,13 @@
-use rust_ui::geometry::Vector;
+use rust_ui::{
+    geometry::Vector,
+    render::{
+        COLOR_LIGHT, Color, Text,
+        renderer::{Anchor, NodeContext, RenderLayout, flags},
+    },
+};
+use taffy::{AvailableSpace, Dimension, NodeId, Size, Style, TaffyTree};
+
+use crate::app::App;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ViewportData {
@@ -17,5 +26,37 @@ pub struct ViewportData {
     pub size: Vector<f32>,
 }
 
+// Perhaps each area type will have its own struct like this that can generate a layout?
 #[derive(Debug, Clone, Copy)]
 pub struct Viewport {}
+
+impl Viewport {
+    pub fn generate_layout(
+        tree: &mut TaffyTree<NodeContext<App>>,
+        parent: NodeId,
+        data: &ViewportData,
+    ) {
+        let root = tree
+            .new_leaf_with_context(
+                Style {
+                    max_size: Size {
+                        width: Dimension::length(200.0),
+                        height: Dimension::auto(),
+                    },
+                    ..Default::default()
+                },
+                NodeContext {
+                    flags: flags::TEXT,
+                    bg_color: Color::new(0.0, 0.0, 0.0, 0.2),
+                    text: Text {
+                        text: format!("{:#?}", data),
+                        font_size: 14,
+                        color: COLOR_LIGHT,
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        tree.add_child(parent, root);
+    }
+}

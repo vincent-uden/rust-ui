@@ -12,6 +12,8 @@ use rust_ui::{
 
 use crate::{SHADER_DIR, ui::viewport::ViewportData};
 
+use glm;
+
 pub struct SketchRenderer {
     line_r: LineRenderer,
 }
@@ -47,23 +49,39 @@ impl SketchRenderer {
             &glm::Vec3::new(0.0, 1.0, 0.0), // Up vector
         );
 
-        // TODO: Draw axes lines here
-        // self.line_r.draw_3d(
-        //     Vector::new(0.0, 0.0),
-        //     Vector::new(1.0, 0.0),
-        //     Color::new(1.0, 1.0, 1.0, 1.0),
-        //     2.0,
-        //     &projection,
-        //     &model,
-        //     &view,
-        //     0.0,
-        //     0.0,
-        // );
+        self.line_r.draw_3d(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(1.0, 0.0, 0.0),
+            Color::new(1.0, 0.0, 0.0, 1.0),
+            2.0,
+            &projection,
+            &model,
+            &view,
+        );
+        self.line_r.draw_3d(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 1.0, 0.0),
+            Color::new(0.0, 1.0, 0.0, 1.0),
+            2.0,
+            &projection,
+            &model,
+            &view,
+        );
+        self.line_r.draw_3d(
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 0.0, 1.0),
+            Color::new(0.0, 0.0, 1.0, 1.0),
+            2.0,
+            &projection,
+            &model,
+            &view,
+        );
     }
 
     pub fn draw(&mut self, sketch: &Sketch, state: &mut ViewportData) {
         state.horizontal_angle = PI / 2.0;
         state.polar_angle = PI / 4.0;
+        self.draw_axes(state);
         for eid in sketch.guided_entities.values() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -92,17 +110,17 @@ impl SketchRenderer {
                         &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
                         &glm::Vec3::new(0.0, 1.0, 0.0), // Up vector
                     );
-                    self.line_r.draw_3d(
-                        s,
-                        e,
-                        Color::new(1.0, 1.0, 1.0, 1.0),
-                        2.0,
-                        &projection,
-                        &model,
-                        &view,
-                        0.0,
-                        0.0,
-                    );
+                    let s_3d = glm::vec3(s.x, s.y, 0.0);
+                    let e_3d = glm::vec3(e.x, e.y, 0.0);
+                    // self.line_r.draw_3d(
+                    //     s_3d,
+                    //     e_3d,
+                    //     Color::new(1.0, 1.0, 1.0, 1.0),
+                    //     2.0,
+                    //     &projection,
+                    //     &model,
+                    //     &view,
+                    // );
                 }
                 _ => {} // TODO: Implement
             }
