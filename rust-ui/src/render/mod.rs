@@ -2,6 +2,7 @@ pub mod line;
 pub mod mesh;
 pub mod rect;
 pub mod renderer;
+pub mod sprite;
 pub mod text;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
