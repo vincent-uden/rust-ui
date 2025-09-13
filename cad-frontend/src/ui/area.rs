@@ -1,11 +1,11 @@
 use std::{f32::consts::PI, sync::Arc};
 
-use cad::registry::RegId;
+use cad::{Scene, registry::RegId};
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_BLACK, COLOR_LIGHT, Color, NORD3, NORD9, NORD11, NORD14, Text,
+        COLOR_BLACK, COLOR_LIGHT, Color, NORD1, NORD3, NORD9, NORD11, NORD14, Text,
         renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags},
     },
 };
@@ -14,7 +14,10 @@ use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, pr
 
 use crate::{
     app::App,
-    ui::viewport::{self, ViewportData},
+    ui::{
+        scene_explorer,
+        viewport::{self, ViewportData},
+    },
 };
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
@@ -23,15 +26,17 @@ pub enum AreaType {
     Green,
     Blue,
     Viewport,
+    SceneExplorer,
 }
 
 impl AreaType {
-    pub fn all() -> [AreaType; 4] {
+    pub fn all() -> [AreaType; 5] {
         [
             AreaType::Red,
             AreaType::Green,
             AreaType::Blue,
             AreaType::Viewport,
+            AreaType::SceneExplorer,
         ]
     }
 
@@ -41,6 +46,7 @@ impl AreaType {
             AreaType::Green => "Green",
             AreaType::Blue => "Blue",
             AreaType::Viewport => "Viewport",
+            AreaType::SceneExplorer => "Scene Explorer",
         }
     }
 }
@@ -114,6 +120,7 @@ pub struct Area {
     pub hovered: Option<usize>,
     pub expanded: Option<usize>,
     pub expand_hovered: Option<usize>,
+    pub mouse_pos: Vector<f32>,
 }
 
 impl Serialize for Area {
@@ -162,6 +169,7 @@ impl<'de> Deserialize<'de> for Area {
             hovered: helper.hovered,
             expanded: helper.expanded,
             expand_hovered: helper.expand_hovered,
+            mouse_pos: Vector { x: 0.0, y: 0.0 },
         })
     }
 }
@@ -179,10 +187,11 @@ impl Area {
             hovered: None,
             expanded: None,
             expand_hovered: None,
+            mouse_pos: Vector { x: 0.0, y: 0.0 },
         }
     }
 
-    pub fn generate_layout(&mut self) -> RenderLayout<App> {
+    pub fn generate_layout(&mut self, scene: &Scene) -> RenderLayout<App> {
         let mut tree = TaffyTree::new();
         let id = self.id;
 
@@ -201,6 +210,7 @@ impl Area {
                         AreaType::Green => NORD14,
                         AreaType::Blue => NORD9,
                         AreaType::Viewport => Color::new(0.0, 0.0, 0.0, 0.0),
+                        AreaType::SceneExplorer => NORD1,
                     },
                     on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
                         // Might not exist if we exit on the same frame an area is deleted
@@ -222,6 +232,9 @@ impl Area {
                     root,
                     &self.area_data.try_into().unwrap(),
                 );
+            }
+            AreaType::SceneExplorer => {
+                scene_explorer::SceneExplorer::generate_layout(&mut tree, root, scene);
             }
             _ => {}
         }
@@ -422,6 +435,7 @@ impl Area {
             },
             _ => {}
         }
+        self.mouse_pos = position;
     }
 
     pub fn handle_mouse_button(
@@ -443,10 +457,14 @@ impl Area {
                 },
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
-                        viewport_data.interaction_state = viewport::InteractionState::Orbit;
+                        if self.bbox.contains(self.mouse_pos) {
+                            viewport_data.interaction_state = viewport::InteractionState::Orbit;
+                        }
                     }
                     glfw::MouseButton::Button2 => {
-                        viewport_data.interaction_state = viewport::InteractionState::Pan;
+                        if self.bbox.contains(self.mouse_pos) {
+                            viewport_data.interaction_state = viewport::InteractionState::Pan;
+                        }
                     }
                     _ => {}
                 },

@@ -3,10 +3,27 @@
     "map": {
       "0": {
         "id": 0,
-        "area_type": "Viewport",
+        "area_type": "SceneExplorer",
         "bbox": {
           "x0": {
             "x": 0.0,
+            "y": 0.0
+          },
+          "x1": {
+            "x": 161.60156,
+            "y": 800.0
+          }
+        },
+        "hovered": null,
+        "expanded": null,
+        "expand_hovered": null
+      },
+      "3": {
+        "id": 3,
+        "area_type": "Viewport",
+        "bbox": {
+          "x0": {
+            "x": 161.60156,
             "y": 0.0
           },
           "x1": {
@@ -19,10 +36,25 @@
         "expand_hovered": null
       }
     },
-    "next_id": 3
+    "next_id": 4
   },
   "bdry_map": {
-    "map": {},
-    "next_id": 2
+    "map": {
+      "2": {
+        "id": 2,
+        "orientation": "Vertical",
+        "active": false,
+        "thickness": 3,
+        "hovered_thickness": 6,
+        "hovered": false,
+        "side1": [
+          0
+        ],
+        "side2": [
+          3
+        ]
+      }
+    },
+    "next_id": 3
   }
 }

@@ -58,7 +58,7 @@ impl App {
         // doesn' matter as they'll all be scissored.
 
         for area in self.area_map.values_mut() {
-            out.push(area.generate_layout());
+            out.push(area.generate_layout(&self.scene));
         }
         for area in self.area_map.values_mut() {
             out.push(area.area_kind_picker_layout());
@@ -79,16 +79,7 @@ impl App {
                 BoundaryOrientation::Vertical => to_split.bbox.split_horizontally(),
             };
             to_split.bbox = old;
-            let new_area = Area::new(
-                next_aid,
-                match to_split.area_type {
-                    AreaType::Red => AreaType::Blue,
-                    AreaType::Green => AreaType::Red,
-                    AreaType::Blue => AreaType::Green,
-                    AreaType::Viewport => AreaType::Green,
-                },
-                new,
-            );
+            let new_area = Area::new(next_aid, AreaType::Green, new);
             self.area_map.insert(new_area);
         }
 
@@ -331,12 +322,14 @@ impl App {
                     data.size = self.original_window_size;
                     self.sketch_renderer.draw_axes(data);
                     for si in &self.scene.sketches {
-                        self.sketch_renderer.draw(
-                            &si.sketch,
-                            data,
-                            si.plane.x.cast(),
-                            si.plane.y.cast(),
-                        );
+                        if si.visible {
+                            self.sketch_renderer.draw(
+                                &si.sketch,
+                                data,
+                                si.plane.x.cast(),
+                                si.plane.y.cast(),
+                            );
+                        }
                     }
                 }
                 _ => {}
@@ -552,8 +545,10 @@ impl AppState for App {
             },
             Action::Repeat => todo!(),
         }
-        for area in self.area_map.values_mut() {
-            area.handle_mouse_button(button, action, modifiers);
+        if self.dragging_boundary.is_none() {
+            for area in self.area_map.values_mut() {
+                area.handle_mouse_button(button, action, modifiers);
+            }
         }
     }
 
