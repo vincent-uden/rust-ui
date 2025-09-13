@@ -148,7 +148,7 @@ pub enum ConstraintType {
     Vertical,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub struct BiConstraint {
     pub e1: EntityId,
     pub e2: EntityId,

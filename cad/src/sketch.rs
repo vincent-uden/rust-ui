@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::entity::{BiConstraint, EntityId, FundamentalEntity, GuidedEntity, Point};
 use crate::registry::Registry;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Sketch {
     name: String,
     pub fundamental_entities: Registry<EntityId, FundamentalEntity>,

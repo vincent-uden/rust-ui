@@ -1,6 +1,7 @@
 use core::f32;
 
 use cad::{
+    Plane, Scene, SketchInfo,
     entity::{FundamentalEntity, GuidedEntity, Line, Point},
     registry::Registry,
 };
@@ -46,6 +47,7 @@ pub struct App {
     pub settings: Settings,
     pub settings_open: bool,
     pub sketch_renderer: SketchRenderer,
+    pub scene: Scene,
 }
 
 impl App {
@@ -322,6 +324,66 @@ impl App {
     /// Some areas contain stuff that isn't part of the regular UI tree such as the viewport that
     /// renders 3D scenes. Those are rendered here, before the UI pass.
     pub fn draw_special_areas(&mut self) {
+        for area in self.area_map.values_mut() {
+            match area.area_type {
+                AreaType::Viewport => {
+                    let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
+                    data.size = self.original_window_size;
+                    self.sketch_renderer.draw_axes(data);
+                    for si in &self.scene.sketches {
+                        self.sketch_renderer.draw(
+                            &si.sketch,
+                            data,
+                            si.plane.x.cast(),
+                            si.plane.y.cast(),
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn create_default_layout(
+        original_size: Vector<f32>,
+    ) -> (Registry<AreaId, Area>, Registry<BoundaryId, Boundary>) {
+        let mut area_map = Registry::new();
+        let id = area_map.next_id();
+        area_map.insert(Area::new(
+            id,
+            AreaType::Red,
+            Rect {
+                x0: Vector::new(0.0, 0.0),
+                x1: original_size,
+            },
+        ));
+        (area_map, Registry::new())
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let original_size = Vector::new(1000.0, 800.0);
+
+        // Try to load saved layout first
+        let (area_map, bdry_map) = match std::fs::read_to_string("layout.json") {
+            Ok(json) => match serde_json::from_str::<AreaSerializer>(&json) {
+                Ok(serializer) => {
+                    info!("Loaded layout from layout.json on startup");
+                    (serializer.area_map, serializer.bdry_map)
+                }
+                Err(e) => {
+                    error!("Failed to deserialize layout on startup: {}", e);
+                    Self::create_default_layout(original_size)
+                }
+            },
+            Err(_) => {
+                // File doesn't exist, create default layout
+                error!("No saved layout found, creating default layout");
+                Self::create_default_layout(original_size)
+            }
+        };
+
         let mut sketch = cad::sketch::Sketch::new("Test sketch".into());
         let p1 = sketch
             .fundamental_entities
@@ -373,62 +435,28 @@ impl App {
             line: l3,
         });
 
-        for area in self.area_map.values_mut() {
-            match area.area_type {
-                AreaType::Viewport => {
-                    let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
-                    data.size = self.original_window_size;
-                    self.sketch_renderer.draw_axes(data);
-                    self.sketch_renderer.draw(
-                        &sketch,
-                        data,
-                        glm::vec3(1.0, 0.0, 0.0),
-                        glm::vec3(0.0, 1.0, 0.0),
-                    );
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn create_default_layout(
-        original_size: Vector<f32>,
-    ) -> (Registry<AreaId, Area>, Registry<BoundaryId, Boundary>) {
-        let mut area_map = Registry::new();
-        let id = area_map.next_id();
-        area_map.insert(Area::new(
-            id,
-            AreaType::Red,
-            Rect {
-                x0: Vector::new(0.0, 0.0),
-                x1: original_size,
-            },
-        ));
-        (area_map, Registry::new())
-    }
-}
-
-impl Default for App {
-    fn default() -> Self {
-        let original_size = Vector::new(1000.0, 800.0);
-
-        // Try to load saved layout first
-        let (area_map, bdry_map) = match std::fs::read_to_string("layout.json") {
-            Ok(json) => match serde_json::from_str::<AreaSerializer>(&json) {
-                Ok(serializer) => {
-                    info!("Loaded layout from layout.json on startup");
-                    (serializer.area_map, serializer.bdry_map)
-                }
-                Err(e) => {
-                    error!("Failed to deserialize layout on startup: {}", e);
-                    Self::create_default_layout(original_size)
-                }
-            },
-            Err(_) => {
-                // File doesn't exist, create default layout
-                error!("No saved layout found, creating default layout");
-                Self::create_default_layout(original_size)
-            }
+        let scene = Scene {
+            path: None,
+            sketches: vec![
+                SketchInfo {
+                    plane: Plane {
+                        x: glm::vec3(1.0, 0.0, 0.0),
+                        y: glm::vec3(0.0, 1.0, 0.0),
+                    },
+                    sketch: sketch.clone(),
+                    name: "Sketch 1".into(),
+                    visible: true,
+                },
+                SketchInfo {
+                    plane: Plane {
+                        x: glm::vec3(0.0, 0.0, 1.0),
+                        y: glm::vec3(0.0, 1.0, 0.0),
+                    },
+                    sketch: sketch.clone(),
+                    name: "Sketch 2".into(),
+                    visible: true,
+                },
+            ],
         };
 
         Self {
@@ -442,6 +470,7 @@ impl Default for App {
             settings: Settings {},
             settings_open: false,
             sketch_renderer: SketchRenderer::new(),
+            scene,
         }
     }
 }
