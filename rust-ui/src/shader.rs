@@ -71,6 +71,7 @@ pub enum ShaderName {
     Text,
     Rect,
     Mesh,
+    Sprite,
 }
 
 impl ShaderName {
@@ -81,6 +82,7 @@ impl ShaderName {
             ShaderName::Text => Self::to_paths("text"),
             ShaderName::Rect => Self::to_paths("rounded_rect"),
             ShaderName::Mesh => Self::to_paths("mesh"),
+            ShaderName::Sprite => Self::to_paths("sprite"),
         }
     }
 

@@ -3,6 +3,7 @@
 use std::{
     io,
     path::PathBuf,
+    str::FromStr,
     time::{Duration, Instant},
 };
 
@@ -10,10 +11,14 @@ use glfw::Context as _;
 use rust_ui::{
     geometry::Vector,
     init_open_gl,
-    render::{line::LineRenderer, renderer::Renderer},
+    render::{
+        line::LineRenderer, rect::RectRenderer, renderer::Renderer, sprite::SpriteRenderer,
+        text::TextRenderer,
+    },
     shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -36,17 +41,34 @@ fn main() {
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
     let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
+    let sprite_shader = Shader::new_from_name(&ShaderName::Sprite).unwrap();
 
-    let mut state = Renderer::new(rect_shader, text_shader, line_shader, App::default());
+    let rect_r = RectRenderer::new(rect_shader);
+    let text_r = TextRenderer::new(
+        text_shader,
+        &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
+    )
+    .unwrap();
+    let line_r = LineRenderer::new(line_shader);
+    let sprite_r = SpriteRenderer::new(
+        sprite_shader,
+        &PathBuf::from_str("assets/atlas/icons.png").unwrap(),
+        &PathBuf::from_str("assets/atlas/icons.csv").unwrap(),
+    )
+    .unwrap();
+    info!("{:#?}", sprite_r.atlas);
+
+    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, App::default());
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
     rect_shader.use_shader();
     rect_shader.set_uniform("projection", &projection);
-
     text_shader.use_shader();
     text_shader.set_uniform("projection", &projection);
+    sprite_shader.use_shader();
+    sprite_shader.set_uniform("projection", &projection);
 
     // Perf stats
     let mut sleep_time_accumulator = Duration::ZERO;

@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -12,6 +12,7 @@ use crate::{
         Border, Color, Text,
         line::LineRenderer,
         rect::RectRenderer,
+        sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
     },
     shader::Shader,
@@ -51,6 +52,8 @@ where
     pub on_mouse_up: Option<EventListener<T>>,
 }
 
+impl SpriteKey for String {}
+
 /// Renders a [taffy::TaffyTree] and handles event listeners associated with UI nodes.
 pub struct Renderer<T>
 where
@@ -71,6 +74,7 @@ where
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
     pub line_r: LineRenderer,
+    pub sprite_r: SpriteRenderer<String>,
     /// Event listeners which have been triggered and are waiting to be called
     pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
@@ -83,9 +87,10 @@ where
     T: AppState + std::default::Default,
 {
     pub fn new(
-        rect_shader: Shader,
-        text_shader: Shader,
-        line_shader: Shader,
+        rect_renderer: RectRenderer,
+        text_renderer: TextRenderer,
+        line_renderer: LineRenderer,
+        sprite_renderer: SpriteRenderer<String>,
         initial_state: T,
     ) -> Self {
         Self {
@@ -95,13 +100,10 @@ where
             mouse_left_was_down: false,
             mouse_pos: Vector::zero(),
             last_mouse_pos: Vector::zero(),
-            rect_r: RectRenderer::new(rect_shader),
-            text_r: TextRenderer::new(
-                text_shader,
-                &PathBuf::from("./assets/fonts/LiberationMono.ttf"),
-            )
-            .unwrap(),
-            line_r: LineRenderer::new(line_shader),
+            rect_r: rect_renderer,
+            text_r: text_renderer,
+            line_r: line_renderer,
+            sprite_r: sprite_renderer,
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,

@@ -21,7 +21,7 @@ pub struct SpriteInstance {
     atlas_size: [f32; 2],
 }
 
-pub trait SpriteKey: Hash + Clone + Copy + FromStr + PartialEq + Eq {}
+pub trait SpriteKey: Hash + Clone + FromStr + PartialEq + Eq {}
 
 #[derive(Debug)]
 pub struct SpriteAtlas<K>
@@ -29,18 +29,18 @@ where
     K: SpriteKey,
 {
     texture_id: GLuint,
-    map: HashMap<K, Rect<u32>>,
+    map: HashMap<K, Rect<f32>>,
 }
 
 impl<K: SpriteKey> SpriteAtlas<K> {
-    fn parse_legend(contents: &str) -> Result<Vec<(K, Rect<u32>)>> {
+    fn parse_legend(contents: &str) -> Result<Vec<(K, Rect<f32>)>> {
         let mut out = vec![];
         // Skip csv header, we know the layout
         for (i, l) in contents.lines().skip(1).enumerate() {
             let parts: Vec<&str> = l.split(",").collect();
 
             let x0 = Vector::new(parts[1].parse()?, parts[2].parse()?);
-            let x1 = Vector::new(parts[3].parse::<u32>()? + x0.x, parts[4].parse::<u32>()? + x0.y);
+            let x1 = Vector::new(parts[3].parse::<f32>()? + x0.x, parts[4].parse::<f32>()? + x0.y);
 
             out.push((K::from_str(parts[0]).map_err(|_| anyhow!("Couldn't parse icon name on line {}: {}", i+1, l))?, Rect { x0, x1, }));
         }
@@ -110,7 +110,7 @@ where
     quad_vbo: GLuint,
     /// Will eventually be used to draw all possible icons at once
     instance_vbo: GLuint,
-    atlas: SpriteAtlas<K>,
+    pub atlas: SpriteAtlas<K>,
 }
 
 impl<K: SpriteKey> SpriteRenderer<K> {
@@ -212,7 +212,38 @@ impl<K: SpriteKey> SpriteRenderer<K> {
         })
     }
 
-    pub fn draw(&self, key: &K, location: Rect<f32>) { }
+    pub fn draw(&self, key: &K, location: Rect<f32>) {
+        let bbox = self.atlas.map[key];
+        let instances = vec![SpriteInstance {
+            position: [location.x0.x, location.x0.y],
+            size: [location.size().x, location.size().y],
+            atlas_coords: [bbox.x0.x, bbox.x0.y],
+            atlas_size: [bbox.width(), bbox.height()]
+        }];
+
+        self.shader.use_shader();
+        // What does this do? Is it related to the texture unit perhaps? It is
+        self.shader.set_uniform("text", &0);
+        // TODO: Set the projection somewhere
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.atlas.texture_id);
+            gl::BindVertexArray(self.quad_vao);
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER, 
+                (std::mem::size_of::<SpriteInstance>() * instances.len()) as isize, 
+                instances.as_ptr() as *const c_void, 
+                gl::DYNAMIC_DRAW
+            );
+
+            gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);
+
+            gl::BindVertexArray(0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+    }
 }
 
 impl<K: SpriteKey> Drop for SpriteRenderer<K> {
