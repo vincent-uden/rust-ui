@@ -29,10 +29,9 @@ where
 }
 
 impl<K: SpriteKey> SpriteAtlas<K> {
-    // TODO: How do we populate the atlas map?
-    pub fn from_path(path: &Path) -> Result<Self> {
+    pub fn from_path(img_path: &Path) -> Result<Self> {
         // Load image
-        let img = match ImageReader::open(path)?.decode()? {
+        let img = match ImageReader::open(img_path)?.decode()? {
             image::DynamicImage::ImageRgba8(image_buffer) => image_buffer,
             img => img.to_rgba8(),
         };

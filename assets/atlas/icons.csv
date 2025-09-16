@@ -1,0 +1,15 @@
+name,x,y,width,height
+Horizontal,4,4,32,32
+Coincident,44,4,32,32
+Tangent,84,4,32,32
+EditSketch,122,1,35,37
+Angle,166,6,27,27
+Perpendicular,202,4,36,32
+Parallel,241,3,38,34
+Equal,282,4,36,32
+Vertical,324,4,32,32
+Visible,362,2,36,35
+Distance,4,44,32,32
+Midpoint,42,44,36,32
+Colinear,84,43,32,33
+Invisible,122,42,36,36
