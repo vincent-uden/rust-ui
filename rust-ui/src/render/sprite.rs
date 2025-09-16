@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::c_void, hash::Hash, path::Path};
+use std::{collections::HashMap, ffi::c_void, fs, hash::Hash, path::Path, str::FromStr};
 
 use gl::types::GLuint;
 
@@ -11,13 +11,17 @@ use crate::{geometry::{Rect, Vector}, shader::Shader};
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct SpriteInstance {
+    /// Where on the screen should this be draw
     position: [f32; 2],
+    /// How big should it be on screen
     size: [f32; 2], 
+    /// Where in the atlas is it located
     atlas_coords: [f32; 2],
+    /// How big is it in the atlas
     atlas_size: [f32; 2],
 }
 
-pub trait SpriteKey: Hash + Clone + Copy {}
+pub trait SpriteKey: Hash + Clone + Copy + FromStr + PartialEq + Eq {}
 
 #[derive(Debug)]
 pub struct SpriteAtlas<K>
@@ -29,8 +33,23 @@ where
 }
 
 impl<K: SpriteKey> SpriteAtlas<K> {
-    pub fn from_path(img_path: &Path) -> Result<Self> {
-        // Load image
+    fn parse_legend(contents: &str) -> Result<Vec<(K, Rect<u32>)>> {
+        let mut out = vec![];
+        // Skip csv header, we know the layout
+        for (i, l) in contents.lines().skip(1).enumerate() {
+            let parts: Vec<&str> = l.split(",").collect();
+
+            let x0 = Vector::new(parts[1].parse()?, parts[2].parse()?);
+            let x1 = Vector::new(parts[3].parse::<u32>()? + x0.x, parts[4].parse::<u32>()? + x0.y);
+
+            out.push((K::from_str(parts[0]).map_err(|_| anyhow!("Couldn't parse icon name on line {}: {}", i+1, l))?, Rect { x0, x1, }));
+        }
+
+        Ok(out)
+    }
+
+    /// The legend is a csv file containing the names and bounding boxes of the different textures
+    pub fn from_path(img_path: &Path, legend_path: &Path) -> Result<Self> {
         let img = match ImageReader::open(img_path)?.decode()? {
             image::DynamicImage::ImageRgba8(image_buffer) => image_buffer,
             img => img.to_rgba8(),
@@ -61,10 +80,23 @@ impl<K: SpriteKey> SpriteAtlas<K> {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
+        let mut map = HashMap::new();
+        for (key, location) in Self::parse_legend(&fs::read_to_string(legend_path)?)? {
+            map.insert(key, location);
+        }
+
         Ok(Self {
             texture_id,
-            map: HashMap::new()
+            map, 
         })
+    }
+}
+
+impl<K> Drop for SpriteAtlas<K> where K: SpriteKey {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, &self.texture_id);
+        }
     }
 }
 
@@ -84,7 +116,7 @@ where
 impl<K: SpriteKey> SpriteRenderer<K> {
     /// This is lifted in large part from the GPU instanced text rendering which also uses atlases
     /// to render text
-    pub fn new(shader: Shader, atlas_path: &Path) -> Result<Self> {
+    pub fn new(shader: Shader, atlas_path: &Path, legend_path: &Path) -> Result<Self> {
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
         let mut instance_vbo = 0;
@@ -167,18 +199,28 @@ impl<K: SpriteKey> SpriteRenderer<K> {
                 (6 * std::mem::size_of::<f32>()) as *const c_void,
             );
             gl::VertexAttribDivisor(4, 1);
-            
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
         }
-        todo!()
+
+        Ok(Self {
+            shader,
+            quad_vao,
+            quad_vbo,
+            instance_vbo,
+            atlas: SpriteAtlas::from_path(atlas_path, legend_path)?,
+        })
     }
 
-    pub fn draw(&self, key: &K, location: Rect<f32>) {}
+    pub fn draw(&self, key: &K, location: Rect<f32>) { }
 }
 
 impl<K: SpriteKey> Drop for SpriteRenderer<K> {
     fn drop(&mut self) {
-        // TODO: Drop the alloated opengl textures, buffers and vertex arrays
+        unsafe {
+            gl::DeleteVertexArrays(1, &self.quad_vao);
+            gl::DeleteBuffers(1, &self.quad_vbo);
+            gl::DeleteBuffers(1, &self.instance_vbo);
+        }
     }
 }
