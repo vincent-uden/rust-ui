@@ -1,11 +1,17 @@
 use std::{path::PathBuf, str::FromStr as _, sync::Arc};
 
 use cad::Scene;
-use rust_ui::render::{
-    COLOR_LIGHT, NORD3, Text,
-    renderer::{NodeContext, flags},
+use rust_ui::{
+    geometry::Vector,
+    render::{
+        Border, COLOR_LIGHT, Color, NORD3, Text,
+        renderer::{NodeContext, flags},
+    },
 };
-use taffy::{AlignItems, FlexDirection, NodeId, Rect, Size, Style, TaffyTree, prelude::length};
+use taffy::{
+    AlignItems, Dimension, FlexDirection, NodeId, Rect, Size, Style, TaffyTree,
+    prelude::{auto, length},
+};
 
 use crate::app::App;
 
@@ -51,6 +57,11 @@ impl SceneExplorer {
                     },
                     flex_direction: taffy::FlexDirection::Column,
                     gap: length(4.0),
+                    align_items: Some(AlignItems::Stretch),
+                    size: Size {
+                        width: Dimension::percent(1.0),
+                        height: auto(),
+                    },
                     ..Default::default()
                 },
                 &[header],
@@ -60,14 +71,17 @@ impl SceneExplorer {
             let row = tree
                 .new_leaf(Style {
                     flex_direction: FlexDirection::Row,
-                    gap: length(8.0),
+                    gap: length(4.0),
                     align_items: Some(AlignItems::Center),
                     ..Default::default()
                 })
                 .unwrap();
             let s = tree
                 .new_leaf_with_context(
-                    Style::default(),
+                    Style {
+                        flex_grow: 1.0,
+                        ..Default::default()
+                    },
                     NodeContext {
                         flags: flags::TEXT,
                         text: Text {
@@ -75,6 +89,24 @@ impl SceneExplorer {
                             font_size: 14,
                             color: if sketch.visible { COLOR_LIGHT } else { NORD3 },
                         },
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let visibility = tree
+                .new_leaf_with_context(
+                    Style {
+                        size: Size::length(24.0),
+                        ..Default::default()
+                    },
+                    NodeContext {
+                        flags: flags::SPRITE,
+                        sprite_key: if sketch.visible {
+                            "Visible".into()
+                        } else {
+                            "Invisible".into()
+                        },
+                        offset: Vector::new(0.0, 2.0),
                         on_mouse_up: Some(Arc::new(move |state| {
                             for (j, s) in state.app_state.scene.sketches.iter_mut().enumerate() {
                                 if j == i {
@@ -86,25 +118,23 @@ impl SceneExplorer {
                     },
                 )
                 .unwrap();
-            let visibility = tree
+            let edit = tree
                 .new_leaf_with_context(
                     Style {
-                        size: Size::length(30.0),
+                        size: Size::length(24.0),
                         ..Default::default()
                     },
                     NodeContext {
                         flags: flags::SPRITE,
-                        sprite_key: if sketch.visible {
-                            "Visible".into()
-                        } else {
-                            "Invisible".into()
-                        },
+                        sprite_key: "EditSketch".into(),
+                        offset: Vector::new(0.0, 3.0),
                         ..Default::default()
                     },
                 )
                 .unwrap();
             tree.add_child(row, s).unwrap();
             tree.add_child(row, visibility).unwrap();
+            tree.add_child(row, edit).unwrap();
             tree.add_child(container, row).unwrap();
         }
         tree.add_child(parent, container).unwrap();

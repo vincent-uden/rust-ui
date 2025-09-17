@@ -74,7 +74,9 @@ impl RectRenderer {
     }
 
     pub fn draw(&self, rect: Rect<f32>, bg_color: Color, border: Border, edge_softness: f32) {
-        if bg_color == Color::new(0.0, 0.0, 0.0, 0.0) {
+        if bg_color == Color::new(0.0, 0.0, 0.0, 0.0)
+            && (border.color == Color::new(0.0, 0.0, 0.0, 0.0) || border.thickness == 0.0)
+        {
             return;
         }
         self.shader.use_shader();

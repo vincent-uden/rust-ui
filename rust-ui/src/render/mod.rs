@@ -45,6 +45,16 @@ pub struct Border {
     pub color: Color,
 }
 
+impl Border {
+    pub fn debug() -> Self {
+        Self {
+            thickness: 2.0,
+            radius: BorderRadius::default(),
+            color: Color::new(1.0, 0.0, 0.0, 1.0),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Text {
     pub text: String,

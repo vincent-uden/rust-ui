@@ -47,6 +47,7 @@ where
     pub border: Border,
     pub text: Text,
     pub sprite_key: String,
+    pub offset: Vector<f32>,
     // Event listeners
     pub on_mouse_enter: Option<EventListener<T>>,
     pub on_mouse_exit: Option<EventListener<T>>,
@@ -242,7 +243,7 @@ where
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
 
-            let abs_pos = layout.location + parent_pos;
+            let abs_pos = layout.location + parent_pos + ctx.offset.into();
             let bbox = crate::geometry::Rect {
                 x0: Vector::new(abs_pos.x, abs_pos.y),
                 x1: Vector::new(
