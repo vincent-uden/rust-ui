@@ -16,6 +16,8 @@ pub struct Plane {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SketchInfo {
+    /// Stable id that doesnt change even if ordering does in a scene
+    pub id: i32,
     pub plane: Plane,
     pub sketch: Sketch,
     pub name: String,

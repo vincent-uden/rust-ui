@@ -1,4 +1,7 @@
-use std::f32::consts::PI;
+use std::{
+    f32::consts::PI,
+    time::{Duration, Instant},
+};
 
 use rust_ui::{
     geometry::Vector,
@@ -15,6 +18,7 @@ use crate::app::App;
 pub enum InteractionState {
     Orbit,
     Pan,
+    AutoMoving,
     #[default]
     None,
 }
@@ -36,6 +40,18 @@ pub struct ViewportData {
     pub size: Vector<f32>,
     /// A possible mouse state
     pub interaction_state: InteractionState,
+    /// Animation state
+    pub target_polar_angle: f32,
+    /// Animation state
+    pub target_azimuthal_angle: f32,
+    /// Animation state
+    pub auto_move_start: Instant,
+    /// Animation state
+    pub auto_move_duration: Duration,
+    /// Animation state
+    pub start_azimuthal_angle: f32,
+    /// Animation state
+    pub start_polar_angle: f32,
 }
 
 impl Default for ViewportData {
@@ -47,6 +63,12 @@ impl Default for ViewportData {
             distance: 2.0,
             size: Vector::default(),
             interaction_state: InteractionState::default(),
+            target_polar_angle: 0.0,
+            target_azimuthal_angle: 0.0,
+            auto_move_start: Instant::now(),
+            auto_move_duration: Duration::from_millis(500),
+            start_azimuthal_angle: 0.0,
+            start_polar_angle: 0.0,
         }
     }
 }

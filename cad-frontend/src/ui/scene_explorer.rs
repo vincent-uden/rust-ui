@@ -102,10 +102,11 @@ impl SceneExplorer {
                     NodeContext {
                         flags: flags::SPRITE,
                         sprite_key: if sketch.visible {
-                            "Visible".into()
+                            "Visible"
                         } else {
-                            "Invisible".into()
-                        },
+                            "Invisible"
+                        }
+                        .into(),
                         offset: Vector::new(0.0, 2.0),
                         on_mouse_up: Some(Arc::new(move |state| {
                             for (j, s) in state.app_state.scene.sketches.iter_mut().enumerate() {
@@ -118,6 +119,7 @@ impl SceneExplorer {
                     },
                 )
                 .unwrap();
+            let id = sketch.id;
             let edit = tree
                 .new_leaf_with_context(
                     Style {
@@ -128,6 +130,9 @@ impl SceneExplorer {
                         flags: flags::SPRITE,
                         sprite_key: "EditSketch".into(),
                         offset: Vector::new(0.0, 3.0),
+                        on_mouse_up: Some(Arc::new(move |state| {
+                            state.app_state.edit_sketch(id);
+                        })),
                         ..Default::default()
                     },
                 )

@@ -1,4 +1,5 @@
 use core::f32;
+use std::{f64::consts::PI, time::Instant};
 
 use cad::{
     Plane, Scene, SketchInfo,
@@ -15,16 +16,16 @@ use rust_ui::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     sketch_renderer::SketchRenderer,
     ui::{
-        area::{Area, AreaId, AreaType},
+        area::{Area, AreaData, AreaId, AreaType},
         boundary::{Boundary, BoundaryId, BoundaryOrientation},
         perf_overlay::PerformanceOverlay,
         settings::Settings,
-        viewport::ViewportData,
+        viewport::{self, ViewportData},
     },
 };
 
@@ -312,6 +313,12 @@ impl App {
         }
     }
 
+    pub fn update_areas(&mut self) {
+        for area in self.area_map.values_mut() {
+            area.update();
+        }
+    }
+
     /// Some areas contain stuff that isn't part of the regular UI tree such as the viewport that
     /// renders 3D scenes. Those are rendered here, before the UI pass.
     pub fn draw_special_areas(&mut self) {
@@ -351,6 +358,41 @@ impl App {
             },
         ));
         (area_map, Registry::new())
+    }
+
+    pub fn edit_sketch(&mut self, id: i32) {
+        // Move camera
+        if let Some(sketch) = self.scene.sketches.iter().find(|s| s.id == id) {
+            let normal = sketch.plane.x.cross(&sketch.plane.y);
+            let polar = normal.y.atan2(normal.x);
+            let horizontal_hypotenuse = (normal.x.powi(2) + normal.y.powi(2)).sqrt();
+            let azimuthal = normal.z.atan2(horizontal_hypotenuse) + PI / 2.0;
+            // What happens if you have two viewports open?
+            // Should both rotate to face the sketch? Probably not?
+            // How do we indicate a primary or secondary viewport?
+            // Alternatively how is the viewport selected to rotate?
+            // Blender does NOT have anything similar to this
+            //
+            // For now:
+            // - Rotate all viewports
+            //
+            // In the future:
+            // - If there are multiple viewports, let the user click the one to rotate
+            for area in self.area_map.values_mut() {
+                match &mut area.area_data {
+                    AreaData::Viewport(data) => {
+                        data.target_polar_angle = polar as f32;
+                        data.target_azimuthal_angle = azimuthal as f32;
+                        data.start_polar_angle = data.polar_angle;
+                        data.start_azimuthal_angle = data.azimuthal_angle;
+                        data.auto_move_start = Instant::now();
+                        data.interaction_state = viewport::InteractionState::AutoMoving;
+                    }
+                    _ => {}
+                }
+            }
+            // TODO: Open some sort of edit mode
+        }
     }
 }
 
@@ -432,6 +474,7 @@ impl Default for App {
             path: None,
             sketches: vec![
                 SketchInfo {
+                    id: 0,
                     plane: Plane {
                         x: glm::vec3(1.0, 0.0, 0.0),
                         y: glm::vec3(0.0, 1.0, 0.0),
@@ -441,6 +484,7 @@ impl Default for App {
                     visible: true,
                 },
                 SketchInfo {
+                    id: 1,
                     plane: Plane {
                         x: glm::vec3(0.0, 0.0, 1.0),
                         y: glm::vec3(0.0, 1.0, 0.0),

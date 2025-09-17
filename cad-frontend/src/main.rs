@@ -133,6 +133,7 @@ fn main() {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+        state.app_state.update_areas();
         state.app_state.draw_special_areas();
         state.compute_layout_and_render();
         if state.app_state.debug_draw {

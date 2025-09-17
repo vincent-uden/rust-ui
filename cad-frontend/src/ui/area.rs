@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, sync::Arc};
+use std::{f32::consts::PI, sync::Arc, time::Instant};
 
 use cad::{Scene, registry::RegId};
 use glfw::{Action, Key, Modifiers, Scancode};
@@ -11,6 +11,7 @@ use rust_ui::{
 };
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
+use tracing::debug;
 
 use crate::{
     app::App,
@@ -486,4 +487,46 @@ impl Area {
             _ => {}
         }
     }
+
+    pub fn update(&mut self) {
+        match &mut self.area_data {
+            AreaData::None => {}
+            AreaData::Viewport(data) => match data.interaction_state {
+                viewport::InteractionState::AutoMoving => {
+                    let passed = Instant::now().duration_since(data.auto_move_start);
+                    data.azimuthal_angle = ease_in_out(
+                        data.start_azimuthal_angle,
+                        data.target_azimuthal_angle,
+                        passed.as_secs_f32() / data.auto_move_duration.as_secs_f32(),
+                    );
+                    data.polar_angle = ease_in_out(
+                        data.start_polar_angle,
+                        data.target_polar_angle,
+                        passed.as_secs_f32() / data.auto_move_duration.as_secs_f32(),
+                    );
+                    if -(passed.as_secs_f32() - data.auto_move_duration.as_secs_f32()) < 0.05 {
+                        data.polar_angle = data.target_polar_angle;
+                        data.azimuthal_angle =
+                            data.target_azimuthal_angle.clamp(0.00001, PI - 0.00001);
+                        data.interaction_state = viewport::InteractionState::None;
+                    }
+                }
+                _ => {}
+            },
+        }
+    }
+}
+
+pub fn lerp(start: f32, end: f32, normalized_time: f32) -> f32 {
+    start + normalized_time * (end - start)
+}
+
+pub fn ease_in_out(start: f32, end: f32, t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    let eased = if t < 0.5 {
+        2.0 * t * t
+    } else {
+        -1.0 + (4.0 - 2.0 * t) * t
+    };
+    start + (end - start) * eased
 }
