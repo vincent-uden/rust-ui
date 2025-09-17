@@ -5,7 +5,7 @@ use rust_ui::render::{
     COLOR_LIGHT, NORD3, Text,
     renderer::{NodeContext, flags},
 };
-use taffy::{NodeId, Rect, Style, TaffyTree, prelude::length};
+use taffy::{FlexDirection, NodeId, Rect, Size, Style, TaffyTree, prelude::length};
 
 use crate::app::App;
 
@@ -57,6 +57,13 @@ impl SceneExplorer {
             )
             .unwrap();
         for (i, sketch) in scene.sketches.iter().enumerate() {
+            let row = tree
+                .new_leaf(Style {
+                    flex_direction: FlexDirection::Row,
+                    gap: length(8.0),
+                    ..Default::default()
+                })
+                .unwrap();
             let s = tree
                 .new_leaf_with_context(
                     Style::default(),
@@ -78,7 +85,26 @@ impl SceneExplorer {
                     },
                 )
                 .unwrap();
-            tree.add_child(container, s).unwrap();
+            let visibility = tree
+                .new_leaf_with_context(
+                    Style {
+                        size: Size::length(80.0),
+                        ..Default::default()
+                    },
+                    NodeContext {
+                        flags: flags::SPRITE,
+                        sprite_key: if sketch.visible {
+                            "Visible".into()
+                        } else {
+                            "Invisible".into()
+                        },
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            tree.add_child(row, s).unwrap();
+            tree.add_child(row, visibility).unwrap();
+            tree.add_child(container, row).unwrap();
         }
         tree.add_child(parent, container).unwrap();
     }

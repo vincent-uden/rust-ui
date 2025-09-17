@@ -27,6 +27,7 @@ pub mod flags {
     pub const TEXT: Flag = 0b00000001;
     pub const HOVER_BG: Flag = 0b00000010;
     pub const EXPLICIT_TEXT_LAYOUT: Flag = 0b00000100;
+    pub const SPRITE: Flag = 0b00001000;
 }
 
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
@@ -45,6 +46,7 @@ where
     // Border
     pub border: Border,
     pub text: Text,
+    pub sprite_key: String,
     // Event listeners
     pub on_mouse_enter: Option<EventListener<T>>,
     pub on_mouse_exit: Option<EventListener<T>>,
@@ -294,6 +296,21 @@ where
                         },
                     );
                 }
+            }
+            if ctx.flags & flags::SPRITE != 0 {
+                self.sprite_r.draw(
+                    &ctx.sprite_key,
+                    crate::geometry::Rect {
+                        x0: Vector::new(
+                            abs_pos.x + layout.padding.left,
+                            abs_pos.y + layout.padding.top,
+                        ),
+                        x1: Vector::new(
+                            abs_pos.x - layout.padding.left + layout.size.width,
+                            abs_pos.y - layout.padding.top + layout.size.height,
+                        ),
+                    },
+                );
             }
 
             // Event listeners

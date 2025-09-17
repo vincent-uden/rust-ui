@@ -30,6 +30,7 @@ where
 {
     texture_id: GLuint,
     map: HashMap<K, Rect<f32>>,
+    size: Vector<f32>,
 }
 
 impl<K: SpriteKey> SpriteAtlas<K> {
@@ -54,7 +55,7 @@ impl<K: SpriteKey> SpriteAtlas<K> {
             image::DynamicImage::ImageRgba8(image_buffer) => image_buffer,
             img => img.to_rgba8(),
         };
-        let atlas_size = Vector::new(img.dimensions().0, img.dimensions().1);
+        let atlas_size = Vector::new(img.dimensions().0 as f32, img.dimensions().1 as f32);
         let mut texture_id: GLuint = 0;
 
         let img_data = img.into_raw();
@@ -82,12 +83,17 @@ impl<K: SpriteKey> SpriteAtlas<K> {
 
         let mut map = HashMap::new();
         for (key, location) in Self::parse_legend(&fs::read_to_string(legend_path)?)? {
-            map.insert(key, location);
+            let normalized_rect = Rect {
+                x0: Vector::new(location.x0.x / atlas_size.x, location.x0.y / atlas_size.y),
+                x1: Vector::new(location.x1.x / atlas_size.x, location.x1.y / atlas_size.y),
+            };
+            map.insert(key, normalized_rect);
         }
 
         Ok(Self {
             texture_id,
-            map, 
+            map,
+            size: atlas_size,
         })
     }
 
@@ -95,6 +101,7 @@ impl<K: SpriteKey> SpriteAtlas<K> {
         Self {
             texture_id: u32::MAX,
             map: HashMap::new(),
+            size: Vector::zero(),
         }
     }
 }
