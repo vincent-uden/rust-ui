@@ -1,6 +1,5 @@
 #![allow(clippy::uninlined_format_args)]
 
-
 use glfw::Context;
 
 pub mod geometry;

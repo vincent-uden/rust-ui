@@ -5,7 +5,7 @@ use rust_ui::render::{
     COLOR_LIGHT, NORD3, Text,
     renderer::{NodeContext, flags},
 };
-use taffy::{FlexDirection, NodeId, Rect, Size, Style, TaffyTree, prelude::length};
+use taffy::{AlignItems, FlexDirection, NodeId, Rect, Size, Style, TaffyTree, prelude::length};
 
 use crate::app::App;
 
@@ -61,6 +61,7 @@ impl SceneExplorer {
                 .new_leaf(Style {
                     flex_direction: FlexDirection::Row,
                     gap: length(8.0),
+                    align_items: Some(AlignItems::Center),
                     ..Default::default()
                 })
                 .unwrap();
@@ -88,7 +89,7 @@ impl SceneExplorer {
             let visibility = tree
                 .new_leaf_with_context(
                     Style {
-                        size: Size::length(80.0),
+                        size: Size::length(30.0),
                         ..Default::default()
                     },
                     NodeContext {

@@ -42,7 +42,7 @@ def main(directory, grid_cols, tile_size, output):
         paste_y = y + offset_y
 
         atlas.paste(img, (paste_x, paste_y))
-        csv_data.append([name, paste_x, paste_y, img.width, img.height])
+        csv_data.append([name, x, y, tile_size, tile_size])
 
     atlas_output = f"{output}.png"
     csv_output = f"{output}.csv"

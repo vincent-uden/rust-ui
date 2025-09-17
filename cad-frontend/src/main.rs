@@ -59,7 +59,6 @@ fn main() {
     .unwrap();
     let line_r = LineRenderer::new(line_shader);
     let sprite_r = SpriteRenderer::new(sprite_shader, sprite_atlas);
-    info!("{:#?}", sprite_r.atlas);
 
     let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, App::default());
 
@@ -126,6 +125,9 @@ fn main() {
 
         text_shader.use_shader();
         text_shader.set_uniform("projection", &projection);
+
+        sprite_shader.use_shader();
+        sprite_shader.set_uniform("projection", &projection);
 
         unsafe {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);

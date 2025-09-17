@@ -4,6 +4,7 @@ use gl::types::GLuint;
 
 use anyhow::{Result, anyhow};
 use image::{GenericImageView, ImageReader};
+use tracing::debug;
 
 use crate::{geometry::{Rect, Vector}, shader::Shader};
 
@@ -55,7 +56,7 @@ impl<K: SpriteKey> SpriteAtlas<K> {
             image::DynamicImage::ImageRgba8(image_buffer) => image_buffer,
             img => img.to_rgba8(),
         };
-        let atlas_size = Vector::new(img.dimensions().0 as f32, img.dimensions().1 as f32);
+        let atlas_size = Vector::new(img.dimensions().0, img.dimensions().1);
         let mut texture_id: GLuint = 0;
 
         let img_data = img.into_raw();
@@ -76,11 +77,12 @@ impl<K: SpriteKey> SpriteAtlas<K> {
                 img_ptr
             );
 
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
+        let atlas_size = Vector::new(atlas_size.x as f32, atlas_size.y as f32);
         let mut map = HashMap::new();
         for (key, location) in Self::parse_legend(&fs::read_to_string(legend_path)?)? {
             let normalized_rect = Rect {
@@ -229,16 +231,14 @@ impl<K: SpriteKey> SpriteRenderer<K> {
     pub fn draw(&self, key: &K, location: Rect<f32>) {
         if let Some(bbox) = self.atlas.map.get(key) {
             let instances = vec![SpriteInstance {
-                position: [location.x0.x, location.x0.y],
-                size: [location.size().x, location.size().y],
+                position: [(location.x0.x + 0.5).floor(), (location.x0.y + 0.5).floor()],
+                size: [(location.size().x + 0.5).floor(), (location.size().y + 0.5).floor()],
                 atlas_coords: [bbox.x0.x, bbox.x0.y],
                 atlas_size: [bbox.width(), bbox.height()]
             }];
 
             self.shader.use_shader();
-            // What does this do? Is it related to the texture unit perhaps? It is
             self.shader.set_uniform("text", &0);
-            // TODO: Set the projection somewhere
             unsafe {
                 gl::ActiveTexture(gl::TEXTURE0);
                 gl::BindTexture(gl::TEXTURE_2D, self.atlas.texture_id);

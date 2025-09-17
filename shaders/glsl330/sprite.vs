@@ -9,12 +9,10 @@ out vec2 TexCoords;
 
 uniform mat4 projection;
 
-void main()
-{
+void main() {
     // Transform unit quad to character position and size
     vec2 world_pos = instance_position + vertex.xy * instance_size;
     gl_Position = projection * vec4(world_pos, 0.0, 1.0);
-    
     // Map unit quad UV to character's atlas UV region
     TexCoords = instance_atlas_coords + vertex.zw * instance_atlas_size;
 }
