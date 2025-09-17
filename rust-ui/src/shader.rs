@@ -109,6 +109,9 @@ pub struct Shader {
 }
 
 impl Shader {
+    pub fn empty() -> Self {
+        Self { id: u32::MAX }
+    }
     pub fn use_shader(&self) {
         unsafe {
             gl::UseProgram(self.id);

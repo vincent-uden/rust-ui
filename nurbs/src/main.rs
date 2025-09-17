@@ -2,6 +2,7 @@ use std::{
     f64::consts::FRAC_PI_2,
     io,
     path::PathBuf,
+    str::FromStr as _,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -17,8 +18,12 @@ use rust_ui::{
     init_open_gl,
     render::{
         Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Color, Text,
+        line::LineRenderer,
         mesh::{MeshRenderer, Vertex},
+        rect::RectRenderer,
         renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
+        sprite::{SpriteAtlas, SpriteRenderer},
+        text::TextRenderer,
     },
     shader::{Shader, ShaderName},
 };
@@ -361,26 +366,28 @@ fn main() {
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);
 
-    // Select shader directory based on target architecture
-    #[cfg(target_arch = "aarch64")]
-    let shader_dir = "./shaders/gles300";
-    #[cfg(not(target_arch = "aarch64"))]
-    let shader_dir = "./shaders/glsl330";
-
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
-
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
-
     let mesh_shader = Shader::new_from_name(&ShaderName::Mesh).unwrap();
     let (vertices, indices) = generate_curve();
     let mesh_r = MeshRenderer::new(vertices, indices, mesh_shader);
 
     let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
 
-    let mut state = Renderer::new(
-        rect_shader,
+    let rect_r = RectRenderer::new(rect_shader);
+    let text_r = TextRenderer::new(
         text_shader,
-        line_shader,
+        &PathBuf::from_str("assets/fonts/LiberationMono.ttf").unwrap(),
+    )
+    .unwrap();
+    let line_r = LineRenderer::new(line_shader);
+    let sprite_r = SpriteRenderer::new(Shader::empty(), SpriteAtlas::empty());
+
+    let mut state = Renderer::new(
+        rect_r,
+        text_r,
+        line_r,
+        sprite_r,
         PerfStats {
             header_bg: COLOR_LIGHT,
             ..Default::default()

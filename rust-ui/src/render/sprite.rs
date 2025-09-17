@@ -90,6 +90,13 @@ impl<K: SpriteKey> SpriteAtlas<K> {
             map, 
         })
     }
+
+    pub fn empty() -> Self {
+        Self {
+            texture_id: u32::MAX,
+            map: HashMap::new(),
+        }
+    }
 }
 
 impl<K> Drop for SpriteAtlas<K> where K: SpriteKey {
@@ -116,7 +123,7 @@ where
 impl<K: SpriteKey> SpriteRenderer<K> {
     /// This is lifted in large part from the GPU instanced text rendering which also uses atlases
     /// to render text
-    pub fn new(shader: Shader, atlas_path: &Path, legend_path: &Path) -> Result<Self> {
+    pub fn new(shader: Shader, atlas: SpriteAtlas<K>) -> Self {
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
         let mut instance_vbo = 0;
@@ -203,45 +210,46 @@ impl<K: SpriteKey> SpriteRenderer<K> {
             gl::BindVertexArray(0);
         }
 
-        Ok(Self {
+        Self {
             shader,
             quad_vao,
             quad_vbo,
             instance_vbo,
-            atlas: SpriteAtlas::from_path(atlas_path, legend_path)?,
-        })
+            atlas: atlas,
+        }
     }
 
     pub fn draw(&self, key: &K, location: Rect<f32>) {
-        let bbox = self.atlas.map[key];
-        let instances = vec![SpriteInstance {
-            position: [location.x0.x, location.x0.y],
-            size: [location.size().x, location.size().y],
-            atlas_coords: [bbox.x0.x, bbox.x0.y],
-            atlas_size: [bbox.width(), bbox.height()]
-        }];
+        if let Some(bbox) = self.atlas.map.get(key) {
+            let instances = vec![SpriteInstance {
+                position: [location.x0.x, location.x0.y],
+                size: [location.size().x, location.size().y],
+                atlas_coords: [bbox.x0.x, bbox.x0.y],
+                atlas_size: [bbox.width(), bbox.height()]
+            }];
 
-        self.shader.use_shader();
-        // What does this do? Is it related to the texture unit perhaps? It is
-        self.shader.set_uniform("text", &0);
-        // TODO: Set the projection somewhere
-        unsafe {
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, self.atlas.texture_id);
-            gl::BindVertexArray(self.quad_vao);
+            self.shader.use_shader();
+            // What does this do? Is it related to the texture unit perhaps? It is
+            self.shader.set_uniform("text", &0);
+            // TODO: Set the projection somewhere
+            unsafe {
+                gl::ActiveTexture(gl::TEXTURE0);
+                gl::BindTexture(gl::TEXTURE_2D, self.atlas.texture_id);
+                gl::BindVertexArray(self.quad_vao);
 
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER, 
-                (std::mem::size_of::<SpriteInstance>() * instances.len()) as isize, 
-                instances.as_ptr() as *const c_void, 
-                gl::DYNAMIC_DRAW
-            );
+                gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_vbo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER, 
+                    (std::mem::size_of::<SpriteInstance>() * instances.len()) as isize, 
+                    instances.as_ptr() as *const c_void, 
+                    gl::DYNAMIC_DRAW
+                );
 
-            gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);
+                gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);
 
-            gl::BindVertexArray(0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
+                gl::BindVertexArray(0);
+                gl::BindTexture(gl::TEXTURE_2D, 0);
+            }
         }
     }
 }

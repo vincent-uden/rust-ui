@@ -12,7 +12,10 @@ use rust_ui::{
     geometry::Vector,
     init_open_gl,
     render::{
-        line::LineRenderer, rect::RectRenderer, renderer::Renderer, sprite::SpriteRenderer,
+        line::LineRenderer,
+        rect::RectRenderer,
+        renderer::Renderer,
+        sprite::{SpriteAtlas, SpriteRenderer},
         text::TextRenderer,
     },
     shader::{Shader, ShaderName},
@@ -42,6 +45,11 @@ fn main() {
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
     let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
     let sprite_shader = Shader::new_from_name(&ShaderName::Sprite).unwrap();
+    let sprite_atlas = SpriteAtlas::from_path(
+        &PathBuf::from_str("assets/atlas/icons.png").unwrap(),
+        &PathBuf::from_str("assets/atlas/icons.csv").unwrap(),
+    )
+    .unwrap();
 
     let rect_r = RectRenderer::new(rect_shader);
     let text_r = TextRenderer::new(
@@ -50,12 +58,7 @@ fn main() {
     )
     .unwrap();
     let line_r = LineRenderer::new(line_shader);
-    let sprite_r = SpriteRenderer::new(
-        sprite_shader,
-        &PathBuf::from_str("assets/atlas/icons.png").unwrap(),
-        &PathBuf::from_str("assets/atlas/icons.csv").unwrap(),
-    )
-    .unwrap();
+    let sprite_r = SpriteRenderer::new(sprite_shader, sprite_atlas);
     info!("{:#?}", sprite_r.atlas);
 
     let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, App::default());

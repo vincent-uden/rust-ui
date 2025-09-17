@@ -3,6 +3,7 @@
 use std::{
     io,
     path::PathBuf,
+    str::FromStr as _,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -13,7 +14,11 @@ use rust_ui::{
     init_open_gl,
     render::{
         Border, BorderRadius, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Color, Text,
+        line::LineRenderer,
+        rect::RectRenderer,
         renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
+        sprite::{self, SpriteAtlas, SpriteRenderer},
+        text::TextRenderer,
     },
     shader::{Shader, ShaderName},
 };
@@ -300,22 +305,24 @@ fn main() {
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800);
 
-    // Select shader directory based on target architecture
-    #[cfg(target_arch = "aarch64")]
-    let shader_dir = "./shaders/gles300";
-    #[cfg(not(target_arch = "aarch64"))]
-    let shader_dir = "./shaders/glsl330";
-
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
-
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
-
     let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
 
-    let mut state = Renderer::new(
-        rect_shader,
+    let rect_r = RectRenderer::new(rect_shader);
+    let text_r = TextRenderer::new(
         text_shader,
-        line_shader,
+        &PathBuf::from_str("assets/fonts/LiberationMono.ttf").unwrap(),
+    )
+    .unwrap();
+    let line_r = LineRenderer::new(line_shader);
+    let sprite_r = SpriteRenderer::new(Shader::empty(), SpriteAtlas::empty());
+
+    let mut state = Renderer::new(
+        rect_r,
+        text_r,
+        line_r,
+        sprite_r,
         PerfStats {
             header_bg: COLOR_LIGHT,
             ..Default::default()
@@ -389,9 +396,12 @@ fn main() {
         state.compute_layout_and_render();
 
         // Demonstrate line rendering
-        use rust_ui::{geometry::Vector, render::{COLOR_DANGER, COLOR_SUCCESS, COLOR_PRIMARY}};
+        use rust_ui::{
+            geometry::Vector,
+            render::{COLOR_DANGER, COLOR_PRIMARY, COLOR_SUCCESS},
+        };
         let window_size = Vector::new(state.width as f32, state.height as f32);
-        
+
         // Draw some sample lines
         state.line_r.draw(
             Vector::new(50.0, 50.0),
@@ -400,7 +410,7 @@ fn main() {
             2.0,
             window_size,
         );
-        
+
         state.line_r.draw(
             Vector::new(50.0, 120.0),
             Vector::new(300.0, 120.0),
@@ -408,7 +418,7 @@ fn main() {
             3.0,
             window_size,
         );
-        
+
         state.line_r.draw(
             Vector::new(100.0, 150.0),
             Vector::new(100.0, 250.0),
