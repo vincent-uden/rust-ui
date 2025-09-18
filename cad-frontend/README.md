@@ -5,10 +5,10 @@
 - [ ] Editing sketches
 
 ## Towards editing sketches
-- [ ] Sprite renderer
-    - [ ] Sprite atlas for icons
-- [ ] Moving the camera to face the sketch
-    - [ ] Cross product of x and y for normal vector
+- [x] Sprite renderer
+    - [x] Sprite atlas for icons
+- [x] Moving the camera to face the sketch
+    - [x] Cross product of x and y for normal vector
 - [ ] Distance from cursor to entities in sketch
     - [ ] Project cursor onto sketch plane
     - [ ] Use length constaint with point
@@ -19,5 +19,5 @@
     - [ ] Circle
     - [ ] Constrain
 - [ ] Constraint rendering
-    - [ ] Non- [ ]paramtrized constraints
+    - [ ] Non-paramtrized constraints
     - [ ] Dimensions

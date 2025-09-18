@@ -1,5 +1,5 @@
 use core::f32;
-use std::{f64::consts::PI, time::Instant};
+use std::{cell::RefCell, f64::consts::PI, time::Instant};
 
 use cad::{
     Plane, Scene, SketchInfo,
@@ -35,6 +35,25 @@ struct AreaSerializer {
     pub bdry_map: Registry<BoundaryId, Boundary>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum SketchMode {
+    Select,
+    Point,
+    // ...
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum Mode {
+    EditSketch(i32, SketchMode), // Sketch id
+    None,
+}
+
+#[derive(Debug)]
+pub(crate) struct AppMutableState {
+    pub mode: Mode,
+    pub scene: Scene,
+}
+
 const BDRY_TOLERANCE: f32 = 5.0;
 
 pub struct App {
@@ -48,7 +67,7 @@ pub struct App {
     pub settings: Settings,
     pub settings_open: bool,
     pub sketch_renderer: SketchRenderer,
-    pub scene: Scene,
+    pub mutable_state: RefCell<AppMutableState>,
 }
 
 impl App {
@@ -59,7 +78,7 @@ impl App {
         // doesn' matter as they'll all be scissored.
 
         for area in self.area_map.values_mut() {
-            out.push(area.generate_layout(&self.scene));
+            out.push(area.generate_layout(&self.mutable_state.borrow().scene));
         }
         for area in self.area_map.values_mut() {
             out.push(area.area_kind_picker_layout());
@@ -328,7 +347,7 @@ impl App {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
                     data.size = self.original_window_size;
                     self.sketch_renderer.draw_axes(data);
-                    for si in &self.scene.sketches {
+                    for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
                             self.sketch_renderer.draw(
                                 &si.sketch,
@@ -362,7 +381,7 @@ impl App {
 
     pub fn edit_sketch(&mut self, id: i32) {
         // Move camera
-        if let Some(sketch) = self.scene.sketches.iter().find(|s| s.id == id) {
+        if let Some(sketch) = self.mutable_state.borrow().scene.sketches.iter().find(|s| s.id == id) {
             let normal = sketch.plane.x.cross(&sketch.plane.y);
             let polar = normal.y.atan2(normal.x);
             let horizontal_hypotenuse = (normal.x.powi(2) + normal.y.powi(2)).sqrt();
@@ -507,7 +526,10 @@ impl Default for App {
             settings: Settings {},
             settings_open: false,
             sketch_renderer: SketchRenderer::new(),
-            scene,
+            mutable_state: RefCell::new(AppMutableState {
+                mode: Mode::None,
+                scene,
+            }),
         }
     }
 }
@@ -527,33 +549,47 @@ impl AppState for App {
 
     fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers) {
         #[allow(clippy::single_match)]
-        match action {
-            Action::Release => match key {
-                Key::F10 => {
-                    self.debug_draw = true;
-                }
-                Key::F12 => {
-                    self.perf_overlay.visible = !self.perf_overlay.visible;
-                }
-                Key::H => {
-                    self.split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
-                }
-                Key::V => {
-                    self.split_area(self.mouse_pos, BoundaryOrientation::Vertical);
-                }
-                Key::D => {
-                    self.collapse_boundary(self.mouse_pos);
-                }
-                Key::Escape => {
-                    self.settings_open = !self.settings_open;
-                }
+        let mut state = self.mutable_state.borrow_mut();
+        let current_mode = state.mode.clone();
+        match current_mode {
+            Mode::EditSketch(_, sketch_mode) => match sketch_mode {
+                SketchMode::Select => todo!(),
+                SketchMode::Point => todo!(),
+            },
+            Mode::None => match action {
+                Action::Release => match key {
+                    Key::F10 => {
+                        self.debug_draw = true;
+                    }
+                    Key::F12 => {
+                        self.perf_overlay.visible = !self.perf_overlay.visible;
+                    }
+                    Key::H => {
+                        drop(state); // Release borrow before calling self methods
+                        self.split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
+                        state = self.mutable_state.borrow_mut(); // Reborrow
+                    }
+                    Key::V => {
+                        drop(state);
+                        self.split_area(self.mouse_pos, BoundaryOrientation::Vertical);
+                        state = self.mutable_state.borrow_mut();
+                    }
+                    Key::D => {
+                        drop(state);
+                        self.collapse_boundary(self.mouse_pos);
+                        state = self.mutable_state.borrow_mut();
+                    }
+                    Key::Escape => {
+                        self.settings_open = !self.settings_open;
+                    }
+                    _ => {}
+                },
                 _ => {}
             },
-            _ => {}
         }
 
         for area in self.area_map.values_mut() {
-            area.handle_key(key, scancode, action, modifiers);
+            area.handle_key(&mut state, key, scancode, action, modifiers);
         }
     }
 
@@ -562,8 +598,9 @@ impl AppState for App {
         if let Some(bid) = self.dragging_boundary {
             self.move_boundary(self.mouse_pos, bid);
         }
+        let mut state = self.mutable_state.borrow_mut();
         for area in self.area_map.values_mut() {
-            area.handle_mouse_position(position, delta);
+            area.handle_mouse_position(&mut state, position, delta);
         }
     }
 
@@ -573,32 +610,38 @@ impl AppState for App {
         action: Action,
         modifiers: Modifiers,
     ) {
-        match action {
-            Action::Release => {
-                self.dragging_boundary = None;
-            }
-            Action::Press => match button {
-                glfw::MouseButton::Button1 => {
-                    for (bid, bdry) in self.bdry_map.iter() {
-                        if self.distance_to_point(bdry, self.mouse_pos) < BDRY_TOLERANCE {
-                            self.dragging_boundary = Some(*bid);
+        let current_mode = self.mutable_state.borrow().mode.clone();
+        match current_mode {
+            Mode::EditSketch(_, sketch_mode) => todo!(),
+            Mode::None => match action {
+                Action::Release => {
+                    self.dragging_boundary = None;
+                }
+                Action::Press => match button {
+                    glfw::MouseButton::Button1 => {
+                        for (bid, bdry) in self.bdry_map.iter() {
+                            if self.distance_to_point(bdry, self.mouse_pos) < BDRY_TOLERANCE {
+                                self.dragging_boundary = Some(*bid);
+                            }
                         }
                     }
-                }
-                _ => {}
+                    _ => {}
+                },
+                Action::Repeat => todo!(),
             },
-            Action::Repeat => todo!(),
         }
         if self.dragging_boundary.is_none() {
+            let mut state = self.mutable_state.borrow_mut();
             for area in self.area_map.values_mut() {
-                area.handle_mouse_button(button, action, modifiers);
+                area.handle_mouse_button(&mut state, button, action, modifiers);
             }
         }
     }
 
     fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
+        let mut state = self.mutable_state.borrow_mut();
         for area in self.area_map.values_mut() {
-            area.handle_mouse_scroll(scroll_delta);
+            area.handle_mouse_scroll(&mut state, scroll_delta);
         }
     }
 }

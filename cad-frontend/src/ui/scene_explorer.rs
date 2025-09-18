@@ -109,7 +109,7 @@ impl SceneExplorer {
                         .into(),
                         offset: Vector::new(0.0, 2.0),
                         on_mouse_up: Some(Arc::new(move |state| {
-                            for (j, s) in state.app_state.scene.sketches.iter_mut().enumerate() {
+                            for (j, s) in state.app_state.mutable_state.borrow_mut().scene.sketches.iter_mut().enumerate() {
                                 if j == i {
                                     s.visible = !s.visible;
                                 }

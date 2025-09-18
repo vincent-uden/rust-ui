@@ -14,7 +14,7 @@ use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, pr
 use tracing::debug;
 
 use crate::{
-    app::App,
+    app::{App, AppMutableState},
     ui::{
         scene_explorer,
         viewport::{self, ViewportData},
@@ -414,6 +414,7 @@ impl Area {
 
     pub fn handle_key(
         &mut self,
+        state: &mut AppMutableState,
         key: Key,
         _scancode: Scancode,
         action: Action,
@@ -423,7 +424,7 @@ impl Area {
 
     /// Position is in window coordinates, the area has to decide on its own if it cares about
     /// out-of-bounds events or not.
-    pub fn handle_mouse_position(&mut self, position: Vector<f32>, delta: Vector<f32>) {
+    pub fn handle_mouse_position(&mut self, state: &mut AppMutableState, position: Vector<f32>, delta: Vector<f32>) {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => match viewport_data.interaction_state {
                 viewport::InteractionState::Orbit => {
@@ -441,6 +442,7 @@ impl Area {
 
     pub fn handle_mouse_button(
         &mut self,
+        state: &mut AppMutableState,
         button: glfw::MouseButton,
         action: Action,
         _modifiers: Modifiers,
@@ -475,7 +477,7 @@ impl Area {
         }
     }
 
-    pub fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
+    pub fn handle_mouse_scroll(&mut self, state: &mut AppMutableState, scroll_delta: Vector<f32>) {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => {
                 if scroll_delta.y < 0.0 {
