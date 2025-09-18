@@ -4,7 +4,7 @@ use cad::Scene;
 use rust_ui::{
     geometry::Vector,
     render::{
-        Border, COLOR_LIGHT, Color, NORD3, Text,
+        Border, COLOR_LIGHT, Color, NORD3, NORD5, NORD7, NORD8, Text,
         renderer::{NodeContext, flags},
     },
 };
@@ -12,14 +12,19 @@ use taffy::{
     AlignItems, Dimension, FlexDirection, NodeId, Rect, Size, Style, TaffyTree,
     prelude::{auto, length},
 };
+use tracing::debug;
 
-use crate::app::App;
+use crate::app::{App, AppMutableState};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SceneExplorer {}
 
 impl SceneExplorer {
-    pub fn generate_layout(tree: &mut TaffyTree<NodeContext<App>>, parent: NodeId, scene: &Scene) {
+    pub fn generate_layout(
+        tree: &mut TaffyTree<NodeContext<App>>,
+        parent: NodeId,
+        state: &AppMutableState,
+    ) {
         let header = tree
             .new_leaf_with_context(
                 Style {
@@ -34,7 +39,8 @@ impl SceneExplorer {
                 NodeContext {
                     flags: flags::TEXT,
                     text: Text {
-                        text: scene
+                        text: state
+                            .scene
                             .path
                             .as_ref()
                             .and_then(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
@@ -67,7 +73,7 @@ impl SceneExplorer {
                 &[header],
             )
             .unwrap();
-        for (i, sketch) in scene.sketches.iter().enumerate() {
+        for (i, sketch) in state.scene.sketches.iter().enumerate() {
             let row = tree
                 .new_leaf(Style {
                     flex_direction: FlexDirection::Row,
@@ -76,6 +82,15 @@ impl SceneExplorer {
                     ..Default::default()
                 })
                 .unwrap();
+            let mut s_color = if sketch.visible { COLOR_LIGHT } else { NORD3 };
+            match &state.mode {
+                crate::app::Mode::EditSketch(id, _) => {
+                    if *id == sketch.id {
+                        s_color = NORD7;
+                    }
+                }
+                crate::app::Mode::None => {}
+            }
             let s = tree
                 .new_leaf_with_context(
                     Style {
@@ -87,7 +102,7 @@ impl SceneExplorer {
                         text: Text {
                             text: sketch.name.clone(),
                             font_size: 14,
-                            color: if sketch.visible { COLOR_LIGHT } else { NORD3 },
+                            color: s_color,
                         },
                         ..Default::default()
                     },
@@ -109,7 +124,15 @@ impl SceneExplorer {
                         .into(),
                         offset: Vector::new(0.0, 2.0),
                         on_mouse_up: Some(Arc::new(move |state| {
-                            for (j, s) in state.app_state.mutable_state.borrow_mut().scene.sketches.iter_mut().enumerate() {
+                            for (j, s) in state
+                                .app_state
+                                .mutable_state
+                                .borrow_mut()
+                                .scene
+                                .sketches
+                                .iter_mut()
+                                .enumerate()
+                            {
                                 if j == i {
                                     s.visible = !s.visible;
                                 }

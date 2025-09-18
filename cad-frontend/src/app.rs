@@ -78,7 +78,7 @@ impl App {
         // doesn' matter as they'll all be scissored.
 
         for area in self.area_map.values_mut() {
-            out.push(area.generate_layout(&self.mutable_state.borrow().scene));
+            out.push(area.generate_layout(&self.mutable_state.borrow()));
         }
         for area in self.area_map.values_mut() {
             out.push(area.area_kind_picker_layout());
@@ -380,8 +380,9 @@ impl App {
     }
 
     pub fn edit_sketch(&mut self, id: i32) {
+        let mut state = self.mutable_state.borrow_mut();
         // Move camera
-        if let Some(sketch) = self.mutable_state.borrow().scene.sketches.iter().find(|s| s.id == id) {
+        if let Some(sketch) = state.scene.sketches.iter().find(|s| s.id == id) {
             let normal = sketch.plane.x.cross(&sketch.plane.y);
             let polar = normal.y.atan2(normal.x);
             let horizontal_hypotenuse = (normal.x.powi(2) + normal.y.powi(2)).sqrt();
@@ -411,6 +412,7 @@ impl App {
                 }
             }
             // TODO: Open some sort of edit mode
+            state.mode = Mode::EditSketch(sketch.id, SketchMode::Select);
         }
     }
 }
@@ -552,9 +554,19 @@ impl AppState for App {
         let mut state = self.mutable_state.borrow_mut();
         let current_mode = state.mode.clone();
         match current_mode {
-            Mode::EditSketch(_, sketch_mode) => match sketch_mode {
-                SketchMode::Select => todo!(),
-                SketchMode::Point => todo!(),
+            Mode::EditSketch(i, sketch_mode) => match sketch_mode {
+                SketchMode::Select => match action {
+                    Action::Release => {
+                        state.mode = Mode::None;
+                    }
+                    _ => {}
+                },
+                SketchMode::Point => match action {
+                    Action::Release => {
+                        state.mode = Mode::EditSketch(i, SketchMode::Select);
+                    }
+                    _ => {}
+                },
             },
             Mode::None => match action {
                 Action::Release => match key {
@@ -612,7 +624,10 @@ impl AppState for App {
     ) {
         let current_mode = self.mutable_state.borrow().mode.clone();
         match current_mode {
-            Mode::EditSketch(_, sketch_mode) => todo!(),
+            Mode::EditSketch(_, sketch_mode) => {
+                // TODO: Do something, but in the area handler since this is dependent on the
+                // viewport
+            }
             Mode::None => match action {
                 Action::Release => {
                     self.dragging_boundary = None;

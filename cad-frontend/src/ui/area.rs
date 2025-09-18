@@ -192,7 +192,7 @@ impl Area {
         }
     }
 
-    pub fn generate_layout(&mut self, scene: &Scene) -> RenderLayout<App> {
+    pub fn generate_layout(&mut self, state: &AppMutableState) -> RenderLayout<App> {
         let mut tree = TaffyTree::new();
         let id = self.id;
 
@@ -235,7 +235,7 @@ impl Area {
                 );
             }
             AreaType::SceneExplorer => {
-                scene_explorer::SceneExplorer::generate_layout(&mut tree, root, scene);
+                scene_explorer::SceneExplorer::generate_layout(&mut tree, root, state);
             }
             _ => {}
         }
@@ -424,7 +424,12 @@ impl Area {
 
     /// Position is in window coordinates, the area has to decide on its own if it cares about
     /// out-of-bounds events or not.
-    pub fn handle_mouse_position(&mut self, state: &mut AppMutableState, position: Vector<f32>, delta: Vector<f32>) {
+    pub fn handle_mouse_position(
+        &mut self,
+        state: &mut AppMutableState,
+        position: Vector<f32>,
+        delta: Vector<f32>,
+    ) {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => match viewport_data.interaction_state {
                 viewport::InteractionState::Orbit => {
