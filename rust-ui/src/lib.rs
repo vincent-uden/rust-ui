@@ -9,6 +9,7 @@ pub mod shader;
 pub fn init_open_gl(
     width: u32,
     height: u32,
+    resizable: bool,
 ) -> (
     glfw::Glfw,
     glfw::PWindow,
@@ -34,7 +35,7 @@ pub fn init_open_gl(
         glfw.window_hint(glfw::WindowHint::Samples(Some(4)));
     }
 
-    glfw.window_hint(glfw::WindowHint::Resizable(true));
+    glfw.window_hint(glfw::WindowHint::Resizable(resizable));
 
     let (mut window, events) = glfw
         .create_window(width, height, "App", glfw::WindowMode::Windowed)

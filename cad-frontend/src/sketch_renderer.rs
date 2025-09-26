@@ -24,33 +24,10 @@ impl SketchRenderer {
         }
     }
 
-    fn projection(&self, state: &ViewportData) -> glm::Mat4 {
-        glm::perspective(state.size.x / state.size.y, 45.0, 0.0001, 100.0)
-    }
-
-    fn model(&self, _state: &ViewportData) -> glm::Mat4 {
-        glm::scaling(&glm::vec3(1.0, 1.0, 1.0))
-    }
-
-    fn view(&self, state: &ViewportData) -> glm::Mat4 {
-        // Create camera position using spherical coordinates
-        let camera_distance = state.distance;
-        let camera_pos = glm::Vec3::new(
-            camera_distance * state.azimuthal_angle.sin() * state.polar_angle.cos(),
-            camera_distance * state.azimuthal_angle.sin() * state.polar_angle.sin(),
-            camera_distance * state.azimuthal_angle.cos(),
-        );
-        glm::look_at(
-            &camera_pos,                    // Camera position
-            &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
-            &glm::Vec3::new(0.0, 0.0, 1.0), // Up vector
-        )
-    }
-
     pub fn draw_axes(&mut self, state: &ViewportData) {
-        let projection = self.projection(state);
-        let model = self.model(state);
-        let view = self.view(state);
+        let projection = state.projection();
+        let model = state.model();
+        let view = state.view();
         let axes = &[
             (glm::vec3(1.0, 0.0, 0.0), Color::new(1.0, 0.0, 0.0, 1.0)),
             (glm::vec3(0.0, 1.0, 0.0), Color::new(0.0, 1.0, 0.0, 1.0)),
@@ -93,9 +70,9 @@ impl SketchRenderer {
                     let end: Point = sketch.fundamental_entities[*end].try_into().unwrap();
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
-                    let projection = self.projection(state);
-                    let model = self.model(state);
-                    let view = self.view(state);
+                    let projection = state.projection();
+                    let model = state.model();
+                    let view = state.view();
 
                     let s_3d = s.x * x_axis + s.y * y_axis;
                     let e_3d = e.x * x_axis + e.y * y_axis;

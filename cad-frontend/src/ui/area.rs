@@ -14,7 +14,7 @@ use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, pr
 use tracing::debug;
 
 use crate::{
-    app::{App, AppMutableState},
+    app::{self, App, AppMutableState},
     ui::{
         scene_explorer,
         viewport::{self, ViewportData},
@@ -431,14 +431,26 @@ impl Area {
         delta: Vector<f32>,
     ) {
         match &mut self.area_data {
-            AreaData::Viewport(viewport_data) => match viewport_data.interaction_state {
+            AreaData::Viewport(data) => match data.interaction_state {
                 viewport::InteractionState::Orbit => {
-                    viewport_data.polar_angle -= delta.x * 0.01;
-                    viewport_data.azimuthal_angle -= delta.y * 0.01;
-                    viewport_data.azimuthal_angle =
-                        viewport_data.azimuthal_angle.clamp(0.00001, PI - 0.00001);
+                    data.polar_angle -= delta.x * 0.01;
+                    data.azimuthal_angle -= delta.y * 0.01;
+                    data.azimuthal_angle = data.azimuthal_angle.clamp(0.00001, PI - 0.00001);
                 }
-                _ => {}
+                _ => {
+                    match &state.mode {
+                        app::Mode::EditSketch(i, sketch_mode) => match sketch_mode {
+                            app::SketchMode::Select => {
+                                // 3D point picker FBO "hack"
+                            }
+                            app::SketchMode::Point => {
+                                // Show a pending point
+                                // Probably want to snap to existing objects
+                            }
+                        },
+                        _ => {}
+                    }
+                }
             },
             _ => {}
         }

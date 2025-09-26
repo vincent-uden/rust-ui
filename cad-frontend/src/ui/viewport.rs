@@ -73,6 +73,31 @@ impl Default for ViewportData {
     }
 }
 
+impl ViewportData {
+    pub fn projection(&self) -> glm::Mat4 {
+        glm::perspective(self.size.x / self.size.y, 45.0, 0.0001, 100.0)
+    }
+
+    pub fn model(&self) -> glm::Mat4 {
+        glm::scaling(&glm::vec3(1.0, 1.0, 1.0))
+    }
+
+    pub fn view(&self) -> glm::Mat4 {
+        // Create camera position using spherical coordinates
+        let camera_distance = self.distance;
+        let camera_pos = glm::Vec3::new(
+            camera_distance * self.azimuthal_angle.sin() * self.polar_angle.cos(),
+            camera_distance * self.azimuthal_angle.sin() * self.polar_angle.sin(),
+            camera_distance * self.azimuthal_angle.cos(),
+        );
+        glm::look_at(
+            &camera_pos,                    // Camera position
+            &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
+            &glm::Vec3::new(0.0, 0.0, 1.0), // Up vector
+        )
+    }
+}
+
 // Perhaps each area type will have its own struct like this that can generate a layout?
 #[derive(Debug, Clone, Copy)]
 pub struct Viewport {}

@@ -411,7 +411,6 @@ impl App {
                     _ => {}
                 }
             }
-            // TODO: Open some sort of edit mode
             state.mode = Mode::EditSketch(sketch.id, SketchMode::Select);
         }
     }
@@ -556,15 +555,21 @@ impl AppState for App {
         match current_mode {
             Mode::EditSketch(i, sketch_mode) => match sketch_mode {
                 SketchMode::Select => match action {
-                    Action::Release => {
-                        state.mode = Mode::None;
-                    }
+                    Action::Release => match key {
+                        Key::Escape => {
+                            state.mode = Mode::None;
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 },
                 SketchMode::Point => match action {
-                    Action::Release => {
-                        state.mode = Mode::EditSketch(i, SketchMode::Select);
-                    }
+                    Action::Release => match key {
+                        Key::Escape => {
+                            state.mode = Mode::EditSketch(i, SketchMode::Select);
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 },
             },
