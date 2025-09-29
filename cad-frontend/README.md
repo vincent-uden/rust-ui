@@ -10,6 +10,7 @@
 - [x] Moving the camera to face the sketch
     - [x] Cross product of x and y for normal vector
 - [ ] Entity picker shader
+    - [ ] Framebuffer inspection tools
 - [ ] Tools?
     - [ ] Select
     - [ ] Line
