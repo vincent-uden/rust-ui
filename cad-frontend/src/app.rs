@@ -373,6 +373,7 @@ impl App {
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
+                                self.sketch_picker.hovered(self.mouse_pos.into()),
                             );
                         }
                     }

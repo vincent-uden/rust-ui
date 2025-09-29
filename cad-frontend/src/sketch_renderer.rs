@@ -9,6 +9,7 @@ use rust_ui::{
     render::{Color, line::LineRenderer},
     shader::{Shader, ShaderName},
 };
+use tracing::debug;
 
 use crate::{entity_picker::EntityPicker, ui::viewport::ViewportData};
 
@@ -65,8 +66,10 @@ impl SketchRenderer {
         state: &mut ViewportData,
         x_axis: glm::Vec3,
         y_axis: glm::Vec3,
+        hovered: Option<EntityId>,
     ) {
-        for (EntityId(id), eid) in sketch.guided_entities.iter() {
+        debug!("{:?}", hovered);
+        for (id, eid) in sketch.guided_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
                     start,
@@ -86,7 +89,11 @@ impl SketchRenderer {
                     self.line_r.draw_3d(
                         s_3d,
                         e_3d,
-                        Color::new(1.0, 1.0, 1.0, 1.0),
+                        if *id == hovered.unwrap_or_default() {
+                            Color::new(1.0, 0.0, 0.0, 1.0)
+                        } else {
+                            Color::new(1.0, 1.0, 1.0, 1.0)
+                        },
                         2.0,
                         &projection,
                         &model,
@@ -156,5 +163,15 @@ impl SketchPicker {
             }
         }
         self.picker.disable_writing();
+    }
+
+    pub fn hovered(&self, mouse_pos: Vector<i32>) -> Option<EntityId> {
+        let info = self.picker.read_pixel(mouse_pos.x, mouse_pos.y);
+        let entity_id = info.entity_id as u32;
+        if entity_id == 0 {
+            None
+        } else {
+            Some(EntityId(entity_id))
+        }
     }
 }

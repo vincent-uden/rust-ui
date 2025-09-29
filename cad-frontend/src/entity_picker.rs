@@ -6,9 +6,9 @@ use tracing::error;
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
 pub struct PixelInfo {
-    entity_id: f32,
-    draw_id: f32,
-    prim_id: f32,
+    pub entity_id: f32,
+    pub draw_id: f32,
+    pub prim_id: f32,
 }
 
 /// Picks entities in a sketch if the mouse cursor is over it on the screen
