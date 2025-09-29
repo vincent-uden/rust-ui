@@ -1,6 +1,6 @@
-use std::{env, fs, io, path::PathBuf};
+use std::{env, fs, io, path::{Path, PathBuf}};
 
-fn copy_if_exists(src: &PathBuf, dst_dir: &PathBuf) -> io::Result<()> {
+fn copy_if_exists(src: &Path, dst_dir: &Path) -> io::Result<()> {
     if src.exists() {
         let dst = dst_dir.join(src.file_name().unwrap());
         fs::copy(src, &dst)?;
@@ -42,6 +42,7 @@ fn main() -> io::Result<()> {
                     .and_then(|n| n.to_str())
                     .map(|n| n.eq_ignore_ascii_case("glfw3.dll"))
                     .unwrap_or(false)
+                    && sub.to_string_lossy().contains("lib-vc2022")
                 {
                     copy_if_exists(&sub, &target_dir)?;
                 }
