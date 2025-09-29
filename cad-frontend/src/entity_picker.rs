@@ -1,6 +1,9 @@
+use std::ffi::c_void;
+
+use rust_ui::shader::Shader;
 use tracing::error;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
 pub struct PixelInfo {
     entity_id: f32,
@@ -82,7 +85,37 @@ impl EntityPicker {
         }
     }
 
-    pub fn read_pixel(&self) -> PixelInfo {
-        todo!()
+    pub fn read_pixel(&self, x: i32, y: i32) -> PixelInfo {
+        let mut pixel = PixelInfo::default();
+        unsafe {
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo);
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+
+            gl::ReadPixels(
+                x,
+                y,
+                1,
+                1,
+                gl::RGB,
+                gl::FLOAT,
+                (&mut pixel) as *mut _ as *mut c_void,
+            );
+
+            gl::ReadBuffer(gl::NONE);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+        }
+        return pixel;
+    }
+
+    pub fn enable_writing(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.fbo);
+        }
+    }
+
+    pub fn disable_writing(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+        }
     }
 }

@@ -51,6 +51,7 @@ fn main() {
         &PathBuf::from_str("assets/atlas/icons.csv").unwrap(),
     )
     .unwrap();
+    let pick_shader = Shader::new_from_name(&ShaderName::Pick).unwrap();
 
     let rect_r = RectRenderer::new(rect_shader);
     let text_r = TextRenderer::new(

@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 use crate::registry::{RegId, Registry};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize)]
-pub struct EntityId(pub i64);
+pub struct EntityId(pub u32);
 
 impl RegId for EntityId {
+    /// We start at 1 to allow for the usage of 0 as a "null" id
     fn new() -> Self {
-        Self(0)
+        Self(1)
     }
 
     fn increment(self) -> Self {
@@ -21,7 +22,7 @@ impl RegId for EntityId {
 
 impl Default for EntityId {
     fn default() -> Self {
-        EntityId(-1)
+        EntityId(0)
     }
 }
 

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info};
 
 use crate::{
-    sketch_renderer::SketchRenderer,
+    sketch_renderer::{SketchPicker, SketchRenderer},
     ui::{
         area::{Area, AreaData, AreaId, AreaType},
         boundary::{Boundary, BoundaryId, BoundaryOrientation},
@@ -67,6 +67,7 @@ pub struct App {
     pub settings: Settings,
     pub settings_open: bool,
     pub sketch_renderer: SketchRenderer,
+    pub sketch_picker: SketchPicker,
     pub mutable_state: RefCell<AppMutableState>,
 }
 
@@ -341,6 +342,18 @@ impl App {
     /// Some areas contain stuff that isn't part of the regular UI tree such as the viewport that
     /// renders 3D scenes. Those are rendered here, before the UI pass.
     pub fn draw_special_areas(&mut self) {
+        // Picking pass
+        for area in self.area_map.values_mut() {
+            match area.area_type {
+                AreaType::Viewport => {
+                    let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
+                    // TODO: Draw to all entities to picking buffer
+                }
+                _ => {}
+            }
+        }
+
+        // Render pass
         for area in self.area_map.values_mut() {
             match area.area_type {
                 AreaType::Viewport => {
@@ -349,6 +362,12 @@ impl App {
                     self.sketch_renderer.draw_axes(data);
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
+                            self.sketch_picker.compute_pick_locations(
+                                &si.sketch,
+                                data,
+                                si.plane.x.cast(),
+                                si.plane.y.cast(),
+                            );
                             self.sketch_renderer.draw(
                                 &si.sketch,
                                 data,
@@ -527,6 +546,7 @@ impl Default for App {
             settings: Settings {},
             settings_open: false,
             sketch_renderer: SketchRenderer::new(),
+            sketch_picker: SketchPicker::new(original_size.x as i32, original_size.y as i32),
             mutable_state: RefCell::new(AppMutableState {
                 mode: Mode::None,
                 scene,

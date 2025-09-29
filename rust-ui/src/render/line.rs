@@ -10,7 +10,7 @@ struct LineVertex {
 
 #[derive(Debug)]
 pub struct LineRenderer {
-    shader: Shader,
+    pub shader: Shader,
     vao: u32,
     vbo: u32,
 }
@@ -58,7 +58,15 @@ impl LineRenderer {
         let projection = glm::ortho(0.0, window_size.x, window_size.y, 0.0, -1.0, 1.0);
         let start_3d = glm::vec3(start.x, start.y, 0.0);
         let end_3d = glm::vec3(end.x, end.y, 0.0);
-        self.draw_3d(start_3d, end_3d, color, thickness, &projection, &ident, &ident);
+        self.draw_3d(
+            start_3d,
+            end_3d,
+            color,
+            thickness,
+            &projection,
+            &ident,
+            &ident,
+        );
     }
 
     /// Allows you to specify your own projection matrix for a more general drawing. Supports 3D positions.

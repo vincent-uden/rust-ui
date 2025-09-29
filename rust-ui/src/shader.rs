@@ -33,6 +33,14 @@ impl UniformValue for i32 {
     }
 }
 
+impl UniformValue for u32 {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform1ui(location, *value);
+        }
+    }
+}
+
 impl UniformValue for glm::Vec2 {
     fn set_uniform(location: gl::types::GLint, value: &Self) {
         unsafe {
@@ -72,6 +80,7 @@ pub enum ShaderName {
     Rect,
     Mesh,
     Sprite,
+    Pick,
 }
 
 impl ShaderName {
@@ -83,6 +92,7 @@ impl ShaderName {
             ShaderName::Rect => Self::to_paths("rounded_rect"),
             ShaderName::Mesh => Self::to_paths("mesh"),
             ShaderName::Sprite => Self::to_paths("sprite"),
+            ShaderName::Pick => Self::to_paths("picking"),
         }
     }
 
