@@ -1,31 +1,53 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{env, fs, io, path::PathBuf};
 
-fn main() {
-    let dll_src = PathBuf::from("./x86_64/freetype.dll");
+fn copy_if_exists(src: &PathBuf, dst_dir: &PathBuf) -> io::Result<()> {
+    if src.exists() {
+        let dst = dst_dir.join(src.file_name().unwrap());
+        fs::copy(src, &dst)?;
+        println!("cargo:rerun-if-changed={}", src.display());
+    }
+    Ok(())
+}
+
+fn main() -> io::Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let target_dir = out_dir.ancestors().nth(3).unwrap().to_path_buf();
 
-    // OUT_DIR is something like target/debug/build/<pkg>/out
-    // The final binary is one level up in target/debug or target/release
-    let target_dir = out_dir
-        .ancestors()
-        .nth(3) // walk up to target/{debug,release}
-        .unwrap()
-        .to_path_buf();
-
-    let dll_dst = target_dir.join("freetype.dll");
-
-    // Copy DLL if it exists
-    if let Err(e) = fs::copy(&dll_src, &dll_dst) {
-        panic!(
-            "Failed to copy {} to {}: {}",
-            dll_src.display(),
-            dll_dst.display(),
-            e
-        );
+    let local_dlls_dir = PathBuf::from("./x86_64");
+    if local_dlls_dir.exists() {
+        for entry in fs::read_dir(local_dlls_dir)? {
+            let path = entry?.path();
+            if path
+                .extension()
+                .map(|ext| ext.eq_ignore_ascii_case("dll"))
+                .unwrap_or(false)
+            {
+                copy_if_exists(&path, &target_dir)?;
+            }
+        }
+    }
+    let build_dir = out_dir.ancestors().nth(2).unwrap(); // target/{debug,release}/build
+    for entry in fs::read_dir(build_dir)? {
+        let path = entry?.path();
+        if path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|n| n.starts_with("glfw-sys-"))
+            .unwrap_or(false)
+        {
+            for sub in walkdir::WalkDir::new(&path) {
+                let sub = sub.unwrap().into_path();
+                if sub
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.eq_ignore_ascii_case("glfw3.dll"))
+                    .unwrap_or(false)
+                {
+                    copy_if_exists(&sub, &target_dir)?;
+                }
+            }
+        }
     }
 
-    // Re-run build.rs if the DLL changes
-    println!("cargo:rerun-if-changed={}", dll_src.display());
+    Ok(())
 }

@@ -9,6 +9,7 @@ use std::{
 
 use glfw::Context as _;
 use rust_ui::{
+    print_env,
     geometry::Vector,
     init_open_gl,
     render::{
@@ -35,6 +36,7 @@ pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
 fn main() {
+    print_env();
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
         .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))

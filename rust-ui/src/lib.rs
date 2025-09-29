@@ -1,6 +1,7 @@
 #![allow(clippy::uninlined_format_args)]
 
 use glfw::Context;
+use std::env;
 
 pub mod geometry;
 pub mod render;
@@ -66,4 +67,14 @@ pub fn init_open_gl(
     }
 
     (glfw, window, events)
+}
+
+pub fn print_env() {
+    let cwd = env::current_dir().unwrap();
+    println!("Current dir: {}", cwd.display());
+
+    println!("--- Environment ---");
+    for (k, v) in env::vars() {
+        println!("{k}={v}");
+    }
 }
