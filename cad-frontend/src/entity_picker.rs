@@ -1,19 +1,20 @@
 use std::ffi::c_void;
 
 use rust_ui::shader::Shader;
-use tracing::error;
+use tracing::{debug, error};
 
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
 pub struct PixelInfo {
-    pub entity_id: f32,
-    pub draw_id: f32,
-    pub prim_id: f32,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
 }
 
 /// Picks entities in a sketch if the mouse cursor is over it on the screen
 pub struct EntityPicker {
-    fbo: u32,
+    pub fbo: u32,
     picking_texture: u32,
     depth_texture: u32,
 }
@@ -32,12 +33,12 @@ impl EntityPicker {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB32F as i32,
+                gl::RGBA8 as i32,
                 window_width,
                 window_height,
                 0,
-                gl::RGB,
-                gl::FLOAT,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
                 std::ptr::null(),
             );
             gl::FramebufferTexture2D(
@@ -73,6 +74,8 @@ impl EntityPicker {
             let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
             if status != gl::FRAMEBUFFER_COMPLETE {
                 error!("Framebuffer error: status: {:?}", status);
+            } else {
+                debug!("Framebuffer successfully created");
             }
             gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -96,8 +99,8 @@ impl EntityPicker {
                 y,
                 1,
                 1,
-                gl::RGB,
-                gl::FLOAT,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
                 (&mut pixel) as *mut _ as *mut c_void,
             );
 

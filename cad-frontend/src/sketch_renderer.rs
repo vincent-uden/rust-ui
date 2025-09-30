@@ -68,7 +68,6 @@ impl SketchRenderer {
         y_axis: glm::Vec3,
         hovered: Option<EntityId>,
     ) {
-        debug!("{:?}", hovered);
         for (id, eid) in sketch.guided_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -108,7 +107,7 @@ impl SketchRenderer {
 
 pub struct SketchPicker {
     line_r: LineRenderer,
-    picker: EntityPicker,
+    pub picker: EntityPicker,
 }
 
 impl SketchPicker {
@@ -129,6 +128,11 @@ impl SketchPicker {
         y_axis: glm::Vec3,
     ) {
         self.picker.enable_writing();
+        unsafe {
+            gl::DrawBuffer(gl::COLOR_ATTACHMENT0);
+            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
         // Maybe allow for selection of axes in the future. For example it is useful when
         // constructing planes
         for (EntityId(id), eid) in sketch.guided_entities.iter() {
@@ -148,6 +152,7 @@ impl SketchPicker {
 
                     let s_3d = s.x * x_axis + s.y * y_axis;
                     let e_3d = e.x * x_axis + e.y * y_axis;
+                    self.line_r.shader.use_shader();
                     self.line_r.shader.set_uniform("gObjectIndex", id);
                     self.line_r.draw_3d(
                         s_3d,
@@ -167,7 +172,7 @@ impl SketchPicker {
 
     pub fn hovered(&self, mouse_pos: Vector<i32>) -> Option<EntityId> {
         let info = self.picker.read_pixel(mouse_pos.x, mouse_pos.y);
-        let entity_id = info.entity_id as u32;
+        let entity_id = info.r as u32;
         if entity_id == 0 {
             None
         } else {

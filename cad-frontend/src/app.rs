@@ -61,6 +61,7 @@ pub struct App {
     pub dragging_boundary: Option<BoundaryId>,
     pub mouse_pos: Vector<f32>,
     pub debug_draw: bool, // Eventually turn this into a menu
+    pub debug_picker: bool,
     pub original_window_size: Vector<f32>,
     pub area_map: Registry<AreaId, Area>,
     pub bdry_map: Registry<BoundaryId, Boundary>,
@@ -359,6 +360,11 @@ impl App {
                 AreaType::Viewport => {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
                     data.size = self.original_window_size;
+                    let pixel = self
+                        .sketch_picker
+                        .picker
+                        .read_pixel(self.mouse_pos.x as i32, self.mouse_pos.y as i32);
+                    data.debug_hovered_pixel = (pixel.r, pixel.g, pixel.b, pixel.a);
                     self.sketch_renderer.draw_axes(data);
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
@@ -379,6 +385,25 @@ impl App {
                     }
                 }
                 _ => {}
+            }
+        }
+
+        if self.debug_picker {
+            unsafe {
+                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.sketch_picker.picker.fbo);
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+                gl::BlitFramebuffer(
+                    0,
+                    0,
+                    self.original_window_size.x as i32,
+                    self.original_window_size.y as i32,
+                    0,
+                    0,
+                    self.original_window_size.x as i32,
+                    self.original_window_size.y as i32,
+                    gl::COLOR_BUFFER_BIT,
+                    gl::NEAREST,
+                );
             }
         }
     }
@@ -544,6 +569,7 @@ impl Default for App {
             area_map,
             bdry_map,
             debug_draw: false,
+            debug_picker: true,
             settings: Settings {},
             settings_open: false,
             sketch_renderer: SketchRenderer::new(),
@@ -597,7 +623,10 @@ impl AppState for App {
             Mode::None => match action {
                 Action::Release => match key {
                     Key::F10 => {
-                        self.debug_draw = true;
+                        self.debug_draw = !self.debug_draw;
+                    }
+                    Key::F11 => {
+                        self.debug_picker = !self.debug_picker;
                     }
                     Key::F12 => {
                         self.perf_overlay.visible = !self.perf_overlay.visible;

@@ -9,9 +9,8 @@ use std::{
 
 use glfw::Context as _;
 use rust_ui::{
-    print_env,
     geometry::Vector,
-    init_open_gl,
+    init_open_gl, print_env,
     render::{
         line::LineRenderer,
         rect::RectRenderer,
@@ -36,7 +35,6 @@ pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
 fn main() {
-    print_env();
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
         .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))
@@ -53,7 +51,6 @@ fn main() {
         &PathBuf::from_str("assets/atlas/icons.csv").unwrap(),
     )
     .unwrap();
-    let pick_shader = Shader::new_from_name(&ShaderName::Pick).unwrap();
 
     let rect_r = RectRenderer::new(rect_shader);
     let text_r = TextRenderer::new(

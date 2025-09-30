@@ -52,6 +52,7 @@ pub struct ViewportData {
     pub start_azimuthal_angle: f32,
     /// Animation state
     pub start_polar_angle: f32,
+    pub debug_hovered_pixel: (u8, u8, u8, u8),
 }
 
 impl Default for ViewportData {
@@ -69,6 +70,7 @@ impl Default for ViewportData {
             auto_move_duration: Duration::from_millis(500),
             start_azimuthal_angle: 0.0,
             start_polar_angle: 0.0,
+            debug_hovered_pixel: (0, 0, 0, 0),
         }
     }
 }
