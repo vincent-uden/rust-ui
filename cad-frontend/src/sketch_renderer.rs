@@ -108,6 +108,7 @@ impl SketchRenderer {
 pub struct SketchPicker {
     line_r: LineRenderer,
     pub picker: EntityPicker,
+    window_height: i32,
 }
 
 impl SketchPicker {
@@ -116,6 +117,7 @@ impl SketchPicker {
         Self {
             line_r: LineRenderer::new(line_shader),
             picker: EntityPicker::new(window_width, window_height),
+            window_height,
         }
     }
 
@@ -128,11 +130,6 @@ impl SketchPicker {
         y_axis: glm::Vec3,
     ) {
         self.picker.enable_writing();
-        unsafe {
-            gl::DrawBuffer(gl::COLOR_ATTACHMENT0);
-            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        }
         // Maybe allow for selection of axes in the future. For example it is useful when
         // constructing planes
         for (EntityId(id), eid) in sketch.guided_entities.iter() {

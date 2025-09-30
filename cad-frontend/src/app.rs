@@ -366,6 +366,12 @@ impl App {
                         .read_pixel(self.mouse_pos.x as i32, self.mouse_pos.y as i32);
                     data.debug_hovered_pixel = (pixel.r, pixel.g, pixel.b, pixel.a);
                     self.sketch_renderer.draw_axes(data);
+                    self.sketch_picker.picker.enable_writing();
+                    unsafe {
+                        gl::DrawBuffer(gl::COLOR_ATTACHMENT0);
+                        gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+                        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+                    }
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
                             self.sketch_picker.compute_pick_locations(
@@ -374,6 +380,10 @@ impl App {
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
                             );
+                        }
+                    }
+                    for si in &self.mutable_state.borrow().scene.sketches {
+                        if si.visible {
                             self.sketch_renderer.draw(
                                 &si.sketch,
                                 data,
@@ -385,25 +395,6 @@ impl App {
                     }
                 }
                 _ => {}
-            }
-        }
-
-        if self.debug_picker {
-            unsafe {
-                gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.sketch_picker.picker.fbo);
-                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
-                gl::BlitFramebuffer(
-                    0,
-                    0,
-                    self.original_window_size.x as i32,
-                    self.original_window_size.y as i32,
-                    0,
-                    0,
-                    self.original_window_size.x as i32,
-                    self.original_window_size.y as i32,
-                    gl::COLOR_BUFFER_BIT,
-                    gl::NEAREST,
-                );
             }
         }
     }
