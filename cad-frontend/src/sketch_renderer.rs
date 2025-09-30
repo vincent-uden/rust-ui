@@ -9,7 +9,6 @@ use rust_ui::{
     render::{Color, line::LineRenderer},
     shader::{Shader, ShaderName},
 };
-use tracing::debug;
 
 use crate::{entity_picker::EntityPicker, ui::viewport::ViewportData};
 
@@ -108,7 +107,8 @@ impl SketchRenderer {
 pub struct SketchPicker {
     line_r: LineRenderer,
     pub picker: EntityPicker,
-    window_height: i32,
+    pub window_width: i32,
+    pub window_height: i32,
 }
 
 impl SketchPicker {
@@ -117,6 +117,7 @@ impl SketchPicker {
         Self {
             line_r: LineRenderer::new(line_shader),
             picker: EntityPicker::new(window_width, window_height),
+            window_width,
             window_height,
         }
     }
@@ -167,8 +168,9 @@ impl SketchPicker {
         self.picker.disable_writing();
     }
 
-    pub fn hovered(&self, mouse_pos: Vector<i32>) -> Option<EntityId> {
-        let info = self.picker.read_pixel(mouse_pos.x, mouse_pos.y);
+    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<EntityId> {
+        let opengl_y = viewport_height as i32 - mouse_pos.y;
+        let info = self.picker.read_pixel(mouse_pos.x, opengl_y);
         let entity_id = info.r as u32;
         if entity_id == 0 {
             None

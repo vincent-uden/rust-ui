@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 
 use rust_ui::shader::Shader;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
@@ -120,5 +120,42 @@ impl EntityPicker {
         unsafe {
             gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
         }
+    }
+
+    pub fn dump_to_png(&self, width: i32, height: i32, path: &str) -> anyhow::Result<()> {
+        let mut pixels = vec![0u8; (width * height * 4) as usize];
+        unsafe {
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo);
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            gl::ReadPixels(
+                0,
+                0,
+                width,
+                height,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                pixels.as_mut_ptr() as *mut c_void,
+            );
+            gl::ReadBuffer(gl::NONE);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
+        }
+
+        let mut flipped = vec![0u8; pixels.len()];
+        for y in 0..height {
+            let src_row = (height - 1 - y) * width * 4;
+            let dst_row = y * width * 4;
+            flipped[dst_row as usize..(dst_row + width * 4) as usize]
+                .copy_from_slice(&pixels[src_row as usize..(src_row + width * 4) as usize]);
+        }
+
+        image::save_buffer(
+            path,
+            &flipped,
+            width as u32,
+            height as u32,
+            image::ColorType::Rgba8,
+        )?;
+        info!("Saved framebuffer to {}", path);
+        Ok(())
     }
 }

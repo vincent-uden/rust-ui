@@ -359,15 +359,19 @@ impl App {
             match area.area_type {
                 AreaType::Viewport => {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
-                    data.size = self.original_window_size;
+                    data.size = area.bbox.size();
+
+                    let mouse_in_area = self.mouse_pos - area.bbox.x0;
+                    let opengl_y = (area.bbox.height() - mouse_in_area.y) as i32;
+
                     let pixel = self
                         .sketch_picker
                         .picker
-                        .read_pixel(self.mouse_pos.x as i32, self.mouse_pos.y as i32);
+                        .read_pixel(mouse_in_area.x as i32, opengl_y);
                     data.debug_hovered_pixel = (pixel.r, pixel.g, pixel.b, pixel.a);
-                    self.sketch_renderer.draw_axes(data);
                     self.sketch_picker.picker.enable_writing();
                     unsafe {
+                        gl::Viewport(0, 0, area.bbox.width() as i32, area.bbox.height() as i32);
                         gl::DrawBuffer(gl::COLOR_ATTACHMENT0);
                         gl::ClearColor(0.0, 0.0, 0.0, 0.0);
                         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -382,20 +386,42 @@ impl App {
                             );
                         }
                     }
+                    self.sketch_picker.picker.disable_writing();
+                    unsafe {
+                        let opengl_y = self.original_window_size.y - area.bbox.x0.y - area.bbox.height();
+                        gl::Viewport(
+                            area.bbox.x0.x as i32,
+                            opengl_y as i32,
+                            area.bbox.width() as i32,
+                            area.bbox.height() as i32,
+                        );
+                    }
+                    self.sketch_renderer.draw_axes(data);
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
+                            let mouse_in_area = self.mouse_pos - area.bbox.x0;
+                            let area_height = area.bbox.height();
                             self.sketch_renderer.draw(
                                 &si.sketch,
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
-                                self.sketch_picker.hovered(self.mouse_pos.into()),
+                                self.sketch_picker
+                                    .hovered(mouse_in_area.into(), area_height),
                             );
                         }
                     }
                 }
                 _ => {}
             }
+        }
+        unsafe {
+            gl::Viewport(
+                0,
+                0,
+                self.original_window_size.x as i32,
+                self.original_window_size.y as i32,
+            );
         }
     }
 
@@ -618,6 +644,22 @@ impl AppState for App {
                     }
                     Key::F11 => {
                         self.debug_picker = !self.debug_picker;
+                        let filename = format!(
+                            "picker_dump_{}.png",
+                            std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs()
+                        );
+                        if let Err(e) = self.sketch_picker.picker.dump_to_png(
+                            self.sketch_picker.window_width,
+                            self.sketch_picker.window_height,
+                            &filename,
+                        ) {
+                            error!("Failed to dump picker framebuffer: {}", e);
+                        } else {
+                            info!("Dumped picker framebuffer to {}", filename);
+                        }
                     }
                     Key::F12 => {
                         self.perf_overlay.visible = !self.perf_overlay.visible;
