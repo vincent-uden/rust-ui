@@ -11,10 +11,13 @@
     - [x] Cross product of x and y for normal vector
 - [x] Entity picker shader
     - [x] Framebuffer inspection tools
+- [ ] Render all sketch entities
+    - [ ] Point renderer
+    - [ ] Circle renderer
 - [ ] Tools?
     - [ ] Select
     - [ ] Line
-    - [ ] Point
+    - [/] Point
     - [ ] Circle
     - [ ] Constrain
 - [ ] Constraint rendering
