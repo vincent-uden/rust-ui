@@ -35,3 +35,16 @@ pub struct Scene {
     pub path: Option<PathBuf>,
     pub sketches: Vec<SketchInfo>,
 }
+
+impl Scene {
+    pub fn add_sketch(&mut self, plane: Plane) {
+        let name = format!("Sketch {}", self.sketches.len() + 1);
+        self.sketches.push(SketchInfo {
+            id: self.sketches.last().map(|si| si.id + 1).unwrap_or_default(),
+            plane,
+            sketch: Sketch::new(name.clone()),
+            name,
+            visible: true,
+        });
+    }
+}

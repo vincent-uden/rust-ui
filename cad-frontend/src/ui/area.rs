@@ -15,7 +15,7 @@ use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, pr
 use crate::{
     app::{self, App, AppMutableState},
     ui::{
-        scene_explorer,
+        modes, scene_explorer,
         viewport::{self, ViewportData},
     },
 };
@@ -27,16 +27,18 @@ pub enum AreaType {
     Blue,
     Viewport,
     SceneExplorer,
+    Modes,
 }
 
 impl AreaType {
-    pub fn all() -> [AreaType; 5] {
+    pub fn all() -> [AreaType; 6] {
         [
             AreaType::Red,
             AreaType::Green,
             AreaType::Blue,
             AreaType::Viewport,
             AreaType::SceneExplorer,
+            AreaType::Modes,
         ]
     }
 
@@ -47,6 +49,7 @@ impl AreaType {
             AreaType::Blue => "Blue",
             AreaType::Viewport => "Viewport",
             AreaType::SceneExplorer => "Scene Explorer",
+            AreaType::Modes => "Modes",
         }
     }
 }
@@ -211,6 +214,7 @@ impl Area {
                         AreaType::Blue => NORD9,
                         AreaType::Viewport => Color::new(0.0, 0.0, 0.0, 0.0),
                         AreaType::SceneExplorer => NORD1,
+                        AreaType::Modes => NORD1,
                     },
                     on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
                         // Might not exist if we exit on the same frame an area is deleted
@@ -226,6 +230,7 @@ impl Area {
             .unwrap();
 
         match self.area_type {
+            AreaType::Red | AreaType::Blue | AreaType::Green => {}
             AreaType::Viewport => {
                 viewport::Viewport::generate_layout(
                     &mut tree,
@@ -236,7 +241,9 @@ impl Area {
             AreaType::SceneExplorer => {
                 scene_explorer::SceneExplorer::generate_layout(&mut tree, root, state);
             }
-            _ => {}
+            AreaType::Modes => {
+                modes::Modes::generate_layout(&mut tree, root, state);
+            }
         }
 
         RenderLayout {
@@ -379,13 +386,15 @@ impl Area {
                             bg_color_hover: NORD3,
                             on_mouse_up: Some(Arc::new(move |state| {
                                 state.app_state.area_map[id].area_type = kind;
+                                let area = &mut state.app_state.area_map[id];
                                 match kind {
                                     AreaType::Viewport => {
-                                        state.app_state.area_map[id].area_data =
+                                        area.area_data =
                                             AreaData::Viewport(ViewportData::default());
                                     }
                                     _ => {}
                                 }
+                                area.expanded = None;
                             })),
                             ..Default::default()
                         },

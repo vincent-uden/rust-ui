@@ -11,7 +11,7 @@
           },
           "x1": {
             "x": 161.60156,
-            "y": 800.0
+            "y": 837.0
           }
         },
         "hovered": null,
@@ -20,7 +20,7 @@
       },
       "3": {
         "id": 3,
-        "area_type": "Viewport",
+        "area_type": "Modes",
         "bbox": {
           "x0": {
             "x": 161.60156,
@@ -28,7 +28,24 @@
           },
           "x1": {
             "x": 1000.0,
-            "y": 800.0
+            "y": 86.39844
+          }
+        },
+        "hovered": null,
+        "expanded": null,
+        "expand_hovered": null
+      },
+      "4": {
+        "id": 4,
+        "area_type": "Viewport",
+        "bbox": {
+          "x0": {
+            "x": 161.60156,
+            "y": 86.39844
+          },
+          "x1": {
+            "x": 1000.0,
+            "y": 837.0
           }
         },
         "hovered": null,
@@ -36,7 +53,7 @@
         "expand_hovered": null
       }
     },
-    "next_id": 4
+    "next_id": 5
   },
   "bdry_map": {
     "map": {
@@ -51,10 +68,25 @@
           0
         ],
         "side2": [
+          3,
+          4
+        ]
+      },
+      "3": {
+        "id": 3,
+        "orientation": "Horizontal",
+        "active": false,
+        "thickness": 3,
+        "hovered_thickness": 6,
+        "hovered": false,
+        "side1": [
           3
+        ],
+        "side2": [
+          4
         ]
       }
     },
-    "next_id": 3
+    "next_id": 4
   }
 }
