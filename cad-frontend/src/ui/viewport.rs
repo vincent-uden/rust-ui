@@ -15,6 +15,13 @@ use taffy::{Dimension, NodeId, Rect, Size, Style, TaffyTree};
 use crate::app::App;
 
 #[derive(Debug, Clone, Copy, Default)]
+pub enum ProjectionMode {
+    #[default]
+    Perspective,
+    Orthographic,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 pub enum InteractionState {
     Orbit,
     Pan,
@@ -53,6 +60,7 @@ pub struct ViewportData {
     /// Animation state
     pub start_polar_angle: f32,
     pub debug_hovered_pixel: (u8, u8, u8, u8),
+    pub projection_mode: ProjectionMode,
 }
 
 impl Default for ViewportData {
@@ -71,13 +79,24 @@ impl Default for ViewportData {
             start_azimuthal_angle: 0.0,
             start_polar_angle: 0.0,
             debug_hovered_pixel: (0, 0, 0, 0),
+            projection_mode: ProjectionMode::default(),
         }
     }
 }
 
 impl ViewportData {
     pub fn projection(&self) -> glm::Mat4 {
-        glm::perspective(self.size.x / self.size.y, 45.0, 0.0001, 100.0)
+        match self.projection_mode {
+            ProjectionMode::Perspective => {
+                glm::perspective(self.size.x / self.size.y, 45.0, 0.0001, 100.0)
+            }
+            ProjectionMode::Orthographic => {
+                let aspect = self.size.x / self.size.y;
+                let height = self.distance;
+                let width = height * aspect;
+                glm::ortho(-width, width, -height, height, 0.0001, 100.0)
+            }
+        }
     }
 
     pub fn model(&self) -> glm::Mat4 {

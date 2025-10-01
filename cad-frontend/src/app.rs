@@ -613,6 +613,19 @@ impl AppState for App {
     fn handle_key(&mut self, key: Key, scancode: Scancode, action: Action, modifiers: Modifiers) {
         #[allow(clippy::single_match)]
         let mut state = self.mutable_state.borrow_mut();
+        
+        if action == Action::Release && key == Key::F9 {
+            for area in self.area_map.values_mut() {
+                if let crate::ui::area::AreaData::Viewport(ref mut vp_data) = area.area_data {
+                    vp_data.projection_mode = match vp_data.projection_mode {
+                        viewport::ProjectionMode::Perspective => viewport::ProjectionMode::Orthographic,
+                        viewport::ProjectionMode::Orthographic => viewport::ProjectionMode::Perspective,
+                    };
+                }
+            }
+            return;
+        }
+        
         let current_mode = state.mode.clone();
         match current_mode {
             Mode::EditSketch(i, sketch_mode) => match sketch_mode {
