@@ -33,7 +33,7 @@ pub struct Character {
 #[repr(C)]
 pub struct CharacterInstance {
     position: [f32; 2],
-    size: [f32; 2], 
+    size: [f32; 2],
     atlas_coords: [f32; 2],
     atlas_size: [f32; 2],
 }
@@ -115,9 +115,9 @@ impl TextRenderer {
             gl::GenVertexArrays(1, &mut quad_vao);
             gl::GenBuffers(1, &mut quad_vbo);
             gl::GenBuffers(1, &mut instance_vbo);
-            
+
             gl::BindVertexArray(quad_vao);
-            
+
             // Setup static quad geometry
             gl::BindBuffer(gl::ARRAY_BUFFER, quad_vbo);
             gl::BufferData(
@@ -126,7 +126,7 @@ impl TextRenderer {
                 quad_vertices.as_ptr() as *const c_void,
                 gl::STATIC_DRAW,
             );
-            
+
             gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(
                 0,
@@ -136,7 +136,7 @@ impl TextRenderer {
                 (4 * std::mem::size_of::<f32>()) as i32,
                 std::ptr::null(),
             );
-            
+
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_vbo);
             gl::EnableVertexAttribArray(1);
             gl::VertexAttribPointer(
@@ -178,7 +178,7 @@ impl TextRenderer {
                 (6 * std::mem::size_of::<f32>()) as *const c_void,
             );
             gl::VertexAttribDivisor(4, 1);
-            
+
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
         }
@@ -229,7 +229,6 @@ impl TextRenderer {
                 current_y: 2,
                 line_height: 0,
             }
-
         })
     }
 
@@ -348,7 +347,7 @@ impl TextRenderer {
             // Round to nearest pixel for crisp text rendering
             let xpos = f32::floor(x + ch.bearing.x as f32 * scale + 0.5);
             let ypos = f32::floor(baseline_y - ch.bearing.y as f32 * scale + 0.5);
-            
+
             let w = ch.size.x as f32 * scale;
             let h = ch.size.y as f32 * scale;
 
@@ -359,7 +358,7 @@ impl TextRenderer {
                 atlas_coords: [ch.atlas_coords.x, ch.atlas_coords.y],
                 atlas_size: [ch.atlas_size.x, ch.atlas_size.y],
             };
-            
+
             instances.push(instance);
             x += ch.advance * scale;
         }
@@ -381,7 +380,7 @@ impl TextRenderer {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, atlas_texture_id);
             gl::BindVertexArray(self.quad_vao);
-            
+
             gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -389,10 +388,10 @@ impl TextRenderer {
                 instances.as_ptr() as *const c_void,
                 gl::DYNAMIC_DRAW,
             );
-            
+
             // Draw all characters in one call
             gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);
-            
+
             gl::BindVertexArray(0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
@@ -685,13 +684,19 @@ mod tests {
 
         // Render printable ASCII characters
         for char in 32..=126 {
-            if ft_face.load_char(char as usize, ft::face::LoadFlag::DEFAULT).is_err() {
+            if ft_face
+                .load_char(char as usize, ft::face::LoadFlag::DEFAULT)
+                .is_err()
+            {
                 println!("Failed to load character: {}", char as u8 as char);
                 continue;
             }
 
             let glyph = ft_face.glyph();
-            if glyph.render_glyph(ft::render_mode::RenderMode::Normal).is_err() {
+            if glyph
+                .render_glyph(ft::render_mode::RenderMode::Normal)
+                .is_err()
+            {
                 println!("Failed to render character: {}", char as u8 as char);
                 continue;
             }

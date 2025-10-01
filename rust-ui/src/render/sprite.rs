@@ -5,7 +5,10 @@ use gl::types::GLuint;
 use anyhow::{Result, anyhow};
 use image::ImageReader;
 
-use crate::{geometry::{Rect, Vector}, shader::Shader};
+use crate::{
+    geometry::{Rect, Vector},
+    shader::Shader,
+};
 
 /// Used to draw sprites with GPU instancing
 #[derive(Debug, Clone, Copy)]
@@ -14,7 +17,7 @@ pub struct SpriteInstance {
     /// Where on the screen should this be draw
     position: [f32; 2],
     /// How big should it be on screen
-    size: [f32; 2], 
+    size: [f32; 2],
     /// Where in the atlas is it located
     atlas_coords: [f32; 2],
     /// How big is it in the atlas
@@ -40,9 +43,16 @@ impl<K: SpriteKey> SpriteAtlas<K> {
             let parts: Vec<&str> = l.split(",").collect();
 
             let x0 = Vector::new(parts[1].parse()?, parts[2].parse()?);
-            let x1 = Vector::new(parts[3].parse::<f32>()? + x0.x, parts[4].parse::<f32>()? + x0.y);
+            let x1 = Vector::new(
+                parts[3].parse::<f32>()? + x0.x,
+                parts[4].parse::<f32>()? + x0.y,
+            );
 
-            out.push((K::from_str(parts[0]).map_err(|_| anyhow!("Couldn't parse icon name on line {}: {}", i+1, l))?, Rect { x0, x1, }));
+            out.push((
+                K::from_str(parts[0])
+                    .map_err(|_| anyhow!("Couldn't parse icon name on line {}: {}", i + 1, l))?,
+                Rect { x0, x1 },
+            ));
         }
 
         Ok(out)
@@ -58,21 +68,21 @@ impl<K: SpriteKey> SpriteAtlas<K> {
         let mut texture_id: GLuint = 0;
 
         let img_data = img.into_raw();
-            let img_ptr: *const c_void = img_data.as_ptr() as *const c_void;
+        let img_ptr: *const c_void = img_data.as_ptr() as *const c_void;
 
         unsafe {
             gl::GenTextures(1, &mut texture_id);
             gl::BindTexture(gl::TEXTURE_2D, texture_id);
             gl::TexImage2D(
-                gl::TEXTURE_2D, 
-                0, 
-                gl::RGBA as i32, 
-                atlas_size.x as i32, 
-                atlas_size.y as i32, 
-                0, 
-                gl::RGBA, 
-                gl::UNSIGNED_BYTE, 
-                img_ptr
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                atlas_size.x as i32,
+                atlas_size.y as i32,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                img_ptr,
             );
 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
@@ -90,10 +100,7 @@ impl<K: SpriteKey> SpriteAtlas<K> {
             map.insert(key, normalized_rect);
         }
 
-        Ok(Self {
-            texture_id,
-            map,
-        })
+        Ok(Self { texture_id, map })
     }
 
     pub fn empty() -> Self {
@@ -104,7 +111,10 @@ impl<K: SpriteKey> SpriteAtlas<K> {
     }
 }
 
-impl<K> Drop for SpriteAtlas<K> where K: SpriteKey {
+impl<K> Drop for SpriteAtlas<K>
+where
+    K: SpriteKey,
+{
     fn drop(&mut self) {
         unsafe {
             gl::DeleteTextures(1, &self.texture_id);
@@ -169,7 +179,7 @@ impl<K: SpriteKey> SpriteRenderer<K> {
                 (4 * std::mem::size_of::<f32>()) as i32,
                 std::ptr::null(),
             );
-            
+
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_vbo);
             gl::EnableVertexAttribArray(1);
             gl::VertexAttribPointer(
@@ -228,9 +238,12 @@ impl<K: SpriteKey> SpriteRenderer<K> {
         if let Some(bbox) = self.atlas.map.get(key) {
             let instances = [SpriteInstance {
                 position: [(location.x0.x + 0.5).floor(), (location.x0.y + 0.5).floor()],
-                size: [(location.size().x + 0.5).floor(), (location.size().y + 0.5).floor()],
+                size: [
+                    (location.size().x + 0.5).floor(),
+                    (location.size().y + 0.5).floor(),
+                ],
                 atlas_coords: [bbox.x0.x, bbox.x0.y],
-                atlas_size: [bbox.width(), bbox.height()]
+                atlas_size: [bbox.width(), bbox.height()],
             }];
 
             self.shader.use_shader();
@@ -242,10 +255,10 @@ impl<K: SpriteKey> SpriteRenderer<K> {
 
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_vbo);
                 gl::BufferData(
-                    gl::ARRAY_BUFFER, 
-                    (std::mem::size_of::<SpriteInstance>() * instances.len()) as isize, 
-                    instances.as_ptr() as *const c_void, 
-                    gl::DYNAMIC_DRAW
+                    gl::ARRAY_BUFFER,
+                    (std::mem::size_of::<SpriteInstance>() * instances.len()) as isize,
+                    instances.as_ptr() as *const c_void,
+                    gl::DYNAMIC_DRAW,
                 );
 
                 gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);

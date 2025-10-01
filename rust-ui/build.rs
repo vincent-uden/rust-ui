@@ -1,4 +1,7 @@
-use std::{env, fs, io, path::{Path, PathBuf}};
+use std::{
+    env, fs, io,
+    path::{Path, PathBuf},
+};
 
 fn copy_if_exists(src: &Path, dst_dir: &Path) -> io::Result<()> {
     if src.exists() {

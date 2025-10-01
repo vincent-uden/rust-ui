@@ -6,8 +6,8 @@ use std::{
 use rust_ui::{
     geometry::Vector,
     render::{
-        COLOR_LIGHT, Color, Text,
-        renderer::{NodeContext, flags},
+        renderer::{flags, NodeContext},
+        Color, Text, COLOR_LIGHT,
     },
 };
 use taffy::{Dimension, NodeId, Rect, Size, Style, TaffyTree};
@@ -85,18 +85,37 @@ impl ViewportData {
     }
 
     pub fn view(&self) -> glm::Mat4 {
-        // Create camera position using spherical coordinates
-        let camera_distance = self.distance;
-        let camera_pos = glm::Vec3::new(
-            camera_distance * self.azimuthal_angle.sin() * self.polar_angle.cos(),
-            camera_distance * self.azimuthal_angle.sin() * self.polar_angle.sin(),
-            camera_distance * self.azimuthal_angle.cos(),
-        );
+        let camera_pos = self.looking_at
+            + glm::Vec3::new(
+                self.distance * self.azimuthal_angle.sin() * self.polar_angle.cos(),
+                self.distance * self.azimuthal_angle.sin() * self.polar_angle.sin(),
+                self.distance * self.azimuthal_angle.cos(),
+            );
         glm::look_at(
-            &camera_pos,                    // Camera position
-            &glm::Vec3::new(0.0, 0.0, 0.0), // Look at origin
-            &glm::Vec3::new(0.0, 0.0, 1.0), // Up vector
+            &camera_pos,
+            &self.looking_at,
+            &glm::Vec3::new(0.0, 0.0, 1.0),
         )
+    }
+
+    pub fn right_vector(&self) -> glm::Vec3 {
+        let forward = -glm::Vec3::new(
+            self.azimuthal_angle.sin() * self.polar_angle.cos(),
+            self.azimuthal_angle.sin() * self.polar_angle.sin(),
+            self.azimuthal_angle.cos(),
+        );
+        let up = glm::Vec3::new(0.0, 0.0, 1.0);
+        glm::cross(&forward, &up).normalize()
+    }
+
+    pub fn up_vector(&self) -> glm::Vec3 {
+        let right = self.right_vector();
+        let forward = -glm::Vec3::new(
+            self.azimuthal_angle.sin() * self.polar_angle.cos(),
+            self.azimuthal_angle.sin() * self.polar_angle.sin(),
+            self.azimuthal_angle.cos(),
+        );
+        glm::cross(&right, &forward).normalize()
     }
 }
 

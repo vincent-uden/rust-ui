@@ -5,12 +5,12 @@ use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_BLACK, COLOR_LIGHT, Color, NORD1, NORD3, NORD9, NORD11, NORD14, Text,
-        renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags},
+        renderer::{flags, Anchor, NodeContext, RenderLayout, Renderer},
+        Color, Text, COLOR_BLACK, COLOR_LIGHT, NORD1, NORD11, NORD14, NORD3, NORD9,
     },
 };
 use serde::{Deserialize, Serialize};
-use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
+use taffy::{prelude::length, AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree};
 
 use crate::{
     app::{self, App, AppMutableState},
@@ -445,6 +445,13 @@ impl Area {
                     data.azimuthal_angle -= delta.y * 0.01;
                     data.azimuthal_angle = data.azimuthal_angle.clamp(0.00001, PI - 0.00001);
                 }
+                viewport::InteractionState::Pan => {
+                    let pan_speed = data.distance / data.size.y * 0.5;
+                    let right = data.right_vector();
+                    let up = data.up_vector();
+                    data.looking_at -= right * delta.x * pan_speed;
+                    data.looking_at += up * delta.y * pan_speed;
+                }
                 _ => {
                     match &state.mode {
                         app::Mode::EditSketch(_, sketch_mode) => match sketch_mode {
@@ -470,7 +477,7 @@ impl Area {
         _state: &mut AppMutableState,
         button: glfw::MouseButton,
         action: Action,
-        _modifiers: Modifiers,
+        modifiers: Modifiers,
     ) {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => match action {
@@ -478,7 +485,7 @@ impl Area {
                     glfw::MouseButton::Button1 => {
                         viewport_data.interaction_state = viewport::InteractionState::None;
                     }
-                    glfw::MouseButton::Button2 => {
+                    glfw::MouseButton::Button2 | glfw::MouseButton::Button3 => {
                         viewport_data.interaction_state = viewport::InteractionState::None;
                     }
                     _ => {}
@@ -489,9 +496,13 @@ impl Area {
                             viewport_data.interaction_state = viewport::InteractionState::Orbit;
                         }
                     }
-                    glfw::MouseButton::Button2 => {
+                    glfw::MouseButton::Button3 => {
                         if self.bbox.contains(self.mouse_pos) {
-                            viewport_data.interaction_state = viewport::InteractionState::Pan;
+                            if modifiers.contains(Modifiers::Shift) {
+                                viewport_data.interaction_state = viewport::InteractionState::Orbit;
+                            } else {
+                                viewport_data.interaction_state = viewport::InteractionState::Pan;
+                            }
                         }
                     }
                     _ => {}
