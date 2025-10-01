@@ -1,4 +1,8 @@
-#![allow(clippy::uninlined_format_args)]
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::too_many_arguments,
+    clippy::uninlined_format_args
+)]
 
 use glfw::Context;
 use std::env;

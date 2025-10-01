@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, sync::Arc, time::Instant};
 
-use cad::{Scene, registry::RegId};
+use cad::registry::RegId;
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
@@ -11,7 +11,6 @@ use rust_ui::{
 };
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
-use tracing::debug;
 
 use crate::{
     app::{self, App, AppMutableState},
@@ -414,10 +413,10 @@ impl Area {
 
     pub fn handle_key(
         &mut self,
-        state: &mut AppMutableState,
-        key: Key,
+        _state: &mut AppMutableState,
+        _key: Key,
         _scancode: Scancode,
-        action: Action,
+        _action: Action,
         _modifiers: Modifiers,
     ) {
     }
@@ -439,7 +438,7 @@ impl Area {
                 }
                 _ => {
                     match &state.mode {
-                        app::Mode::EditSketch(i, sketch_mode) => match sketch_mode {
+                        app::Mode::EditSketch(_, sketch_mode) => match sketch_mode {
                             app::SketchMode::Select => {
                                 // 3D point picker FBO "hack"
                             }
@@ -459,7 +458,7 @@ impl Area {
 
     pub fn handle_mouse_button(
         &mut self,
-        state: &mut AppMutableState,
+        _state: &mut AppMutableState,
         button: glfw::MouseButton,
         action: Action,
         _modifiers: Modifiers,
@@ -494,7 +493,7 @@ impl Area {
         }
     }
 
-    pub fn handle_mouse_scroll(&mut self, state: &mut AppMutableState, scroll_delta: Vector<f32>) {
+    pub fn handle_mouse_scroll(&mut self, _state: &mut AppMutableState, scroll_delta: Vector<f32>) {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => {
                 if scroll_delta.y < 0.0 {

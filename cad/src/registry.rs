@@ -52,12 +52,12 @@ impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default + Clone, V: Clone> Regis
     }
 
     #[inline(always)]
-    pub fn values(&self) -> Values<K, V> {
+    pub fn values(&self) -> Values<'_, K, V> {
         self.map.values()
     }
 
     #[inline(always)]
-    pub fn values_mut(&mut self) -> ValuesMut<K, V> {
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
         self.map.values_mut()
     }
 
@@ -99,6 +99,10 @@ impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default + Clone, V: Clone> Regis
 
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
     }
 }
 

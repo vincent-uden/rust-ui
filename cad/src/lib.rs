@@ -1,3 +1,9 @@
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::too_many_arguments,
+    clippy::uninlined_format_args
+)]
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};

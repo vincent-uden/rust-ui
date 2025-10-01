@@ -2,8 +2,6 @@ use std::{ffi::c_void, mem::offset_of};
 
 use crate::shader::Shader;
 
-const MAX_BONE_INFLUENCE: usize = 4;
-
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Vertex {

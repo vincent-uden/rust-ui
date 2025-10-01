@@ -3,8 +3,7 @@ use std::{collections::HashMap, ffi::c_void, fs, hash::Hash, path::Path, str::Fr
 use gl::types::GLuint;
 
 use anyhow::{Result, anyhow};
-use image::{GenericImageView, ImageReader};
-use tracing::debug;
+use image::ImageReader;
 
 use crate::{geometry::{Rect, Vector}, shader::Shader};
 
@@ -31,7 +30,6 @@ where
 {
     texture_id: GLuint,
     map: HashMap<K, Rect<f32>>,
-    size: Vector<f32>,
 }
 
 impl<K: SpriteKey> SpriteAtlas<K> {
@@ -95,7 +93,6 @@ impl<K: SpriteKey> SpriteAtlas<K> {
         Ok(Self {
             texture_id,
             map,
-            size: atlas_size,
         })
     }
 
@@ -103,7 +100,6 @@ impl<K: SpriteKey> SpriteAtlas<K> {
         Self {
             texture_id: u32::MAX,
             map: HashMap::new(),
-            size: Vector::zero(),
         }
     }
 }
@@ -224,13 +220,13 @@ impl<K: SpriteKey> SpriteRenderer<K> {
             quad_vao,
             quad_vbo,
             instance_vbo,
-            atlas: atlas,
+            atlas,
         }
     }
 
     pub fn draw(&self, key: &K, location: Rect<f32>) {
         if let Some(bbox) = self.atlas.map.get(key) {
-            let instances = vec![SpriteInstance {
+            let instances = [SpriteInstance {
                 position: [(location.x0.x + 0.5).floor(), (location.x0.y + 0.5).floor()],
                 size: [(location.size().x + 0.5).floor(), (location.size().y + 0.5).floor()],
                 atlas_coords: [bbox.x0.x, bbox.x0.y],

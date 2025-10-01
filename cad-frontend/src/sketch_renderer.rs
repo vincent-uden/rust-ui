@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use cad::{
     SketchInfo,
     entity::{EntityId, GuidedEntity, Point},
@@ -20,13 +18,6 @@ pub struct SketchRenderer {
 impl SketchRenderer {
     pub fn new() -> Self {
         let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
-        Self {
-            line_r: LineRenderer::new(line_shader),
-        }
-    }
-
-    pub fn picker() -> Self {
-        let line_shader = Shader::new_from_name(&ShaderName::Pick).unwrap();
         Self {
             line_r: LineRenderer::new(line_shader),
         }

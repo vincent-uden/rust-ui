@@ -16,7 +16,7 @@ use rust_ui::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 use crate::{
     sketch_renderer::{SketchPicker, SketchRenderer},
@@ -119,42 +119,42 @@ impl App {
             }
         }
         for id in self.further_up_bdry_tree(&to_split_aid) {
-            if let Some(existing_bdry) = self.bdry_map.get_mut(&id) {
-                if existing_bdry.orientation != bdry.orientation {
-                    existing_bdry.side2.push(next_aid);
-                }
+            if let Some(existing_bdry) = self.bdry_map.get_mut(&id)
+                && existing_bdry.orientation != bdry.orientation
+            {
+                existing_bdry.side2.push(next_aid);
             }
         }
         self.bdry_map.insert(bdry);
     }
 
     fn collapse_boundary(&mut self, pos: Vector<f32>) {
-        if let Some(hovered) = self.find_boundary(pos) {
-            if self.bdry_map[hovered].can_collapse() {
-                let bdry = self.bdry_map.remove(&hovered).unwrap();
-                let deleted_dims = self.area_map[bdry.side2[0]].bbox;
-                let remaining_area = &mut self.area_map[bdry.side1[0]];
-                match bdry.orientation {
-                    BoundaryOrientation::Horizontal => {
-                        remaining_area.bbox.x1.y += deleted_dims.height();
-                    }
-                    BoundaryOrientation::Vertical => {
-                        remaining_area.bbox.x1.x += deleted_dims.width();
-                    }
+        if let Some(hovered) = self.find_boundary(pos)
+            && self.bdry_map[hovered].can_collapse()
+        {
+            let bdry = self.bdry_map.remove(&hovered).unwrap();
+            let deleted_dims = self.area_map[bdry.side2[0]].bbox;
+            let remaining_area = &mut self.area_map[bdry.side1[0]];
+            match bdry.orientation {
+                BoundaryOrientation::Horizontal => {
+                    remaining_area.bbox.x1.y += deleted_dims.height();
                 }
-                let to_delete = &self.area_map[bdry.side2[0]];
-                for bid in self.further_down_bdry_tree(&to_delete.id) {
-                    let b = &mut self.bdry_map[bid];
-                    if !b.side1.contains(&bdry.side1[0]) {
-                        b.side1.push(bdry.side1[0]);
-                    }
+                BoundaryOrientation::Vertical => {
+                    remaining_area.bbox.x1.x += deleted_dims.width();
                 }
-                for b in self.bdry_map.values_mut() {
-                    b.side1.retain(|x| *x != to_delete.id);
-                    b.side2.retain(|x| *x != to_delete.id);
-                }
-                self.area_map.remove(&bdry.side2[0]);
             }
+            let to_delete = &self.area_map[bdry.side2[0]];
+            for bid in self.further_down_bdry_tree(&to_delete.id) {
+                let b = &mut self.bdry_map[bid];
+                if !b.side1.contains(&bdry.side1[0]) {
+                    b.side1.push(bdry.side1[0]);
+                }
+            }
+            for b in self.bdry_map.values_mut() {
+                b.side1.retain(|x| *x != to_delete.id);
+                b.side2.retain(|x| *x != to_delete.id);
+            }
+            self.area_map.remove(&bdry.side2[0]);
         }
     }
 
@@ -220,7 +220,6 @@ impl App {
     }
 
     fn extent(&self, bdry: &Boundary) -> f32 {
-        let total;
         match bdry.orientation {
             BoundaryOrientation::Horizontal => {
                 let mut total1 = 0.0;
@@ -233,7 +232,7 @@ impl App {
                     let area = &self.area_map[*area_id];
                     total2 += area.bbox.width();
                 }
-                total = total1.max(total2);
+                total1.max(total2)
             }
             BoundaryOrientation::Vertical => {
                 let mut total1 = 0.0;
@@ -246,10 +245,9 @@ impl App {
                     let area = &self.area_map[*area_id];
                     total2 += area.bbox.height();
                 }
-                total = total1.max(total2);
+                total1.max(total2)
             }
         }
-        total
     }
 
     fn move_boundary(&mut self, end_pos: Vector<f32>, bid: BoundaryId) {
@@ -369,7 +367,7 @@ impl App {
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
                             self.sketch_picker.compute_pick_locations(
-                                &si,
+                                si,
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
@@ -712,7 +710,7 @@ impl AppState for App {
     ) {
         let current_mode = self.mutable_state.borrow().mode.clone();
         match current_mode {
-            Mode::EditSketch(_, sketch_mode) => {
+            Mode::EditSketch(_, _) => {
                 // TODO: Do something, but in the area handler since this is dependent on the
                 // viewport
             }

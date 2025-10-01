@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::registry::{RegId, Registry};
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize)]
+#[derive(
+    Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize,
+)]
 pub struct EntityId(pub u16);
 
 impl RegId for EntityId {
@@ -17,12 +19,6 @@ impl RegId for EntityId {
     fn increment(self) -> Self {
         let EntityId(id) = self;
         Self(id + 1)
-    }
-}
-
-impl Default for EntityId {
-    fn default() -> Self {
-        EntityId(0)
     }
 }
 
@@ -560,14 +556,14 @@ impl GuidedEntity {
         mouse_pos: Vector2<f64>,
     ) -> bool {
         match self {
-            GuidedEntity::Point { id } => true,
-            GuidedEntity::Line { id } => true,
-            GuidedEntity::Circle { id } => true,
+            GuidedEntity::Point { id: _ } => true,
+            GuidedEntity::Line { id: _ } => true,
+            GuidedEntity::Circle { id: _ } => true,
             GuidedEntity::CappedLine { start, end, line } => {
                 if let (
                     Some(FundamentalEntity::Point(start)),
                     Some(FundamentalEntity::Point(end)),
-                    Some(FundamentalEntity::Line(line)),
+                    Some(FundamentalEntity::Line(_)),
                 ) = (
                     entity_reg.get(start),
                     entity_reg.get(end),

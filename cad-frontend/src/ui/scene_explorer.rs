@@ -1,10 +1,9 @@
-use std::{path::PathBuf, str::FromStr as _, sync::Arc};
+use std::sync::Arc;
 
-use cad::Scene;
 use rust_ui::{
     geometry::Vector,
     render::{
-        Border, COLOR_LIGHT, Color, NORD3, NORD5, NORD7, NORD8, Text,
+        COLOR_LIGHT, NORD3, NORD7, Text,
         renderer::{NodeContext, flags},
     },
 };
@@ -12,7 +11,6 @@ use taffy::{
     AlignItems, Dimension, FlexDirection, NodeId, Rect, Size, Style, TaffyTree,
     prelude::{auto, length},
 };
-use tracing::debug;
 
 use crate::app::{App, AppMutableState};
 

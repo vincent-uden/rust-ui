@@ -10,7 +10,7 @@ use std::{
 use glfw::Context as _;
 use rust_ui::{
     geometry::Vector,
-    init_open_gl, print_env,
+    init_open_gl,
     render::{
         line::LineRenderer,
         rect::RectRenderer,
@@ -21,7 +21,6 @@ use rust_ui::{
     shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
-use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;

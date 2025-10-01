@@ -38,12 +38,12 @@ impl Sketch {
     }
 
     pub fn sgd_step(&mut self) {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for BiConstraint { e1, e2, c } in &self.bi_constraints {
             let [fe1, fe2] = self.fundamental_entities.get_disjoint_mut([e1, e2]);
             let fe1 = fe1.unwrap();
             let fe2 = fe2.unwrap();
-            if rng.gen_bool(0.5) {
+            if rng.random_bool(0.5) {
                 BiConstraint::apply_grad_error(fe1, fe2, c, self.step_size);
             } else {
                 BiConstraint::apply_grad_error(fe2, fe1, c, self.step_size);
@@ -55,15 +55,12 @@ impl Sketch {
         let mut closest_id = None;
         let mut closest_dist = f64::INFINITY;
         for (id, e) in self.fundamental_entities.iter() {
-            match e {
-                FundamentalEntity::Point(p) => {
-                    let dist = e.distance_to_position(&query_pos);
-                    if dist <= radius && dist < closest_dist {
-                        closest_id = Some(*id);
-                        closest_dist = dist;
-                    }
+            if let FundamentalEntity::Point(_) = e {
+                let dist = e.distance_to_position(query_pos);
+                if dist <= radius && dist < closest_dist {
+                    closest_id = Some(*id);
+                    closest_dist = dist;
                 }
-                _ => {}
             }
         }
         closest_id
@@ -73,13 +70,12 @@ impl Sketch {
         if let Some(id) = self.query_point(query_pos, radius) {
             id
         } else {
-            let id = self
-                .fundamental_entities
-                .insert(FundamentalEntity::Point(Point { pos: *query_pos }));
-            id
+            self.fundamental_entities
+                .insert(FundamentalEntity::Point(Point { pos: *query_pos }))
         }
     }
 
+    #[allow(unused)]
     fn dump(&self, name: &str) {
         let mut file = std::fs::File::create(format!(
             "./test_sketches/{}.json",
@@ -204,11 +200,11 @@ mod tests {
             sketch.sgd_step();
         }
 
-        if let FundamentalEntity::Point(top_corner) = &sketch.fundamental_entities[e3] {
-            if let FundamentalEntity::Point(right_corner) = &sketch.fundamental_entities[e2] {
-                let diff = (top_corner.pos - right_corner.pos).norm();
-                assert!((diff - 5.0) < 1e-6);
-            }
+        if let FundamentalEntity::Point(top_corner) = &sketch.fundamental_entities[e3]
+            && let FundamentalEntity::Point(right_corner) = &sketch.fundamental_entities[e2]
+        {
+            let diff = (top_corner.pos - right_corner.pos).norm();
+            assert!((diff - 5.0) < 1e-6);
         }
 
         assert!(
@@ -429,14 +425,5 @@ mod tests {
             sketch.error() < 1e-6,
             "The error should be smaller than 1e-6"
         );
-    }
-
-    fn run_sketch_test<T>(test: T)
-    where
-        T: FnOnce() + std::panic::UnwindSafe,
-    {
-        let result = std::panic::catch_unwind(test);
-
-        assert!(result.is_ok())
     }
 }

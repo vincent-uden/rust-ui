@@ -17,7 +17,7 @@ use rust_ui::{
         line::LineRenderer,
         rect::RectRenderer,
         renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
-        sprite::{self, SpriteAtlas, SpriteRenderer},
+        sprite::{SpriteAtlas, SpriteRenderer},
         text::TextRenderer,
     },
     shader::{Shader, ShaderName},

@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, VecDeque},
-    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -15,7 +14,6 @@ use crate::{
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
     },
-    shader::Shader,
 };
 use taffy::prelude::*;
 

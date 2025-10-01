@@ -1,6 +1,5 @@
 use std::ffi::c_void;
 
-use rust_ui::shader::Shader;
 use tracing::{debug, error, info};
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -12,9 +11,11 @@ pub struct PixelInfo {
     pub a: u8,
 }
 
+#[allow(unused)]
 /// Picks entities in a sketch if the mouse cursor is over it on the screen
 pub struct EntityPicker {
     pub fbo: u32,
+    // TODO: Properly deallocate these in drop
     picking_texture: u32,
     depth_texture: u32,
 }
