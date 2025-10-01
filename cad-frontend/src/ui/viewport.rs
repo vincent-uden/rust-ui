@@ -6,8 +6,8 @@ use std::{
 use rust_ui::{
     geometry::Vector,
     render::{
-        renderer::{flags, NodeContext},
-        Color, Text, COLOR_LIGHT,
+        COLOR_LIGHT, Color, Text,
+        renderer::{NodeContext, flags},
     },
 };
 use taffy::{Dimension, NodeId, Rect, Size, Style, TaffyTree};
@@ -135,6 +135,100 @@ impl ViewportData {
             self.azimuthal_angle.cos(),
         );
         glm::cross(&right, &forward).normalize()
+    }
+
+    pub fn screen_to_ray(&self, screen_pos: Vector<f32>) -> (glm::Vec3, glm::Vec3) {
+        let ndc_x = (2.0 * screen_pos.x) / self.size.x - 1.0;
+        let ndc_y = 1.0 - (2.0 * screen_pos.y) / self.size.y;
+
+        match self.projection_mode {
+            ProjectionMode::Perspective => {
+                let view_proj = self.projection() * self.view();
+                let inv_view_proj = glm::inverse(&view_proj);
+
+                let near_point = inv_view_proj * glm::vec4(ndc_x, ndc_y, -1.0, 1.0);
+                let far_point = inv_view_proj * glm::vec4(ndc_x, ndc_y, 1.0, 1.0);
+
+                let near_point = glm::vec3(
+                    near_point.x / near_point.w,
+                    near_point.y / near_point.w,
+                    near_point.z / near_point.w,
+                );
+                let far_point = glm::vec3(
+                    far_point.x / far_point.w,
+                    far_point.y / far_point.w,
+                    far_point.z / far_point.w,
+                );
+
+                let ray_direction = (far_point - near_point).normalize();
+                (near_point, ray_direction)
+            }
+            ProjectionMode::Orthographic => {
+                let view_proj = self.projection() * self.view();
+                let inv_view_proj = glm::inverse(&view_proj);
+
+                let ray_start = inv_view_proj * glm::vec4(ndc_x, ndc_y, -1.0, 1.0);
+                let ray_start = glm::vec3(
+                    ray_start.x / ray_start.w,
+                    ray_start.y / ray_start.w,
+                    ray_start.z / ray_start.w,
+                );
+
+                let camera_pos = self.looking_at
+                    + glm::Vec3::new(
+                        self.distance * self.azimuthal_angle.sin() * self.polar_angle.cos(),
+                        self.distance * self.azimuthal_angle.sin() * self.polar_angle.sin(),
+                        self.distance * self.azimuthal_angle.cos(),
+                    );
+                let ray_direction = (self.looking_at - camera_pos).normalize();
+
+                (ray_start, ray_direction)
+            }
+        }
+    }
+
+    fn ray_plane_intersection(
+        ray_origin: &glm::Vec3,
+        ray_direction: &glm::Vec3,
+        plane_normal: &glm::Vec3,
+        plane_point: &glm::Vec3,
+    ) -> Option<glm::Vec3> {
+        let denom = glm::dot(ray_direction, plane_normal);
+
+        if denom.abs() < 1e-6 {
+            return None;
+        }
+
+        let t = glm::dot(&(plane_point - ray_origin), plane_normal) / denom;
+
+        if t < 0.0 {
+            return None;
+        }
+
+        Some(ray_origin + t * ray_direction)
+    }
+
+    pub fn screen_to_sketch_coords(
+        &self,
+        screen_pos: Vector<f32>,
+        plane: &cad::Plane,
+    ) -> Option<glm::DVec2> {
+        let (ray_origin, ray_direction) = self.screen_to_ray(screen_pos);
+
+        let plane_normal = plane.normal().cast::<f32>();
+        let plane_origin = plane.origin().cast::<f32>();
+
+        let intersection = Self::ray_plane_intersection(
+            &ray_origin,
+            &ray_direction,
+            &plane_normal,
+            &plane_origin,
+        )?;
+
+        let x_coord = glm::dot(&intersection, &plane.x.cast::<f32>()) as f64;
+        let y_coord = glm::dot(&intersection, &plane.y.cast::<f32>()) as f64;
+
+        Some(glm::vec2(x_coord, y_coord))
     }
 }
 

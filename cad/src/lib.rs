@@ -20,6 +20,16 @@ pub struct Plane {
     pub y: nalgebra::Vector3<f64>,
 }
 
+impl Plane {
+    pub fn normal(&self) -> nalgebra::Vector3<f64> {
+        self.x.cross(&self.y).normalize()
+    }
+
+    pub fn origin(&self) -> nalgebra::Vector3<f64> {
+        nalgebra::Vector3::zeros()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SketchInfo {
     /// Stable id that doesnt change even if ordering does in a scene

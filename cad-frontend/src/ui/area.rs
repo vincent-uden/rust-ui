@@ -5,12 +5,13 @@ use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        renderer::{flags, Anchor, NodeContext, RenderLayout, Renderer},
-        Color, Text, COLOR_BLACK, COLOR_LIGHT, NORD1, NORD11, NORD14, NORD3, NORD9,
+        COLOR_BLACK, COLOR_LIGHT, Color, NORD1, NORD3, NORD9, NORD11, NORD14, Text,
+        renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags},
     },
 };
 use serde::{Deserialize, Serialize};
-use taffy::{prelude::length, AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree};
+use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
+use tracing::debug;
 
 use crate::{
     app::{self, App, AppMutableState},
@@ -493,7 +494,31 @@ impl Area {
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
                         if self.bbox.contains(self.mouse_pos) {
-                            viewport_data.interaction_state = viewport::InteractionState::Orbit;
+                            if let app::Mode::EditSketch(sketch_id, app::SketchMode::Point) =
+                                _state.mode
+                            {
+                                let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
+
+                                if let Some(sketch_info) =
+                                    _state.scene.sketches.iter_mut().find(|s| s.id == sketch_id)
+                                {
+                                    if let Some(sketch_coords) = viewport_data
+                                        .screen_to_sketch_coords(
+                                            mouse_in_viewport,
+                                            &sketch_info.plane,
+                                        )
+                                    {
+                                        debug!("{:?}", sketch_coords);
+                                        // sketch_info.sketch.fundamental_entities.insert(
+                                        //     cad::entity::FundamentalEntity::Point(
+                                        //         cad::entity::Point { pos: sketch_coords },
+                                        //     ),
+                                        // );
+                                    }
+                                }
+                            } else {
+                                viewport_data.interaction_state = viewport::InteractionState::Orbit;
+                            }
                         }
                     }
                     glfw::MouseButton::Button3 => {
