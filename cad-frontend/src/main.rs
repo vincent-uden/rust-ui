@@ -21,7 +21,7 @@ use rust_ui::{
     shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
-use tracing::info;
+use tracing::{debug, info};
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -94,7 +94,9 @@ fn main() {
         for (_, event) in glfw::flush_messages(&events) {
             match event {
                 glfw::WindowEvent::Scroll(x, y) => {
-                    state.handle_mouse_scroll(Vector::new(x as f32, y as f32));
+                    if x.abs() > 0.01 || y.abs() > 0.01 {
+                        state.handle_mouse_scroll(Vector::new(x as f32, y as f32));
+                    }
                 }
                 glfw::WindowEvent::MouseButton(button, action, modifiers) => {
                     state.handle_mouse_button(button, action, modifiers);
