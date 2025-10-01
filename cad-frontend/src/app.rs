@@ -44,7 +44,7 @@ pub(crate) enum SketchMode {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Mode {
-    EditSketch(i32, SketchMode), // Sketch id
+    EditSketch(u16, SketchMode), // Sketch id
     None,
 }
 
@@ -343,17 +343,6 @@ impl App {
     /// Some areas contain stuff that isn't part of the regular UI tree such as the viewport that
     /// renders 3D scenes. Those are rendered here, before the UI pass.
     pub fn draw_special_areas(&mut self) {
-        // Picking pass
-        for area in self.area_map.values_mut() {
-            match area.area_type {
-                AreaType::Viewport => {
-                    let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
-                    // TODO: Draw to all entities to picking buffer
-                }
-                _ => {}
-            }
-        }
-
         // Render pass
         for area in self.area_map.values_mut() {
             match area.area_type {
@@ -371,6 +360,7 @@ impl App {
                     data.debug_hovered_pixel = (pixel.r, pixel.g, pixel.b, pixel.a);
                     self.sketch_picker.picker.enable_writing();
                     unsafe {
+                        gl::BlendFunc(gl::ONE, gl::ZERO);
                         gl::Viewport(0, 0, area.bbox.width() as i32, area.bbox.height() as i32);
                         gl::DrawBuffer(gl::COLOR_ATTACHMENT0);
                         gl::ClearColor(0.0, 0.0, 0.0, 0.0);
@@ -379,7 +369,7 @@ impl App {
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
                             self.sketch_picker.compute_pick_locations(
-                                &si.sketch,
+                                &si,
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
@@ -388,26 +378,36 @@ impl App {
                     }
                     self.sketch_picker.picker.disable_writing();
                     unsafe {
-                        let opengl_y = self.original_window_size.y - area.bbox.x0.y - area.bbox.height();
+                        let opengl_y =
+                            self.original_window_size.y - area.bbox.x0.y - area.bbox.height();
                         gl::Viewport(
                             area.bbox.x0.x as i32,
                             opengl_y as i32,
                             area.bbox.width() as i32,
                             area.bbox.height() as i32,
                         );
+                        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
                     }
                     self.sketch_renderer.draw_axes(data);
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
                             let mouse_in_area = self.mouse_pos - area.bbox.x0;
                             let area_height = area.bbox.height();
+                            let mut entity_id = None;
+                            if let Some((eid, sid)) = self
+                                .sketch_picker
+                                .hovered(mouse_in_area.into(), area_height)
+                            {
+                                if sid == si.id {
+                                    entity_id = Some(eid);
+                                }
+                            }
                             self.sketch_renderer.draw(
                                 &si.sketch,
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
-                                self.sketch_picker
-                                    .hovered(mouse_in_area.into(), area_height),
+                                entity_id,
                             );
                         }
                     }
@@ -441,7 +441,7 @@ impl App {
         (area_map, Registry::new())
     }
 
-    pub fn edit_sketch(&mut self, id: i32) {
+    pub fn edit_sketch(&mut self, id: u16) {
         let mut state = self.mutable_state.borrow_mut();
         // Move camera
         if let Some(sketch) = state.scene.sketches.iter().find(|s| s.id == id) {

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use cad::{
+    SketchInfo,
     entity::{EntityId, GuidedEntity, Point},
     sketch::Sketch,
 };
@@ -125,7 +126,7 @@ impl SketchPicker {
     /// Extremely similar to [SketchRenderer::draw]
     pub fn compute_pick_locations(
         &mut self,
-        sketch: &Sketch,
+        si: &SketchInfo,
         state: &mut ViewportData,
         x_axis: glm::Vec3,
         y_axis: glm::Vec3,
@@ -133,15 +134,15 @@ impl SketchPicker {
         self.picker.enable_writing();
         // Maybe allow for selection of axes in the future. For example it is useful when
         // constructing planes
-        for (EntityId(id), eid) in sketch.guided_entities.iter() {
+        for (EntityId(id), eid) in si.sketch.guided_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
                     start,
                     end,
                     line: _,
                 } => {
-                    let start: Point = sketch.fundamental_entities[*start].try_into().unwrap();
-                    let end: Point = sketch.fundamental_entities[*end].try_into().unwrap();
+                    let start: Point = si.sketch.fundamental_entities[*start].try_into().unwrap();
+                    let end: Point = si.sketch.fundamental_entities[*end].try_into().unwrap();
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
                     let projection = state.projection();
@@ -151,7 +152,8 @@ impl SketchPicker {
                     let s_3d = s.x * x_axis + s.y * y_axis;
                     let e_3d = e.x * x_axis + e.y * y_axis;
                     self.line_r.shader.use_shader();
-                    self.line_r.shader.set_uniform("gObjectIndex", id);
+                    self.line_r.shader.set_uniform("entityId", &(*id as u32));
+                    self.line_r.shader.set_uniform("sketchId", &(si.id as u32));
                     self.line_r.draw_3d(
                         s_3d,
                         e_3d,
@@ -168,14 +170,15 @@ impl SketchPicker {
         self.picker.disable_writing();
     }
 
-    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<EntityId> {
+    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<(EntityId, u16)> {
         let opengl_y = viewport_height as i32 - mouse_pos.y;
         let info = self.picker.read_pixel(mouse_pos.x, opengl_y);
-        let entity_id = info.r as u32;
+        let entity_id = info.r as u16 | ((info.g as u16) << 8);
+        let sketch_id = info.b as u16 | ((info.a as u16) << 8);
         if entity_id == 0 {
             None
         } else {
-            Some(EntityId(entity_id))
+            Some((EntityId(entity_id), sketch_id))
         }
     }
 }

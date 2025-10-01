@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::registry::{RegId, Registry};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize)]
-pub struct EntityId(pub u32);
+pub struct EntityId(pub u16);
 
 impl RegId for EntityId {
     /// We start at 1 to allow for the usage of 0 as a "null" id
