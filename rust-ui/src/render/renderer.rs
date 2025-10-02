@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 
 use crate::{
@@ -54,6 +55,14 @@ where
 }
 
 impl SpriteKey for String {}
+
+static DEBUG_MAP: std::sync::LazyLock<DashMap<String, String>> =
+    std::sync::LazyLock::new(|| DashMap::new());
+
+/// Inserts a logging message to be rendered in the visual debugging overlay
+pub fn visual_log(key: String, message: String) {
+    DEBUG_MAP.insert(key, message);
+}
 
 /// Renders a [taffy::TaffyTree] and handles event listeners associated with UI nodes.
 pub struct Renderer<T>

@@ -17,6 +17,7 @@ image = "0.25.8"
 taffy = "0.9.1"
 sysinfo = "0.37.0"
 serde = { version = "1.0.219", features = ["derive"] }
+dashmap = "6.1.0"
 
 [build-dependencies]
 walkdir = "2"

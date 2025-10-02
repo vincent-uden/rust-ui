@@ -242,6 +242,7 @@ impl Viewport {
         parent: NodeId,
         data: &ViewportData,
     ) {
+        // For debug purposes
         let data_disp = tree
             .new_leaf_with_context(
                 Style {
@@ -264,6 +265,7 @@ impl Viewport {
                 },
             )
             .unwrap();
+
         let spacer = tree
             .new_leaf(Style {
                 flex_grow: 1.0,
@@ -276,7 +278,7 @@ impl Viewport {
                     flex_direction: taffy::FlexDirection::Column,
                     ..Default::default()
                 },
-                &[spacer, data_disp],
+                &[spacer],
             )
             .unwrap();
         tree.add_child(parent, container).unwrap();

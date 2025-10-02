@@ -1,32 +1,41 @@
-use std::time::Duration;
+use std::{marker::PhantomData, time::Duration};
 
-use rust_ui::{
+use crate::{
     geometry::Vector,
     render::{
         Color, Text,
-        renderer::{Anchor, NodeContext, RenderLayout, flags},
+        renderer::{Anchor, AppState, NodeContext, RenderLayout, flags},
     },
 };
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
 
-use crate::app::App;
-
-pub struct PerformanceOverlay {
+pub struct PerformanceOverlay<T>
+where
+    T: AppState,
+{
+    phantom: PhantomData<T>,
     pub max_frame_time: Duration,
     pub visible: bool,
     pub avg_sleep_ms: f64,
     pub ram_usage: u64,
 }
 
-impl Default for PerformanceOverlay {
+impl<T> Default for PerformanceOverlay<T>
+where
+    T: AppState,
+{
     fn default() -> Self {
         Self::new_60_fps()
     }
 }
 
-impl PerformanceOverlay {
+impl<T> PerformanceOverlay<T>
+where
+    T: AppState,
+{
     pub fn new_60_fps() -> Self {
         Self {
+            phantom: PhantomData::default(),
             max_frame_time: Duration::from_nanos(1_000_000_000 / 60),
             visible: false,
             avg_sleep_ms: 0.0,
@@ -39,7 +48,7 @@ impl PerformanceOverlay {
         self.ram_usage = ram_usage;
     }
 
-    pub fn generate_layout(&mut self, size: rust_ui::geometry::Vector<f32>) -> RenderLayout<App> {
+    pub fn generate_layout(&mut self, size: crate::geometry::Vector<f32>) -> RenderLayout<T> {
         let mut tree = TaffyTree::new();
 
         let title = tree

@@ -9,6 +9,7 @@ use cad::{
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
+    perf_overlay::PerformanceOverlay,
     render::{
         Color,
         line::LineRenderer,
@@ -23,7 +24,6 @@ use crate::{
     ui::{
         area::{Area, AreaData, AreaId, AreaType},
         boundary::{Boundary, BoundaryId, BoundaryOrientation},
-        perf_overlay::PerformanceOverlay,
         settings::Settings,
         viewport::{self, ViewportData},
     },
@@ -57,7 +57,7 @@ pub(crate) struct AppMutableState {
 const BDRY_TOLERANCE: f32 = 5.0;
 
 pub struct App {
-    pub perf_overlay: PerformanceOverlay,
+    pub perf_overlay: PerformanceOverlay<Self>,
     pub dragging_boundary: Option<BoundaryId>,
     pub mouse_pos: Vector<f32>,
     pub debug_draw: bool, // Eventually turn this into a menu
