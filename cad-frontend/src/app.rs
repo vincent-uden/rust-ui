@@ -3,7 +3,7 @@ use std::{cell::RefCell, f64::consts::PI, time::Instant};
 
 use cad::{
     Plane, Scene, SketchInfo,
-    entity::{FundamentalEntity, GuidedEntity, Line, Point},
+    entity::{Circle, FundamentalEntity, GuidedEntity, Line, Point},
     registry::Registry,
 };
 use glfw::{Action, Key, Modifiers, Scancode};
@@ -558,6 +558,16 @@ impl Default for App {
         sketch
             .guided_entities
             .insert(GuidedEntity::Point { id: p3 });
+
+        let circle = sketch
+            .fundamental_entities
+            .insert(FundamentalEntity::Circle(Circle {
+                pos: glm::vec2(0.5, 0.5),
+                radius: 0.3,
+            }));
+        sketch
+            .guided_entities
+            .insert(GuidedEntity::Circle { id: circle });
 
         let scene = Scene {
             path: None,

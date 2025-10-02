@@ -1,11 +1,11 @@
 use cad::{
     SketchInfo,
-    entity::{EntityId, GuidedEntity, Point},
+    entity::{Circle, EntityId, GuidedEntity, Point},
     sketch::Sketch,
 };
 use rust_ui::{
     geometry::Vector,
-    render::{Color, line::LineRenderer, point::PointRenderer},
+    render::{Color, circle::CircleRenderer, line::LineRenderer, point::PointRenderer},
     shader::{Shader, ShaderName},
 };
 
@@ -14,6 +14,7 @@ use crate::{entity_picker::EntityPicker, ui::viewport::ViewportData};
 pub struct SketchRenderer {
     line_r: LineRenderer,
     point_r: PointRenderer,
+    circle_r: CircleRenderer,
 }
 
 impl SketchRenderer {
@@ -21,7 +22,8 @@ impl SketchRenderer {
         let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
         Self {
             line_r: LineRenderer::new(line_shader.clone()),
-            point_r: PointRenderer::new(line_shader),
+            point_r: PointRenderer::new(line_shader.clone()),
+            circle_r: CircleRenderer::new(line_shader),
         }
     }
 
@@ -112,7 +114,30 @@ impl SketchRenderer {
                         &view,
                     );
                 }
-                _ => {} // TODO: Implement
+                GuidedEntity::Circle { id: cid } => {
+                    let circle: Circle = sketch.fundamental_entities[*cid].try_into().unwrap();
+                    let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
+                    let projection = state.projection();
+                    let model = state.model();
+                    let view = state.view();
+                    let center_3d = center.x * x_axis + center.y * y_axis;
+                    self.circle_r.draw_3d_oriented(
+                        center_3d,
+                        circle.radius as f32,
+                        if *id == hovered.unwrap_or_default() {
+                            Color::new(1.0, 0.0, 0.0, 1.0)
+                        } else {
+                            Color::new(1.0, 1.0, 1.0, 1.0)
+                        },
+                        2.0,
+                        &projection,
+                        &model,
+                        &view,
+                        x_axis,
+                        y_axis,
+                    );
+                }
+                _ => {}
             }
         }
     }
@@ -121,6 +146,7 @@ impl SketchRenderer {
 pub struct SketchPicker {
     line_r: LineRenderer,
     point_r: PointRenderer,
+    circle_r: CircleRenderer,
     pub picker: EntityPicker,
     pub window_width: i32,
     pub window_height: i32,
@@ -131,7 +157,8 @@ impl SketchPicker {
         let line_shader = Shader::new_from_name(&ShaderName::Pick).unwrap();
         Self {
             line_r: LineRenderer::new(line_shader.clone()),
-            point_r: PointRenderer::new(line_shader),
+            point_r: PointRenderer::new(line_shader.clone()),
+            circle_r: CircleRenderer::new(line_shader),
             picker: EntityPicker::new(window_width, window_height),
             window_width,
             window_height,
@@ -198,7 +225,29 @@ impl SketchPicker {
                         &view,
                     );
                 }
-                _ => {} // TODO: Implement
+                GuidedEntity::Circle { id: cid } => {
+                    let circle: Circle = si.sketch.fundamental_entities[*cid].try_into().unwrap();
+                    let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
+                    let projection = state.projection();
+                    let model = state.model();
+                    let view = state.view();
+                    let center_3d = center.x * x_axis + center.y * y_axis;
+                    self.circle_r.shader.use_shader();
+                    self.circle_r.shader.set_uniform("entityId", &(*id as u32));
+                    self.circle_r.shader.set_uniform("sketchId", &(si.id as u32));
+                    self.circle_r.draw_3d_oriented(
+                        center_3d,
+                        circle.radius as f32,
+                        Color::new(1.0, 1.0, 1.0, 1.0),
+                        2.0,
+                        &projection,
+                        &model,
+                        &view,
+                        x_axis,
+                        y_axis,
+                    );
+                }
+                _ => {}
             }
         }
         self.picker.disable_writing();
