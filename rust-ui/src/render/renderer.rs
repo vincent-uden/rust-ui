@@ -90,6 +90,9 @@ where
     hover_states: HashMap<NodeId, bool>,
     /// The application state to be provided by a consumer of the library
     pub app_state: T,
+    /// Wether or not the debug layer should be shown. This is drawn on top of everything drawn by
+    /// the app layer
+    pub show_debug_layer: bool,
 }
 
 impl<T> Renderer<T>
@@ -117,6 +120,7 @@ where
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,
+            show_debug_layer: false,
         }
     }
 
@@ -193,6 +197,10 @@ where
     pub fn compute_layout_and_render(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
         let mut layers = self.app_state.generate_layout(window_size);
+
+        if self.show_debug_layer {
+            layers.push(self.debug_layer());
+        }
 
         for layer in layers.iter_mut() {
             layer
@@ -371,6 +379,11 @@ where
     pub fn window_size(&mut self, size: (i32, i32)) {
         self.width = size.0 as u32;
         self.height = size.1 as u32;
+    }
+
+    fn debug_layer(&self) -> RenderLayout<T> {
+        // TODO: Implement
+        todo!("Not yet implemented")
     }
 }
 
