@@ -1,5 +1,6 @@
 pub mod line;
 pub mod mesh;
+pub mod point;
 pub mod rect;
 pub mod renderer;
 pub mod sprite;

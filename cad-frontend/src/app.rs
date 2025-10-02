@@ -549,6 +549,15 @@ impl Default for App {
             end: p3,
             line: l3,
         });
+        sketch
+            .guided_entities
+            .insert(GuidedEntity::Point { id: p1 });
+        sketch
+            .guided_entities
+            .insert(GuidedEntity::Point { id: p2 });
+        sketch
+            .guided_entities
+            .insert(GuidedEntity::Point { id: p3 });
 
         let scene = Scene {
             path: None,

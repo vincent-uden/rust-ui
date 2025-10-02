@@ -5,7 +5,7 @@ use cad::{
 };
 use rust_ui::{
     geometry::Vector,
-    render::{Color, line::LineRenderer},
+    render::{Color, line::LineRenderer, point::PointRenderer},
     shader::{Shader, ShaderName},
 };
 
@@ -13,13 +13,15 @@ use crate::{entity_picker::EntityPicker, ui::viewport::ViewportData};
 
 pub struct SketchRenderer {
     line_r: LineRenderer,
+    point_r: PointRenderer,
 }
 
 impl SketchRenderer {
     pub fn new() -> Self {
         let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
         Self {
-            line_r: LineRenderer::new(line_shader),
+            line_r: LineRenderer::new(line_shader.clone()),
+            point_r: PointRenderer::new(line_shader),
         }
     }
 
@@ -90,6 +92,26 @@ impl SketchRenderer {
                         &view,
                     );
                 }
+                GuidedEntity::Point { id: pid } => {
+                    let point: Point = sketch.fundamental_entities[*pid].try_into().unwrap();
+                    let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
+                    let projection = state.projection();
+                    let model = state.model();
+                    let view = state.view();
+                    let p_3d = p.x * x_axis + p.y * y_axis;
+                    self.point_r.draw_3d(
+                        p_3d,
+                        if *id == hovered.unwrap_or_default() {
+                            Color::new(1.0, 0.0, 0.0, 1.0)
+                        } else {
+                            Color::new(1.0, 1.0, 1.0, 1.0)
+                        },
+                        4.0,
+                        &projection,
+                        &model,
+                        &view,
+                    );
+                }
                 _ => {} // TODO: Implement
             }
         }
@@ -98,6 +120,7 @@ impl SketchRenderer {
 
 pub struct SketchPicker {
     line_r: LineRenderer,
+    point_r: PointRenderer,
     pub picker: EntityPicker,
     pub window_width: i32,
     pub window_height: i32,
@@ -107,7 +130,8 @@ impl SketchPicker {
     pub fn new(window_width: i32, window_height: i32) -> Self {
         let line_shader = Shader::new_from_name(&ShaderName::Pick).unwrap();
         Self {
-            line_r: LineRenderer::new(line_shader),
+            line_r: LineRenderer::new(line_shader.clone()),
+            point_r: PointRenderer::new(line_shader),
             picker: EntityPicker::new(window_width, window_height),
             window_width,
             window_height,
@@ -150,6 +174,25 @@ impl SketchPicker {
                         e_3d,
                         Color::new(1.0, 1.0, 1.0, 1.0),
                         2.0,
+                        &projection,
+                        &model,
+                        &view,
+                    );
+                }
+                GuidedEntity::Point { id: pid } => {
+                    let point: Point = si.sketch.fundamental_entities[*pid].try_into().unwrap();
+                    let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
+                    let projection = state.projection();
+                    let model = state.model();
+                    let view = state.view();
+                    let p_3d = p.x * x_axis + p.y * y_axis;
+                    self.point_r.shader.use_shader();
+                    self.point_r.shader.set_uniform("entityId", &(*id as u32));
+                    self.point_r.shader.set_uniform("sketchId", &(si.id as u32));
+                    self.point_r.draw_3d(
+                        p_3d,
+                        Color::new(1.0, 1.0, 1.0, 1.0),
+                        4.0,
                         &projection,
                         &model,
                         &view,
