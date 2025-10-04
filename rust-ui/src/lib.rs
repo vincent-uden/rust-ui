@@ -11,7 +11,7 @@ use std::{
 };
 use taffy::{NodeId, Style, TaffyTree};
 
-use crate::render::renderer::{AppState, NodeContext};
+use crate::render::renderer::{AppState, Listeners, NodeContext};
 
 pub mod geometry;
 pub mod perf_overlay;
@@ -87,55 +87,5 @@ pub fn print_env() {
     println!("--- Environment ---");
     for (k, v) in env::vars() {
         println!("{k}={v}");
-    }
-}
-
-pub fn ui<T>(tree: &RefCell<TaffyTree<NodeContext<T>>>, style: &str, children: &[NodeId]) -> NodeId
-where
-    T: AppState + Default,
-{
-    let (style, context) = parse_style(style);
-    let mut tree = tree.borrow_mut();
-    let parent = tree.new_leaf_with_context(style, context).unwrap();
-    for child in children {
-        tree.add_child(parent, *child).unwrap();
-    }
-    return parent;
-}
-
-pub fn parse_style<T>(style: &str) -> (Style, NodeContext<T>)
-where
-    T: AppState + Default,
-{
-    (Style::DEFAULT, NodeContext::default())
-}
-
-#[cfg(test)]
-pub mod tests {
-    use std::cell::RefCell;
-
-    use crate::{
-        render::renderer::{AppState, NodeContext},
-        ui,
-    };
-
-    #[derive(Default)]
-    struct DummyState {}
-
-    impl AppState for DummyState {
-        fn generate_layout(
-            &mut self,
-            _: crate::geometry::Vector<f32>,
-        ) -> Vec<crate::render::renderer::RenderLayout<Self>> {
-            todo!()
-        }
-    }
-
-    #[test]
-    pub fn ui_shorthand_doesnt_deadlock() {
-        let tree: taffy::TaffyTree<NodeContext<DummyState>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-
-        ui(&tree, "", &[ui(&tree, "", &[]), ui(&tree, "", &[])]);
     }
 }

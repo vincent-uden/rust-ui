@@ -56,6 +56,17 @@ where
     pub on_mouse_up: Option<EventListener<T>>,
 }
 
+#[derive(Default)]
+pub struct Listeners<T>
+where
+    T: AppState + std::default::Default,
+{
+    pub on_mouse_enter: Option<EventListener<T>>,
+    pub on_mouse_exit: Option<EventListener<T>>,
+    pub on_mouse_down: Option<EventListener<T>>,
+    pub on_mouse_up: Option<EventListener<T>>,
+}
+
 impl SpriteKey for String {}
 
 static DEBUG_MAP: std::sync::LazyLock<DashMap<String, String>> =
@@ -510,4 +521,79 @@ pub trait AppState: Default {
     }
     fn handle_mouse_position(&mut self, _position: Vector<f32>, _delta: Vector<f32>) {}
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
+}
+
+pub fn ui<T>(
+    tree: &RefCell<TaffyTree<NodeContext<T>>>,
+    style: &str,
+    listeners: Listeners<T>,
+    children: &[NodeId],
+) -> NodeId
+where
+    T: AppState + Default,
+{
+    let (style, mut context) = parse_style(style);
+    context.on_mouse_exit = listeners.on_mouse_exit;
+    context.on_mouse_enter = listeners.on_mouse_enter;
+    context.on_mouse_up = listeners.on_mouse_up;
+    context.on_mouse_down = listeners.on_mouse_down;
+    let mut tree = tree.borrow_mut();
+    let parent = tree.new_leaf_with_context(style, context).unwrap();
+    for child in children {
+        tree.add_child(parent, *child).unwrap();
+    }
+    return parent;
+}
+
+pub fn div<T>(tree: &RefCell<TaffyTree<NodeContext<T>>>, style: &str, children: &[NodeId]) -> NodeId
+where
+    T: AppState + Default,
+{
+    let (style, context) = parse_style(style);
+    let mut tree = tree.borrow_mut();
+    let parent = tree.new_leaf_with_context(style, context).unwrap();
+    for child in children {
+        tree.add_child(parent, *child).unwrap();
+    }
+    return parent;
+}
+
+pub fn parse_style<T>(style: &str) -> (Style, NodeContext<T>)
+where
+    T: AppState + Default,
+{
+    (Style::DEFAULT, NodeContext::default())
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::cell::RefCell;
+
+    use super::*;
+    use crate::render::renderer::{AppState, NodeContext};
+
+    #[derive(Default)]
+    struct DummyState {}
+
+    impl AppState for DummyState {
+        fn generate_layout(
+            &mut self,
+            _: crate::geometry::Vector<f32>,
+        ) -> Vec<crate::render::renderer::RenderLayout<Self>> {
+            todo!()
+        }
+    }
+
+    #[test]
+    pub fn ui_shorthand_doesnt_deadlock() {
+        let tree: taffy::TaffyTree<NodeContext<DummyState>> = taffy::TaffyTree::new();
+        let tree = RefCell::new(tree);
+
+        ui(
+            &tree,
+            "",
+            Listeners::default(),
+            &[div(&tree, "", &[]), div(&tree, "", &[])],
+        );
+    }
 }
