@@ -74,6 +74,16 @@ impl Default for Text {
     }
 }
 
+impl Text {
+    pub fn new(text: String, font_size: u32, color: Color) -> Self {
+        Self {
+            text,
+            font_size,
+            color,
+        }
+    }
+}
+
 // Nord color scheme - https://www.nordtheme.com/
 // Polar Night (dark colors)
 pub const NORD0: Color = Color {

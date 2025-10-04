@@ -113,6 +113,15 @@ fn main() {
                 }
                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
                     state.handle_key(key, scancode, action, modifiers);
+                    match key {
+                        glfw::Key::F12 => match action {
+                            glfw::Action::Release => {
+                                state.show_debug_layer = !state.show_debug_layer;
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
                 }
                 _ => {}
             }

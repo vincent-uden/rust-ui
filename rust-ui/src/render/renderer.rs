@@ -10,13 +10,12 @@ use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use crate::{
     geometry::Vector,
     render::{
-        Border, Color, Text,
+        Border, COLOR_LIGHT, Color, Text,
         line::LineRenderer,
         rect::RectRenderer,
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
     },
-    ui,
 };
 use taffy::prelude::*;
 
@@ -107,6 +106,7 @@ where
     /// the app layer
     pub show_debug_layer: bool,
     pub debug_position: Vector<f32>,
+    pub debug_size: Vector<f32>,
 }
 
 impl<T> Renderer<T>
@@ -136,6 +136,7 @@ where
             app_state: initial_state,
             show_debug_layer: false,
             debug_position: Vector::zero(),
+            debug_size: Vector::new(100.0, 200.0),
         }
     }
 
@@ -397,12 +398,7 @@ where
     }
 
     fn debug_layer(&self) -> RenderLayout<T> {
-        let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-
-        ui(&tree, "", &[ui(&tree, "", &[]), ui(&tree, "", &[])]);
-        // TODO: Implement
-        todo!("Not yet implemented")
+        // Goal:
         // Container (floating position)
         //   Header (flex-row)
         //     Label
@@ -417,6 +413,55 @@ where
         //         Text
         //   Footer
         //     Size-drag
+        let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
+        let tree = RefCell::new(tree);
+
+        // Container
+        let root = div(
+            &tree,
+            "rounded-8 bg-black opacity-20",
+            &[
+                // Header
+                ui(
+                    &tree,
+                    "flex-row",
+                    Listeners::default(),
+                    &[
+                        text(
+                            &tree,
+                            "grow",
+                            Text::new("Debug".into(), 18, COLOR_LIGHT),
+                            &[],
+                        ),
+                        ui(&tree, "", Listeners::default(), &[]), // TODO: Icons?
+                    ],
+                ),
+                // Body
+                scrollable(&tree, "grow", &[]),
+                // Footer
+                div(
+                    &tree,
+                    "flex-row",
+                    &[
+                        ui(&tree, "", Listeners::default(), &[]), // TODO: Icons?
+                    ],
+                ),
+            ],
+        );
+
+        let data = unsafe { std::ptr::read(tree.as_ptr()) };
+        std::mem::forget(tree);
+        RenderLayout {
+            tree: data,
+            root,
+            desired_size: Size {
+                width: AvailableSpace::Definite(self.debug_size.x),
+                height: AvailableSpace::Definite(self.debug_size.y),
+            },
+            root_pos: self.debug_position.into(),
+            anchor: Anchor::TopLeft,
+            scissor: true,
+        }
     }
 }
 
@@ -550,6 +595,46 @@ where
     T: AppState + Default,
 {
     let (style, context) = parse_style(style);
+    let mut tree = tree.borrow_mut();
+    let parent = tree.new_leaf_with_context(style, context).unwrap();
+    for child in children {
+        tree.add_child(parent, *child).unwrap();
+    }
+    return parent;
+}
+
+pub fn scrollable<T>(
+    tree: &RefCell<TaffyTree<NodeContext<T>>>,
+    style: &str,
+    children: &[NodeId],
+) -> NodeId
+where
+    T: AppState + Default,
+{
+    // TODO: Insert some state into context? How could this work
+    // Scrollable could take it's "scroll" state as an argumet which would be stored on the
+    // renderer.
+    let (style, context) = parse_style(style);
+    let mut tree = tree.borrow_mut();
+    let parent = tree.new_leaf_with_context(style, context).unwrap();
+    for child in children {
+        tree.add_child(parent, *child).unwrap();
+    }
+    return parent;
+}
+
+pub fn text<T>(
+    tree: &RefCell<TaffyTree<NodeContext<T>>>,
+    style: &str,
+    text: Text,
+    children: &[NodeId],
+) -> NodeId
+where
+    T: AppState + Default,
+{
+    let (style, mut context) = parse_style(style);
+    context.text = text;
+    context.flags |= flags::TEXT;
     let mut tree = tree.borrow_mut();
     let parent = tree.new_leaf_with_context(style, context).unwrap();
     for child in children {
