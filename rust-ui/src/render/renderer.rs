@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     collections::{HashMap, VecDeque},
     sync::Arc,
 };
@@ -15,6 +16,7 @@ use crate::{
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
     },
+    ui,
 };
 use taffy::prelude::*;
 
@@ -93,6 +95,7 @@ where
     /// Wether or not the debug layer should be shown. This is drawn on top of everything drawn by
     /// the app layer
     pub show_debug_layer: bool,
+    pub debug_position: Vector<f32>,
 }
 
 impl<T> Renderer<T>
@@ -121,6 +124,7 @@ where
             hover_states: HashMap::new(),
             app_state: initial_state,
             show_debug_layer: false,
+            debug_position: Vector::zero(),
         }
     }
 
@@ -382,8 +386,26 @@ where
     }
 
     fn debug_layer(&self) -> RenderLayout<T> {
+        let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
+        let tree = RefCell::new(tree);
+
+        ui(&tree, "", &[ui(&tree, "", &[]), ui(&tree, "", &[])]);
         // TODO: Implement
         todo!("Not yet implemented")
+        // Container (floating position)
+        //   Header (flex-row)
+        //     Label
+        //     Open/Close
+        //   Body (flex-col, scrollable)
+        //     Block
+        //       BlockHeader (flex-row)
+        //         Label
+        //         Delete
+        //         Open/Close
+        //       BlockData
+        //         Text
+        //   Footer
+        //     Size-drag
     }
 }
 
