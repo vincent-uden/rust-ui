@@ -1,11 +1,12 @@
 use std::{
-    cell::RefCell,
+    cell::{LazyCell, RefCell},
     collections::{HashMap, VecDeque},
     sync::Arc,
 };
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
+use tracing::error;
 
 use crate::{
     geometry::Vector,
@@ -16,6 +17,7 @@ use crate::{
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
     },
+    style::parse_style,
 };
 use taffy::prelude::*;
 
@@ -616,13 +618,6 @@ where
         }
         return parent;
     }
-}
-
-pub fn parse_style<T>(style: &str) -> (Style, NodeContext<T>)
-where
-    T: AppState + Default,
-{
-    (Style::DEFAULT, NodeContext::default())
 }
 
 #[cfg(test)]

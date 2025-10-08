@@ -17,6 +17,7 @@ pub mod geometry;
 pub mod perf_overlay;
 pub mod render;
 pub mod shader;
+pub mod style;
 
 pub fn init_open_gl(
     width: u32,

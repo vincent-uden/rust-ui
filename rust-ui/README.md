@@ -1,4 +1,4 @@
-NodeContext attributes
+## NodeContext attributes
 
 flags *Should be controlled by the semantic piece of UI it is in. Not a styling option*
 sprite_key *Probably not managed by text attribute*
@@ -21,10 +21,10 @@ offset `translate-x-<pixels>` `translate-y-<pixels>`
 
 
 
-Style attributes
+## Style attributes
 
         Dont display element and its children, otherwise this is automatically flex
-display `None`
+display `none`
 
 margin  `m-<size>` `mx-<size>` `my-<size>` `ml-<size>` `mr-<size>` `mt-<size>` `mb-<size>`
 padding `p-<size>` `px-<size>` `py-<size>` `pl-<size>` `pr-<size>` `pt-<size>` `pb-<size>`
