@@ -420,21 +420,19 @@ where
 
         let b = UiBuilder::new(&tree);
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("rounded-8 bg-black opacity-20", &[
-                b.ui("flex-row", Listeners::default(), &[
-                        b.text("grow",
-                            Text::new("Debug".into(), 18, COLOR_LIGHT),
-                            &[],
-                        ),
-                        b.ui("", Listeners::default(), &[]), // TODO: Icons?
-                    ],
+        let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8", &[
+            b.ui("flex-row", Listeners::default(), &[
+                b.text("grow",
+                    Text::new("Debug".into(), 18, COLOR_LIGHT),
+                    &[],
                 ),
-                b.scrollable("grow", &[]),
-                b.div( "flex-row",
-                    &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
-                ),
-            ],
-        );
+                b.ui("", Listeners::default(), &[]), // TODO: Icons?
+            ]),
+            b.scrollable("grow", &[]),
+            b.div( "flex-row",
+                &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
+            ),
+        ]);
 
         let data = unsafe { std::ptr::read(tree.as_ptr()) };
         std::mem::forget(tree);
@@ -446,7 +444,7 @@ where
                 height: AvailableSpace::Definite(self.debug_size.y),
             },
             root_pos: self.debug_position.into(),
-            anchor: Anchor::TopLeft,
+            anchor: Anchor::TopRight,
             scissor: true,
         }
     }
