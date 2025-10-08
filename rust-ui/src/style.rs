@@ -74,6 +74,10 @@ const POSSIBLE_PARAMETERS: LazyCell<Vec<&str>> = LazyCell::new(|| {
         "opacity",
         "w",
         "h",
+        "max-w",
+        "max-h",
+        "min-w",
+        "min-h",
     ];
     out.sort_by(|a, b| a.len().cmp(&b.len()));
     out
@@ -376,6 +380,8 @@ enum StyleArgument {
     Length(f32),
     /// A length in percent
     Percent(f32),
+    /// Auto dimension
+    Auto,
     /// No argument. Used for keyword-like style parameters like flex-row, grow or none
     None,
 }
@@ -386,6 +392,8 @@ impl TryFrom<&str> for StyleArgument {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.is_empty() {
             Ok(StyleArgument::None)
+        } else if value == "auto" {
+            Ok(StyleArgument::Auto)
         } else {
             if value.starts_with("#") && value.chars().all(|c| c.is_ascii_hexdigit()) {
                 Ok(StyleArgument::Color(hex(value)))
@@ -464,25 +472,48 @@ where
                         ("m", StyleArgument::Length(length)) => {
                             style.margin = taffy::Rect::length(length);
                         }
+                        ("m", StyleArgument::Auto) => {
+                            style.margin = taffy::Rect::auto();
+                        }
                         ("mx", StyleArgument::Length(length)) => {
                             style.margin.left = taffy::prelude::length(length);
                             style.margin.right = taffy::prelude::length(length);
+                        }
+                        ("mx", StyleArgument::Auto) => {
+                            style.margin.left = taffy::prelude::auto();
+                            style.margin.right = taffy::prelude::auto();
                         }
                         ("my", StyleArgument::Length(length)) => {
                             style.margin.top = taffy::prelude::length(length);
                             style.margin.bottom = taffy::prelude::length(length);
                         }
+                        ("my", StyleArgument::Auto) => {
+                            style.margin.top = taffy::prelude::auto();
+                            style.margin.bottom = taffy::prelude::auto();
+                        }
                         ("ml", StyleArgument::Length(length)) => {
                             style.margin.left = taffy::prelude::length(length);
+                        }
+                        ("ml", StyleArgument::Auto) => {
+                            style.margin.left = taffy::prelude::auto();
                         }
                         ("mr", StyleArgument::Length(length)) => {
                             style.margin.right = taffy::prelude::length(length);
                         }
+                        ("mr", StyleArgument::Auto) => {
+                            style.margin.right = taffy::prelude::auto();
+                        }
                         ("mt", StyleArgument::Length(length)) => {
                             style.margin.top = taffy::prelude::length(length);
                         }
+                        ("mt", StyleArgument::Auto) => {
+                            style.margin.top = taffy::prelude::auto();
+                        }
                         ("mb", StyleArgument::Length(length)) => {
                             style.margin.bottom = taffy::prelude::length(length);
+                        }
+                        ("mb", StyleArgument::Auto) => {
+                            style.margin.bottom = taffy::prelude::auto();
                         }
                         ("p", StyleArgument::Length(length)) => {
                             style.padding = taffy::Rect::length(length);
@@ -630,11 +661,53 @@ where
                         ("w", StyleArgument::Percent(percent)) => {
                             style.size.width = Dimension::percent(percent);
                         }
+                        ("w", StyleArgument::Auto) => {
+                            style.size.width = Dimension::auto();
+                        }
                         ("h", StyleArgument::Length(length)) => {
                             style.size.height = Dimension::length(length);
                         }
                         ("h", StyleArgument::Percent(percent)) => {
                             style.size.height = Dimension::percent(percent);
+                        }
+                        ("h", StyleArgument::Auto) => {
+                            style.size.height = Dimension::auto();
+                        }
+                        ("max-w", StyleArgument::Length(length)) => {
+                            style.max_size.width = Dimension::length(length);
+                        }
+                        ("max-w", StyleArgument::Percent(percent)) => {
+                            style.max_size.width = Dimension::percent(percent);
+                        }
+                        ("max-w", StyleArgument::Auto) => {
+                            style.max_size.width = Dimension::auto();
+                        }
+                        ("max-h", StyleArgument::Length(length)) => {
+                            style.max_size.height = Dimension::length(length);
+                        }
+                        ("max-h", StyleArgument::Percent(percent)) => {
+                            style.max_size.height = Dimension::percent(percent);
+                        }
+                        ("max-h", StyleArgument::Auto) => {
+                            style.max_size.height = Dimension::auto();
+                        }
+                        ("min-w", StyleArgument::Length(length)) => {
+                            style.min_size.width = Dimension::length(length);
+                        }
+                        ("min-w", StyleArgument::Percent(percent)) => {
+                            style.min_size.width = Dimension::percent(percent);
+                        }
+                        ("min-w", StyleArgument::Auto) => {
+                            style.min_size.width = Dimension::auto();
+                        }
+                        ("min-h", StyleArgument::Length(length)) => {
+                            style.min_size.height = Dimension::length(length);
+                        }
+                        ("min-h", StyleArgument::Percent(percent)) => {
+                            style.min_size.height = Dimension::percent(percent);
+                        }
+                        ("min-h", StyleArgument::Auto) => {
+                            style.min_size.height = Dimension::auto();
                         }
                         _ => {
                             error!("Unknown style argument-parameter combination {:?}", param);
