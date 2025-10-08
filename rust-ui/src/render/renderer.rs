@@ -416,35 +416,20 @@ where
         let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
         let tree = RefCell::new(tree);
 
-        // Container
-        let root = div(
-            &tree,
-            "rounded-8 bg-black opacity-20",
-            &[
-                // Header
-                ui(
-                    &tree,
-                    "flex-row",
-                    Listeners::default(),
-                    &[
-                        text(
-                            &tree,
-                            "grow",
+        let b = UiBuilder::new(&tree);
+        #[cfg_attr(any(), rustfmt::skip)]
+        let root = b.div("rounded-8 bg-black opacity-20", &[
+                b.ui("flex-row", Listeners::default(), &[
+                        b.text("grow",
                             Text::new("Debug".into(), 18, COLOR_LIGHT),
                             &[],
                         ),
-                        ui(&tree, "", Listeners::default(), &[]), // TODO: Icons?
+                        b.ui("", Listeners::default(), &[]), // TODO: Icons?
                     ],
                 ),
-                // Body
-                scrollable(&tree, "grow", &[]),
-                // Footer
-                div(
-                    &tree,
-                    "flex-row",
-                    &[
-                        ui(&tree, "", Listeners::default(), &[]), // TODO: Icons?
-                    ],
+                b.scrollable("grow", &[]),
+                b.div( "flex-row",
+                    &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
                 ),
             ],
         );
@@ -568,79 +553,69 @@ pub trait AppState: Default {
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
 }
 
-pub fn ui<T>(
-    tree: &RefCell<TaffyTree<NodeContext<T>>>,
-    style: &str,
-    listeners: Listeners<T>,
-    children: &[NodeId],
-) -> NodeId
+struct UiBuilder<'a, T>
 where
     T: AppState + Default,
 {
-    let (style, mut context) = parse_style(style);
-    context.on_mouse_exit = listeners.on_mouse_exit;
-    context.on_mouse_enter = listeners.on_mouse_enter;
-    context.on_mouse_up = listeners.on_mouse_up;
-    context.on_mouse_down = listeners.on_mouse_down;
-    let mut tree = tree.borrow_mut();
-    let parent = tree.new_leaf_with_context(style, context).unwrap();
-    for child in children {
-        tree.add_child(parent, *child).unwrap();
-    }
-    return parent;
+    tree: &'a RefCell<TaffyTree<NodeContext<T>>>,
 }
 
-pub fn div<T>(tree: &RefCell<TaffyTree<NodeContext<T>>>, style: &str, children: &[NodeId]) -> NodeId
+impl<'a, T> UiBuilder<'a, T>
 where
     T: AppState + Default,
 {
-    let (style, context) = parse_style(style);
-    let mut tree = tree.borrow_mut();
-    let parent = tree.new_leaf_with_context(style, context).unwrap();
-    for child in children {
-        tree.add_child(parent, *child).unwrap();
+    pub fn new(tree: &'a RefCell<TaffyTree<NodeContext<T>>>) -> Self {
+        Self { tree }
     }
-    return parent;
-}
 
-pub fn scrollable<T>(
-    tree: &RefCell<TaffyTree<NodeContext<T>>>,
-    style: &str,
-    children: &[NodeId],
-) -> NodeId
-where
-    T: AppState + Default,
-{
-    // TODO: Insert some state into context? How could this work
-    // Scrollable could take it's "scroll" state as an argumet which would be stored on the
-    // renderer.
-    let (style, context) = parse_style(style);
-    let mut tree = tree.borrow_mut();
-    let parent = tree.new_leaf_with_context(style, context).unwrap();
-    for child in children {
-        tree.add_child(parent, *child).unwrap();
+    pub fn ui(&self, style: &str, listeners: Listeners<T>, children: &[NodeId]) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.on_mouse_exit = listeners.on_mouse_exit;
+        context.on_mouse_enter = listeners.on_mouse_enter;
+        context.on_mouse_up = listeners.on_mouse_up;
+        context.on_mouse_down = listeners.on_mouse_down;
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        for child in children {
+            tree.add_child(parent, *child).unwrap();
+        }
+        return parent;
     }
-    return parent;
-}
 
-pub fn text<T>(
-    tree: &RefCell<TaffyTree<NodeContext<T>>>,
-    style: &str,
-    text: Text,
-    children: &[NodeId],
-) -> NodeId
-where
-    T: AppState + Default,
-{
-    let (style, mut context) = parse_style(style);
-    context.text = text;
-    context.flags |= flags::TEXT;
-    let mut tree = tree.borrow_mut();
-    let parent = tree.new_leaf_with_context(style, context).unwrap();
-    for child in children {
-        tree.add_child(parent, *child).unwrap();
+    fn div(&self, style: &str, children: &[NodeId]) -> NodeId {
+        let (style, context) = parse_style(style);
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        for child in children {
+            tree.add_child(parent, *child).unwrap();
+        }
+        return parent;
     }
-    return parent;
+
+    fn text(&self, style: &str, text: Text, children: &[NodeId]) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.text = text;
+        context.flags |= flags::TEXT;
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        for child in children {
+            tree.add_child(parent, *child).unwrap();
+        }
+        return parent;
+    }
+
+    fn scrollable(&self, style: &str, children: &[NodeId]) -> NodeId {
+        // TODO: Insert some state into context? How could this work
+        // Scrollable could take it's "scroll" state as an argumet which would be stored on the
+        // renderer.
+        let (style, context) = parse_style(style);
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        for child in children {
+            tree.add_child(parent, *child).unwrap();
+        }
+        return parent;
+    }
 }
 
 pub fn parse_style<T>(style: &str) -> (Style, NodeContext<T>)
@@ -673,12 +648,7 @@ pub mod tests {
     pub fn ui_shorthand_doesnt_deadlock() {
         let tree: taffy::TaffyTree<NodeContext<DummyState>> = taffy::TaffyTree::new();
         let tree = RefCell::new(tree);
-
-        ui(
-            &tree,
-            "",
-            Listeners::default(),
-            &[div(&tree, "", &[]), div(&tree, "", &[])],
-        );
+        let b = UiBuilder::new(&tree);
+        b.ui("", Listeners::default(), &[b.div("", &[]), b.div("", &[])]);
     }
 }
