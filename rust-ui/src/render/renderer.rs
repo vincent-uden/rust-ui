@@ -6,7 +6,7 @@ use std::{
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
-use tracing::error;
+use tracing::{error, info};
 
 use crate::{
     geometry::Vector,
@@ -280,12 +280,38 @@ where
     ) {
         let mut stack: VecDeque<(NodeId, taffy::Point<f32>)> =
             vec![(root_node, position.into())].into();
+
         while let Some((id, parent_pos)) = stack.pop_front() {
             let layout = tree.layout(id).unwrap();
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
 
-            let abs_pos = layout.location + parent_pos + ctx.offset.into();
+            let mut abs_pos = layout.location + parent_pos;
+            if ctx.flags & flags::SCROLL_BAR != 0 {
+                if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
+                    abs_pos.y += lerp(
+                        0.0,
+                        parent_bbox.size.height - layout.size.height,
+                        ctx.offset.y,
+                    );
+                }
+            } else if ctx.flags & flags::SCROLL_CONTENT != 0 {
+                // TODO: This isn't quite right
+                //       Scroll content needs to be scissored to its parent which is currently not
+                //       possible due to having no memory of parent scissor state. It's always
+                //       reset
+                if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
+                    if layout.size.height > parent_bbox.size.height {
+                        abs_pos.y -= lerp(
+                            0.0,
+                            layout.size.height - parent_bbox.size.height,
+                            ctx.offset.y,
+                        );
+                    }
+                }
+            } else {
+                abs_pos = abs_pos + ctx.offset.into();
+            }
             let bbox = crate::geometry::Rect {
                 x0: Vector::new(abs_pos.x, abs_pos.y),
                 x1: Vector::new(
@@ -304,18 +330,7 @@ where
             }
 
             // Drawing
-            self.rect_r.draw(
-                crate::geometry::Rect {
-                    x0: Vector::new(abs_pos.x, abs_pos.y),
-                    x1: Vector::new(
-                        abs_pos.x + layout.size.width,
-                        abs_pos.y + layout.size.height,
-                    ),
-                },
-                bg_color,
-                ctx.border,
-                1.0,
-            );
+            self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
 
             if ctx.flags & flags::TEXT != 0 {
                 if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT == 0 {
@@ -445,7 +460,7 @@ where
                 ),
                 b.ui("", Listeners::default(), &[]), // TODO: Icons?
             ]),
-            b.scrollable("grow", 50.0, Arc::new(|_, _| {}), &[]),
+            b.scrollable("grow", self.debug_scroll, Arc::new(|_, _| {}), &[]),
             b.div( "flex-row",
                 &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
             ),
@@ -631,9 +646,18 @@ where
     ) -> NodeId {
         let scrollbar = {
             let mut tree = self.tree.borrow_mut();
-            let (mut stl, ctx) =
-                parse_style("w-full bg-red-800 hover:bg-red-900 h-16 rounded-4 scroll-bar");
-            stl.margin.top = percent(scroll_height);
+            let (stl, mut ctx) = parse_style("w-full bg-red-800 hover:bg-red-900 h-32 scroll-bar");
+            ctx.offset.y = scroll_height;
+            tree.new_leaf_with_context(stl, ctx).unwrap()
+        };
+        let scroll_content = {
+            let mut tree = self.tree.borrow_mut();
+            let (stl, mut ctx) = parse_style("overflow-clip grow bg-sky-500 scroll-content");
+            ctx.offset.y = scroll_height;
+            ctx.on_mouse_down = Some(Arc::new(|state| {
+                state.debug_scroll += 0.1;
+                info!(state.debug_scroll);
+            }));
             tree.new_leaf_with_context(stl, ctx).unwrap()
         };
 
@@ -641,10 +665,14 @@ where
 
         #[cfg_attr(any(), rustfmt::skip)]
         self.ui(&format!("{} flex-row", style), Listeners::default(), &[
-            self.div("overflow-clip grow bg-sky-500 scroll-content", &[]),
+            scroll_content,
             self.div("w-8 bg-red-500", &[scrollbar]),
         ])
     }
+}
+
+pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
+    start + normalized * (end - start)
 }
 
 #[cfg(test)]
