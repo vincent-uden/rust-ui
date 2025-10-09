@@ -23,13 +23,18 @@ use taffy::prelude::*;
 
 type Flag = u8;
 
+#[cfg_attr(any(), rustfmt::skip)]
 pub mod flags {
     use super::Flag;
     /// Enables text drawing in a node
-    pub const TEXT: Flag = 0b00000001;
-    pub const HOVER_BG: Flag = 0b00000010;
+    pub const TEXT: Flag                 = 0b00000001;
+    pub const HOVER_BG: Flag             = 0b00000010;
     pub const EXPLICIT_TEXT_LAYOUT: Flag = 0b00000100;
-    pub const SPRITE: Flag = 0b00001000;
+    pub const SPRITE: Flag               = 0b00001000;
+    /// Changes how the limits of offsets work to act as a scoll bar
+    pub const SCROLL_BAR: Flag           = 0b00010000;
+    /// Changes how the limits of offsets work to act as content being scrolled
+    pub const SCROLL_CONTENT: Flag       = 0b00100000;
 }
 
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
@@ -626,14 +631,17 @@ where
     ) -> NodeId {
         let scrollbar = {
             let mut tree = self.tree.borrow_mut();
-            let (mut stl, ctx) = parse_style("w-full bg-red-800 hover:bg-red-900 h-16 rounded-4");
+            let (mut stl, ctx) =
+                parse_style("w-full bg-red-800 hover:bg-red-900 h-16 rounded-4 scroll-bar");
             stl.margin.top = percent(scroll_height);
             tree.new_leaf_with_context(stl, ctx).unwrap()
         };
 
+        // TODO: Set offset on content and bar
+
         #[cfg_attr(any(), rustfmt::skip)]
         self.ui(&format!("{} flex-row", style), Listeners::default(), &[
-            self.div("overflow-clip grow bg-sky-500", &[]),
+            self.div("overflow-clip grow bg-sky-500 scroll-content", &[]),
             self.div("w-8 bg-red-500", &[scrollbar]),
         ])
     }

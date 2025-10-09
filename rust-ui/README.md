@@ -89,8 +89,6 @@ The only problem is that the scrollbar block and the content both have definite 
 
 *Is there any other useful definition of translate with a percent length?*
 
-*What happens in the case of scrollable content that is larger than it's bounding box? What if it is exactly the same size?*
-
-The bar and the content are probably two distinct cases. In one, we want to limit the scrollbars thumb to the bounds of the track.
+The bar and the content are two distinct cases, both of which are useful definitions of scrolling by percentage. Well, they are the same scroll, but with different limits. Limits that are not known at "style-time" but just at rendering time.
 
 

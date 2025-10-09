@@ -79,6 +79,8 @@ const POSSIBLE_PARAMETERS: LazyCell<Vec<&str>> = LazyCell::new(|| {
         "min-w",
         "min-h",
         "overflow-clip",
+        "scroll-bar",
+        "scroll-content",
     ];
     out.sort_by(|a, b| b.len().cmp(&a.len()));
     out
@@ -712,6 +714,18 @@ where
                         }
                         ("overflow-clip", StyleArgument::None) => {
                             ctx.scissor = true;
+                        }
+                        ("scroll-bar", StyleArgument::None) => {
+                            if ctx.flags & flags::SCROLL_CONTENT != 0 {
+                                error!("An element can't be both scroll-bar and scroll-content");
+                            }
+                            ctx.flags |= flags::SCROLL_BAR;
+                        }
+                        ("scroll-content", StyleArgument::None) => {
+                            if ctx.flags & flags::SCROLL_BAR != 0 {
+                                error!("An element can't be both scroll-bar and scroll-content");
+                            }
+                            ctx.flags |= flags::SCROLL_CONTENT;
                         }
                         _ => {
                             error!("Unknown style argument-parameter combination {:?}", param);
