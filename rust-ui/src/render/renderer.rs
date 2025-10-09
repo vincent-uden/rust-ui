@@ -55,6 +55,8 @@ where
     pub on_mouse_exit: Option<EventListener<T>>,
     pub on_mouse_down: Option<EventListener<T>>,
     pub on_mouse_up: Option<EventListener<T>>,
+    // Clipping
+    pub scissor: bool,
 }
 
 #[derive(Default)]
@@ -109,6 +111,7 @@ where
     pub show_debug_layer: bool,
     pub debug_position: Vector<f32>,
     pub debug_size: Vector<f32>,
+    pub debug_scroll: f32,
 }
 
 impl<T> Renderer<T>
@@ -139,6 +142,7 @@ where
             show_debug_layer: false,
             debug_position: Vector::zero(),
             debug_size: Vector::new(100.0, 200.0),
+            debug_scroll: 0.0,
         }
     }
 
@@ -290,6 +294,10 @@ where
                 ctx.bg_color
             };
 
+            if ctx.scissor {
+                self.enable_scissor_for_layer(abs_pos.into(), layout.size.into());
+            }
+
             // Drawing
             self.rect_r.draw(
                 crate::geometry::Rect {
@@ -391,6 +399,10 @@ where
                     stack.push_back((child, layout.location + parent_pos));
                 }
             }
+
+            if ctx.scissor {
+                self.disable_scissor();
+            }
         }
     }
 
@@ -420,7 +432,7 @@ where
 
         let b = UiBuilder::new(&tree);
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8", &[
+        let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
             b.ui("flex-row", Listeners::default(), &[
                 b.text("grow",
                     Text::new("Debug".into(), 18, COLOR_LIGHT),
@@ -428,7 +440,7 @@ where
                 ),
                 b.ui("", Listeners::default(), &[]), // TODO: Icons?
             ]),
-            b.scrollable("grow", &[]),
+            b.scrollable("grow", 50.0, Arc::new(|_, _| {}), &[]),
             b.div( "flex-row",
                 &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
             ),
@@ -604,17 +616,26 @@ where
         return parent;
     }
 
-    fn scrollable(&self, style: &str, children: &[NodeId]) -> NodeId {
-        // TODO: Insert some state into context? How could this work
-        // Scrollable could take it's "scroll" state as an argumet which would be stored on the
-        // renderer.
-        let (style, context) = parse_style(style);
-        let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
-        for child in children {
-            tree.add_child(parent, *child).unwrap();
-        }
-        return parent;
+    /// Scroll height is in percent. Thus if items are added, scrolling is preserved
+    fn scrollable(
+        &self,
+        style: &str,
+        scroll_height: f32,
+        update_scroll: Arc<dyn Fn(&mut Renderer<T>, f32)>,
+        children: &[NodeId],
+    ) -> NodeId {
+        let scrollbar = {
+            let mut tree = self.tree.borrow_mut();
+            let (mut stl, ctx) = parse_style("w-full bg-red-800 hover:bg-red-900 h-16 rounded-4");
+            stl.margin.top = percent(scroll_height);
+            tree.new_leaf_with_context(stl, ctx).unwrap()
+        };
+
+        #[cfg_attr(any(), rustfmt::skip)]
+        self.ui(&format!("{} flex-row", style), Listeners::default(), &[
+            self.div("overflow-clip grow bg-sky-500", &[]),
+            self.div("w-8 bg-red-500", &[scrollbar]),
+        ])
     }
 }
 

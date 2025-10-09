@@ -1,4 +1,6 @@
-## NodeContext attributes
+## Tailwind Style parsing
+
+### NodeContext attributes
 
 flags *Should be controlled by the semantic piece of UI it is in. Not a styling option*
 sprite_key *Probably not managed by text attribute*
@@ -21,7 +23,7 @@ offset `translate-x-<pixels>` `translate-y-<pixels>`
 
 
 
-## Style attributes
+### Style attributes
 
         Dont display element and its children, otherwise this is automatically flex
 display `none`
@@ -74,3 +76,21 @@ box_sizing
 overflow `overflow-visible` `overflow-clip` `overflow-scroll`
 scrollbar_width
 position
+
+## Srollbars
+
+How are scrollbars supposed to be implemented?
+
+I need to be able to offset a block inside another block, but without exceeding the parent block. The obvious method is to use a percentage offset.
+
+All the scrollable content can then be offset by the same percentage but negative.
+
+The only problem is that the scrollbar block and the content both have definite sizes. *Should there be a special kind of scroll-translation attribute? Or should it just be the default behavour for translate with a percentage length?*
+
+*Is there any other useful definition of translate with a percent length?*
+
+*What happens in the case of scrollable content that is larger than it's bounding box? What if it is exactly the same size?*
+
+The bar and the content are probably two distinct cases. In one, we want to limit the scrollbars thumb to the bounds of the track.
+
+

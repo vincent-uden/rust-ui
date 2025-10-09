@@ -78,8 +78,9 @@ const POSSIBLE_PARAMETERS: LazyCell<Vec<&str>> = LazyCell::new(|| {
         "max-h",
         "min-w",
         "min-h",
+        "overflow-clip",
     ];
-    out.sort_by(|a, b| a.len().cmp(&b.len()));
+    out.sort_by(|a, b| b.len().cmp(&a.len()));
     out
 });
 
@@ -709,6 +710,9 @@ where
                         ("min-h", StyleArgument::Auto) => {
                             style.min_size.height = Dimension::auto();
                         }
+                        ("overflow-clip", StyleArgument::None) => {
+                            ctx.scissor = true;
+                        }
                         _ => {
                             error!("Unknown style argument-parameter combination {:?}", param);
                         }
@@ -764,6 +768,21 @@ mod tests {
         assert!(
             ctx.border.radius.bottom_right == 8.0,
             "Border radius should be 8"
+        );
+    }
+
+    #[test]
+    pub fn hover_bg_and_bg_parsing() {
+        let style_str = "w-full bg-red-800 hover:bg-red-900 h-16 rounded-4";
+        let (style, ctx) = parse_style::<DummyState>(style_str);
+        assert!(
+            (ctx.flags & flags::HOVER_BG) != 0,
+            "Should have a hover bg color"
+        );
+        let red_900 = hex("#7f1d1d");
+        assert!(
+            ctx.bg_color_hover == red_900,
+            "The hover color should be red-900"
         );
     }
 }
