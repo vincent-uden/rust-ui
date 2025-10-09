@@ -19,7 +19,7 @@ use crate::{
     },
     style::parse_style,
 };
-use taffy::prelude::*;
+use taffy::{prelude::*, print_tree};
 
 type Flag = u8;
 
@@ -278,6 +278,7 @@ where
         root_node: NodeId,
         position: Vector<f32>,
     ) {
+        print_tree(tree, root_node);
         let mut stack: VecDeque<(NodeId, taffy::Point<f32>)> =
             vec![(root_node, position.into())].into();
 
@@ -452,7 +453,7 @@ where
 
         let b = UiBuilder::new(&tree);
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
+        let root = b.div("rounded-8 bg-black opacity-40 w-full h-100 p-8 flex-col", &[
             b.ui("flex-row", Listeners::default(), &[
                 b.text("grow",
                     Text::new("Debug".into(), 18, COLOR_LIGHT),
@@ -460,7 +461,20 @@ where
                 ),
                 b.ui("", Listeners::default(), &[]), // TODO: Icons?
             ]),
-            b.scrollable("grow", self.debug_scroll, Arc::new(|_, _| {}), &[]),
+            b.scrollable("grow", self.debug_scroll, Arc::new(|_, _| {}), &[
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+            ]),
             b.div( "flex-row",
                 &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
             ),
@@ -652,20 +666,24 @@ where
         };
         let scroll_content = {
             let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) = parse_style("overflow-clip grow bg-sky-500 scroll-content");
+            let (stl, mut ctx) = parse_style("flex-col scroll-content");
             ctx.offset.y = scroll_height;
-            ctx.on_mouse_down = Some(Arc::new(|state| {
-                state.debug_scroll += 0.1;
-                info!(state.debug_scroll);
-            }));
-            tree.new_leaf_with_context(stl, ctx).unwrap()
+            let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
+            for child in children {
+                tree.add_child(parent, *child).unwrap();
+            }
+            parent
         };
-
-        // TODO: Set offset on content and bar
 
         #[cfg_attr(any(), rustfmt::skip)]
         self.ui(&format!("{} flex-row", style), Listeners::default(), &[
-            scroll_content,
+            self.ui("overflow-clip grow bg-sky-500", Listeners {
+                on_mouse_up: Some(Arc::new(|state| {
+                    state.debug_scroll += 0.1;
+                    info!(state.debug_scroll);
+                })), 
+                ..Default::default()
+            }, &[scroll_content]),
             self.div("w-8 bg-red-500", &[scrollbar]),
         ])
     }

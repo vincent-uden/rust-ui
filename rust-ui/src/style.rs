@@ -714,6 +714,10 @@ where
                         }
                         ("overflow-clip", StyleArgument::None) => {
                             ctx.scissor = true;
+                            style.overflow = taffy::Point {
+                                x: taffy::Overflow::Scroll,
+                                y: taffy::Overflow::Scroll,
+                            };
                         }
                         ("scroll-bar", StyleArgument::None) => {
                             if ctx.flags & flags::SCROLL_CONTENT != 0 {
