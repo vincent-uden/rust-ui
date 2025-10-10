@@ -278,7 +278,6 @@ where
         root_node: NodeId,
         position: Vector<f32>,
     ) {
-        print_tree(tree, root_node);
         let mut stack: VecDeque<(NodeId, taffy::Point<f32>)> =
             vec![(root_node, position.into())].into();
 
@@ -453,15 +452,15 @@ where
 
         let b = UiBuilder::new(&tree);
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("rounded-8 bg-black opacity-40 w-full h-100 p-8 flex-col", &[
-            b.ui("flex-row", Listeners::default(), &[
+        let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
+            b.ui("flex-row border-2 border-black", Listeners::default(), &[
                 b.text("grow",
                     Text::new("Debug".into(), 18, COLOR_LIGHT),
                     &[],
                 ),
                 b.ui("", Listeners::default(), &[]), // TODO: Icons?
             ]),
-            b.scrollable("grow", self.debug_scroll, Arc::new(|_, _| {}), &[
+            b.scrollable("", self.debug_scroll, Arc::new(|_, _| {}), &[
                 b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
                 b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
                 b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
@@ -476,7 +475,13 @@ where
                 b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
             ]),
             b.div( "flex-row",
-                &[b.ui( "", Listeners::default(), &[])],// TODO: Icons?
+                &[
+                b.text("grow",
+                    Text::new("Debug".into(), 18, COLOR_LIGHT),
+                    &[],
+                ),
+                    b.ui( "", Listeners::default(), &[])
+                ],// TODO: Icons?
             ),
         ]);
 
@@ -675,9 +680,10 @@ where
             parent
         };
 
+        // I am not 100% sure why the overflow-clip has to be this far out, but it works here
         #[cfg_attr(any(), rustfmt::skip)]
-        self.ui(&format!("{} flex-row", style), Listeners::default(), &[
-            self.ui("overflow-clip grow bg-sky-500", Listeners {
+        self.ui(&format!("{} flex-row border-2 border-white overflow-clip", style), Listeners::default(), &[
+            self.ui("grow bg-sky-500 border-2 border-red-500", Listeners {
                 on_mouse_up: Some(Arc::new(|state| {
                     state.debug_scroll += 0.1;
                     info!(state.debug_scroll);

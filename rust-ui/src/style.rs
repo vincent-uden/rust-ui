@@ -1,6 +1,6 @@
 use std::cell::LazyCell;
 
-use taffy::{Dimension, FlexDirection, Style};
+use taffy::{Dimension, FlexDirection, Style, prelude::percent};
 use tracing::error;
 
 use crate::render::{
@@ -435,6 +435,9 @@ where
     }
 
     for param in style_str.split(" ") {
+        if param.is_empty() {
+            continue;
+        }
         let mut found = false;
         for possible in &*POSSIBLE_PARAMETERS {
             if param.starts_with(possible) {
@@ -715,8 +718,8 @@ where
                         ("overflow-clip", StyleArgument::None) => {
                             ctx.scissor = true;
                             style.overflow = taffy::Point {
-                                x: taffy::Overflow::Scroll,
-                                y: taffy::Overflow::Scroll,
+                                x: taffy::Overflow::Hidden,
+                                y: taffy::Overflow::Hidden,
                             };
                         }
                         ("scroll-bar", StyleArgument::None) => {
