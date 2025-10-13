@@ -580,10 +580,6 @@ impl Area {
     }
 }
 
-pub fn lerp(start: f32, end: f32, normalized_time: f32) -> f32 {
-    start + normalized_time * (end - start)
-}
-
 pub fn ease_in_out(start: f32, end: f32, t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     let eased = if t < 0.5 {

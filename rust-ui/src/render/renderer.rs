@@ -446,7 +446,6 @@ where
         root_node: NodeId,
         position: Vector<f32>,
     ) -> taffy::TaffyResult<()> {
-        // TODO: Split into an event parsing pass, then a render pass
         let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
         // The trail acts as a scissor stack. It allows the program to restore an outer scissor
         // state before delving into the rendering of additional descendant nodes
@@ -534,7 +533,6 @@ where
                         },
                     );
                 } else {
-                    debug!("{:?} {:?}", ctx.text, trail);
                     self.text_r.draw_in_box_explicit(
                         ctx.text.clone(),
                         Vector::new(
@@ -601,7 +599,7 @@ where
         let b = UiBuilder::new(&tree);
         #[cfg_attr(any(), rustfmt::skip)]
         let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
-            b.ui("flex-row border-2 border-black", Listeners::default(), &[
+            b.ui("flex-row", Listeners::default(), &[
                 b.text("grow",
                     Text::new("Debug".into(), 18, COLOR_LIGHT),
                     &[],
@@ -820,7 +818,8 @@ where
     ) -> NodeId {
         let scrollbar = {
             let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) = parse_style("w-full bg-red-800 hover:bg-red-900 h-32 scroll-bar");
+            let (stl, mut ctx) =
+                parse_style("w-full bg-zinc-700 hover:bg-zinc-600 h-32 scroll-bar rounded-4");
             ctx.offset.y = scroll_height;
             tree.new_leaf_with_context(stl, ctx).unwrap()
         };
@@ -837,12 +836,12 @@ where
 
         // I am not 100% sure why the overflow-clip has to be this far out, but it works here
         #[cfg_attr(any(), rustfmt::skip)]
-        self.ui(&format!("{} flex-row border-2 border-white overflow-clip", style), Listeners::default(), &[
-            self.ui("grow bg-sky-500 border-2 border-red-500", Listeners {
+        self.ui(&format!("{} flex-row overflow-clip", style), Listeners::default(), &[
+            self.ui("grow", Listeners {
                 on_scroll: Some(update_scroll),
                 ..Default::default()
             }, &[scroll_content]),
-            self.div("w-8 bg-red-500", &[scrollbar]),
+            self.div("w-8", &[scrollbar]),
         ])
     }
 }
