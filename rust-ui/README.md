@@ -91,4 +91,13 @@ The only problem is that the scrollbar block and the content both have definite 
 
 The bar and the content are two distinct cases, both of which are useful definitions of scrolling by percentage. Well, they are the same scroll, but with different limits. Limits that are not known at "style-time" but just at rendering time.
 
+## Capturing mouse events?
+
+I don't want the 3D viewport to change its state if the user is interacting with 2D user interfaces. This is easy if they are in another area. Whoever if there is an overlay occluding the 3D viewport, we can't just use its bounding box.
+
+Layers could get precedence on wether they capture a given event or not. This does require areas to use event listeners though. Right now they bypass the event listener system.
+
+We don't know if a given event listener will consume an event until it has been run. So when we are gathering all of them in `collect_event_listeners` it is impossible to know. Listeners could be grouped by the event they are listening to.
+
+This would work, except for the fact that they dont listen to events. They just access state immediately.
 
