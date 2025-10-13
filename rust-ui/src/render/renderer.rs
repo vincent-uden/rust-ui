@@ -6,7 +6,7 @@ use std::{
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     geometry::Vector,
@@ -144,7 +144,7 @@ where
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,
-            show_debug_layer: false,
+            show_debug_layer: true,
             debug_position: Vector::zero(),
             debug_size: Vector::new(100.0, 200.0),
             debug_scroll: 0.0,
@@ -262,7 +262,7 @@ where
                 self.enable_scissor_for_layer(pos, size);
             }
 
-            self.render_tree(&layer.tree, layer.root, pos);
+            let _ = self.dfs(&layer.tree, layer.root, pos);
 
             if layer.scissor {
                 self.disable_scissor();
@@ -270,23 +270,42 @@ where
         }
     }
 
-    /// Draws a populated layout tree to the screen and queues up event listeners for the drawn
-    /// nodes.
-    fn render_tree(
-        &mut self,
-        tree: &TaffyTree<NodeContext<T>>,
-        root_node: NodeId,
-        position: Vector<f32>,
-    ) {
-        let mut stack: VecDeque<(NodeId, taffy::Point<f32>)> =
-            vec![(root_node, position.into())].into();
+    fn dfs(
+        &mut self, 
+        tree: &TaffyTree<NodeContext<T>>, 
+        root_node: NodeId, 
+        position: Vector<f32>
+    ) -> taffy::TaffyResult<()> {
+        let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
+        // The trail acts as a scissor stack. It allows the program to restore an outer scissor
+        // state before delving into the rendering of additional descendant nodes
+        let mut trail: Vec<(NodeId, Option<(Vector<f32>, Vector<f32>)>)> = vec![];
 
-        while let Some((id, parent_pos)) = stack.pop_front() {
-            let layout = tree.layout(id).unwrap();
+        while let Some((id, parent_pos)) = to_render.pop() {
+            let layout = tree.layout(id)?;
+            let mut abs_pos = layout.location + parent_pos;
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
+            // If the last node of the trail isn't our parent, we should traverse the trail upwards
+            // until we find our parent. This ensures that scissoring is applied to all children of
+            // a node, while not affecting any other nodes in other places of the tree.
+            while trail.last().is_some() && tree.parent(id) != trail.last().map(|x| x.0) {
+                trail.pop();
+            }
+            self.disable_scissor();
+            // After ensuring that the last node is my parent, find the nearest scissor region if
+            // there are any
+            if ctx.scissor {
+                trail.push((id, Some((abs_pos.into(), layout.size.into()))));
+                self.enable_scissor_for_layer(abs_pos.into(), layout.size.into());
+            } else {
+                if let Some((_, scissor)) = trail.iter().rev().find(|(_, scissor)| scissor.is_some()) {
+                    let scissor = scissor.unwrap();
+                    self.enable_scissor_for_layer(scissor.0, scissor.1);
+                }
+                trail.push((id, None));
+            }
 
-            let mut abs_pos = layout.location + parent_pos;
             if ctx.flags & flags::SCROLL_BAR != 0 {
                 if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
                     abs_pos.y += lerp(
@@ -346,6 +365,7 @@ where
                         },
                     );
                 } else {
+                    debug!("{:?} {:?}", ctx.text, trail);
                     self.text_r.draw_in_box_explicit(
                         ctx.text.clone(),
                         Vector::new(
@@ -414,16 +434,14 @@ where
                 }
             }
 
-            if let Ok(children) = tree.children(id) {
-                for child in children {
-                    stack.push_back((child, layout.location + parent_pos));
-                }
-            }
-
-            if ctx.scissor {
-                self.disable_scissor();
+            for child in tree.children(id)?.iter().rev() {
+                to_render.push((*child, abs_pos));
             }
         }
+
+        self.disable_scissor();
+
+        Ok(())
     }
 
     pub fn window_size(&mut self, size: (i32, i32)) {

@@ -77,7 +77,7 @@ overflow `overflow-visible` `overflow-clip` `overflow-scroll`
 scrollbar_width
 position
 
-## Srollbars
+## Scrollbars
 
 How are scrollbars supposed to be implemented?
 
