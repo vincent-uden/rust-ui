@@ -97,7 +97,7 @@ fn mode_button(
                 flags: flags::HOVER_BG,
                 bg_color: NORD1,
                 bg_color_hover: NORD3,
-                on_mouse_up: Some(on_click),
+                on_left_mouse_up: Some(on_click),
                 ..Default::default()
             },
         )

@@ -175,10 +175,10 @@ impl PerfStats {
                         info!("Exiting");
                         state.app_state.header_bg = COLOR_LIGHT;
                     })),
-                    on_mouse_down: Some(Arc::new(|_| {
+                    on_left_mouse_down: Some(Arc::new(|_| {
                         info!("Mouse down");
                     })),
-                    on_mouse_up: Some(Arc::new(|_| {
+                    on_left_mouse_up: Some(Arc::new(|_| {
                         info!("Mouse up");
                     })),
                     ..Default::default()
@@ -425,7 +425,7 @@ fn main() {
 
         glfw.poll_events();
 
-        state.mouse_left_was_down = state.mouse_left_down;
+        state.pre_update();
         for (_, event) in glfw::flush_messages(&events) {
             match event {
                 glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1, action, _) => {
@@ -506,7 +506,7 @@ fn main() {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-        state.compute_layout_and_render();
+        state.render();
         mesh_r.draw(polar_angle, horizontal_angle);
 
         window.swap_buffers();

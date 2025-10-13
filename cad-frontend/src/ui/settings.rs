@@ -109,7 +109,7 @@ impl Settings {
                         radius: BorderRadius::all(8.0),
                         ..Default::default()
                     },
-                    on_mouse_up: Some(Arc::new(move |state: &mut Renderer<App>| {
+                    on_left_mouse_up: Some(Arc::new(move |state: &mut Renderer<App>| {
                         state.app_state.save_layout();
                     })),
                     ..Default::default()
@@ -141,7 +141,7 @@ impl Settings {
                         radius: BorderRadius::all(8.0),
                         ..Default::default()
                     },
-                    on_mouse_up: Some(Arc::new(move |state: &mut Renderer<App>| {
+                    on_left_mouse_up: Some(Arc::new(move |state: &mut Renderer<App>| {
                         state.app_state.load_layout();
                     })),
                     ..Default::default()

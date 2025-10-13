@@ -21,6 +21,7 @@ use rust_ui::{
     shader::{Shader, ShaderName},
 };
 use sysinfo::{ProcessesToUpdate, System};
+use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -89,7 +90,7 @@ fn main() {
 
         glfw.poll_events();
 
-        state.mouse_left_was_down = state.mouse_left_down;
+        state.pre_update();
         for (_, event) in glfw::flush_messages(&events) {
             match event {
                 glfw::WindowEvent::Scroll(x, y) => {
@@ -126,6 +127,7 @@ fn main() {
                 _ => {}
             }
         }
+
         state.update();
         state.app_state.perf_overlay.update(avg_sleep_ms, ram_usage);
 
@@ -146,7 +148,7 @@ fn main() {
         }
         state.app_state.update_areas();
         state.app_state.draw_special_areas();
-        state.compute_layout_and_render();
+        state.render();
         if state.app_state.debug_draw {
             state.app_state.debug_draw(
                 &debug_renderer,

@@ -121,7 +121,7 @@ impl SceneExplorer {
                         }
                         .into(),
                         offset: Vector::new(0.0, 2.0),
-                        on_mouse_up: Some(Arc::new(move |state| {
+                        on_left_mouse_up: Some(Arc::new(move |state| {
                             for (j, s) in state
                                 .app_state
                                 .mutable_state
@@ -151,7 +151,7 @@ impl SceneExplorer {
                         flags: flags::SPRITE,
                         sprite_key: "EditSketch".into(),
                         offset: Vector::new(0.0, 3.0),
-                        on_mouse_up: Some(Arc::new(move |state| {
+                        on_left_mouse_up: Some(Arc::new(move |state| {
                             state.app_state.edit_sketch(id);
                         })),
                         ..Default::default()

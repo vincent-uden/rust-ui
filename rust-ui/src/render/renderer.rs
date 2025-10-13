@@ -6,7 +6,7 @@ use std::{
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
-use tracing::{debug, error, info};
+use tracing::{debug, error, field::debug, info};
 
 use crate::{
     geometry::Vector,
@@ -56,10 +56,15 @@ where
     pub sprite_key: String,
     pub offset: Vector<f32>,
     // Event listeners
+    pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
     pub on_mouse_exit: Option<EventListener<T>>,
-    pub on_mouse_down: Option<EventListener<T>>,
-    pub on_mouse_up: Option<EventListener<T>>,
+    pub on_left_mouse_down: Option<EventListener<T>>,
+    pub on_left_mouse_up: Option<EventListener<T>>,
+    pub on_right_mouse_down: Option<EventListener<T>>,
+    pub on_right_mouse_up: Option<EventListener<T>>,
+    pub on_middle_mouse_down: Option<EventListener<T>>,
+    pub on_middle_mouse_up: Option<EventListener<T>>,
     // Clipping
     pub scissor: bool,
 }
@@ -69,10 +74,15 @@ pub struct Listeners<T>
 where
     T: AppState + std::default::Default,
 {
+    pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
     pub on_mouse_exit: Option<EventListener<T>>,
-    pub on_mouse_down: Option<EventListener<T>>,
-    pub on_mouse_up: Option<EventListener<T>>,
+    pub on_left_mouse_down: Option<EventListener<T>>,
+    pub on_left_mouse_up: Option<EventListener<T>>,
+    pub on_right_mouse_down: Option<EventListener<T>>,
+    pub on_right_mouse_up: Option<EventListener<T>>,
+    pub on_middle_mouse_down: Option<EventListener<T>>,
+    pub on_middle_mouse_up: Option<EventListener<T>>,
 }
 
 impl SpriteKey for String {}
@@ -96,10 +106,20 @@ where
     pub height: u32,
     /// Is the mouse left mouse button currently pressed down
     pub mouse_left_down: bool,
+    /// Is the mouse right mouse button currently pressed down
+    pub mouse_right_down: bool,
+    /// Is the mouse middle mouse button currently pressed down
+    pub mouse_middle_down: bool,
     /// Was the mouse left mouse button pressed down last frame
     pub mouse_left_was_down: bool,
+    /// Was the mouse right mouse button pressed down last frame
+    pub mouse_right_was_down: bool,
+    /// Was the mouse middle mouse button pressed down last frame
+    pub mouse_middle_was_down: bool,
     /// The current mouse position
     pub mouse_pos: Vector<f32>,
+    /// The current scroll wheel movement since last frame
+    pub scroll_delta: Vector<f32>,
     /// The mouse position last frame
     pub last_mouse_pos: Vector<f32>,
     pub rect_r: RectRenderer,
@@ -117,6 +137,7 @@ where
     pub debug_position: Vector<f32>,
     pub debug_size: Vector<f32>,
     pub debug_scroll: f32,
+    layers: Arc<Vec<RenderLayout<T>>>,
 }
 
 impl<T> Renderer<T>
@@ -135,7 +156,12 @@ where
             height: 800,
             mouse_left_down: false,
             mouse_left_was_down: false,
+            mouse_right_down: false,
+            mouse_right_was_down: false,
+            mouse_middle_down: false,
+            mouse_middle_was_down: false,
             mouse_pos: Vector::zero(),
+            scroll_delta: Vector::zero(),
             last_mouse_pos: Vector::zero(),
             rect_r: rect_renderer,
             text_r: text_renderer,
@@ -146,8 +172,9 @@ where
             app_state: initial_state,
             show_debug_layer: true,
             debug_position: Vector::zero(),
-            debug_size: Vector::new(100.0, 200.0),
+            debug_size: Vector::new(200.0, 200.0),
             debug_scroll: 0.0,
+            layers: Arc::new(vec![]),
         }
     }
 
@@ -177,9 +204,19 @@ where
         }
     }
 
+    /// Should be called on every frame, before input handling
+    pub fn pre_update(&mut self) {
+        self.mouse_left_was_down = self.mouse_left_down;
+        self.mouse_right_was_down = self.mouse_right_down;
+        self.mouse_middle_was_down = self.mouse_middle_down;
+        self.scroll_delta.x = 0.0;
+        self.scroll_delta.y = 0.0;
+    }
+
     /// Should be called on every frame, before the application states update method *(if it has
     /// any)*
     pub fn update(&mut self) {
+        self.compute_layout();
         self.run_event_listeners();
     }
 
@@ -201,9 +238,27 @@ where
         action: Action,
         modifiers: Modifiers,
     ) {
-        self.mouse_left_down = action == glfw::Action::Press || action == glfw::Action::Repeat;
-        self.app_state
-            .handle_mouse_button(button, action, modifiers);
+        match button {
+            MouseButton::Button1 => {
+                self.mouse_left_down =
+                    action == glfw::Action::Press || action == glfw::Action::Repeat;
+                self.app_state
+                    .handle_mouse_button(button, action, modifiers);
+            }
+            MouseButton::Button2 => {
+                self.mouse_right_down =
+                    action == glfw::Action::Press || action == glfw::Action::Repeat;
+                self.app_state
+                    .handle_mouse_button(button, action, modifiers);
+            }
+            MouseButton::Button3 => {
+                self.mouse_middle_down =
+                    action == glfw::Action::Press || action == glfw::Action::Repeat;
+                self.app_state
+                    .handle_mouse_button(button, action, modifiers);
+            }
+            _ => {}
+        }
     }
 
     /// Passes mouse position changes to the application state
@@ -216,12 +271,11 @@ where
 
     /// Passes mouse scroll events to the application state
     pub fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
+        self.scroll_delta = scroll_delta;
         self.app_state.handle_mouse_scroll(scroll_delta);
     }
 
-    /// Fetches a layout tree for each layer from the application state, draws them to the screen
-    /// and checks if any event listeners should run (calls [Renderer::render_tree]).
-    pub fn compute_layout_and_render(&mut self) {
+    fn compute_layout(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
         let mut layers = self.app_state.generate_layout(window_size);
 
@@ -257,12 +311,35 @@ where
                 Anchor::BottomRight => window_size - layer.root_pos - size,
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
+            let _ = self.collect_event_listeners(&layer.tree, layer.root, pos);
+        }
+        self.layers = layers.into();
+    }
+
+    /// Fetches a layout tree for each layer from the application state, draws them to the screen
+    /// and checks if any event listeners should run (calls [Renderer::render]).
+    pub fn render(&mut self) {
+        let window_size = Vector::new(self.width as f32, self.height as f32);
+        let layers = self.layers.clone();
+        for layer in layers.iter() {
+            let size: Vector<f32> = layer.tree.layout(layer.root).unwrap().size.into();
+            let pos = match layer.anchor {
+                Anchor::TopLeft => layer.root_pos,
+                Anchor::TopRight => {
+                    Vector::new(window_size.x - layer.root_pos.x - size.x, layer.root_pos.y)
+                }
+                Anchor::BottomLeft => {
+                    Vector::new(layer.root_pos.x, window_size.y - layer.root_pos.y - size.y)
+                }
+                Anchor::BottomRight => window_size - layer.root_pos - size,
+                Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
+            };
 
             if layer.scissor {
                 self.enable_scissor_for_layer(pos, size);
             }
 
-            let _ = self.dfs(&layer.tree, layer.root, pos);
+            let _ = self.render_tree(&layer.tree, layer.root, pos);
 
             if layer.scissor {
                 self.disable_scissor();
@@ -270,12 +347,106 @@ where
         }
     }
 
-    fn dfs(
-        &mut self, 
-        tree: &TaffyTree<NodeContext<T>>, 
-        root_node: NodeId, 
-        position: Vector<f32>
+    fn collect_event_listeners(
+        &mut self,
+        tree: &TaffyTree<NodeContext<T>>,
+        root_node: NodeId,
+        position: Vector<f32>,
     ) -> taffy::TaffyResult<()> {
+        let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
+        while let Some((id, parent_pos)) = to_render.pop() {
+            let layout = tree.layout(id)?;
+            let abs_pos = layout.location + parent_pos;
+            let default_ctx = &NodeContext::default();
+            let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
+
+            let abs_bbox = crate::geometry::Rect {
+                x0: abs_pos.into(),
+                x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
+            };
+            if let Some(on_mouse_enter) = &ctx.on_mouse_enter
+                && abs_bbox.contains(self.mouse_pos)
+                && !*self.hover_states.get(&id).unwrap_or(&false)
+            {
+                self.pending_event_listeners.push(on_mouse_enter.clone());
+            }
+            if let Some(on_mouse_exit) = &ctx.on_mouse_exit
+                && !abs_bbox.contains(self.mouse_pos)
+                && *self.hover_states.get(&id).unwrap_or(&false)
+            {
+                self.pending_event_listeners.push(on_mouse_exit.clone());
+            }
+            if let Some(on_mouse_down) = &ctx.on_left_mouse_down
+                && abs_bbox.contains(self.mouse_pos)
+                && self.mouse_left_down
+                && !self.mouse_left_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_down.clone());
+            }
+            if let Some(on_mouse_up) = &ctx.on_left_mouse_up
+                && abs_bbox.contains(self.mouse_pos)
+                && !self.mouse_left_down
+                && self.mouse_left_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_up.clone());
+            }
+            if let Some(on_mouse_down) = &ctx.on_right_mouse_down
+                && abs_bbox.contains(self.mouse_pos)
+                && self.mouse_right_down
+                && !self.mouse_right_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_down.clone());
+            }
+            if let Some(on_mouse_up) = &ctx.on_right_mouse_up
+                && abs_bbox.contains(self.mouse_pos)
+                && !self.mouse_right_down
+                && self.mouse_right_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_up.clone());
+            }
+            if let Some(on_mouse_down) = &ctx.on_middle_mouse_down
+                && abs_bbox.contains(self.mouse_pos)
+                && self.mouse_middle_down
+                && !self.mouse_middle_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_down.clone());
+            }
+            if let Some(on_mouse_up) = &ctx.on_middle_mouse_up
+                && abs_bbox.contains(self.mouse_pos)
+                && !self.mouse_middle_down
+                && self.mouse_middle_was_down
+            {
+                self.pending_event_listeners.push(on_mouse_up.clone());
+            }
+            if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
+                if abs_bbox.contains(self.mouse_pos) {
+                    self.hover_states.insert(id, true);
+                } else {
+                    self.hover_states.insert(id, false);
+                }
+            }
+            if let Some(on_scroll) = &ctx.on_scroll
+                && (self.scroll_delta.x.abs() > 0.01 || self.scroll_delta.y.abs() > 0.01)
+                && abs_bbox.contains(self.mouse_pos)
+            {
+                self.pending_event_listeners.push(on_scroll.clone());
+            }
+
+            for child in tree.children(id)?.iter().rev() {
+                to_render.push((*child, abs_pos));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn render_tree(
+        &mut self,
+        tree: &TaffyTree<NodeContext<T>>,
+        root_node: NodeId,
+        position: Vector<f32>,
+    ) -> taffy::TaffyResult<()> {
+        // TODO: Split into an event parsing pass, then a render pass
         let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
         // The trail acts as a scissor stack. It allows the program to restore an outer scissor
         // state before delving into the rendering of additional descendant nodes
@@ -299,7 +470,9 @@ where
                 trail.push((id, Some((abs_pos.into(), layout.size.into()))));
                 self.enable_scissor_for_layer(abs_pos.into(), layout.size.into());
             } else {
-                if let Some((_, scissor)) = trail.iter().rev().find(|(_, scissor)| scissor.is_some()) {
+                if let Some((_, scissor)) =
+                    trail.iter().rev().find(|(_, scissor)| scissor.is_some())
+                {
                     let scissor = scissor.unwrap();
                     self.enable_scissor_for_layer(scissor.0, scissor.1);
                 }
@@ -315,15 +488,11 @@ where
                     );
                 }
             } else if ctx.flags & flags::SCROLL_CONTENT != 0 {
-                // TODO: This isn't quite right
-                //       Scroll content needs to be scissored to its parent which is currently not
-                //       possible due to having no memory of parent scissor state. It's always
-                //       reset
                 if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
-                    if layout.size.height > parent_bbox.size.height {
+                    if layout.content_size.height > parent_bbox.size.height {
                         abs_pos.y -= lerp(
                             0.0,
-                            layout.size.height - parent_bbox.size.height,
+                            layout.content_size.height - parent_bbox.size.height,
                             ctx.offset.y,
                         );
                     }
@@ -395,45 +564,6 @@ where
                 );
             }
 
-            // Event listeners
-            let abs_bbox = crate::geometry::Rect {
-                x0: abs_pos.into(),
-                x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
-            };
-            if let Some(on_mouse_enter) = &ctx.on_mouse_enter
-                && abs_bbox.contains(self.mouse_pos)
-                && !*self.hover_states.get(&id).unwrap_or(&false)
-            {
-                self.pending_event_listeners.push(on_mouse_enter.clone());
-            }
-            if let Some(on_mouse_exit) = &ctx.on_mouse_exit
-                && !abs_bbox.contains(self.mouse_pos)
-                && *self.hover_states.get(&id).unwrap_or(&false)
-            {
-                self.pending_event_listeners.push(on_mouse_exit.clone());
-            }
-            if let Some(on_mouse_down) = &ctx.on_mouse_down
-                && abs_bbox.contains(self.mouse_pos)
-                && self.mouse_left_down
-                && !self.mouse_left_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_down.clone());
-            }
-            if let Some(on_mouse_up) = &ctx.on_mouse_up
-                && abs_bbox.contains(self.mouse_pos)
-                && !self.mouse_left_down
-                && self.mouse_left_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_up.clone());
-            }
-            if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
-                if abs_bbox.contains(self.mouse_pos) {
-                    self.hover_states.insert(id, true);
-                } else {
-                    self.hover_states.insert(id, false);
-                }
-            }
-
             for child in tree.children(id)?.iter().rev() {
                 to_render.push((*child, abs_pos));
             }
@@ -478,19 +608,21 @@ where
                 ),
                 b.ui("", Listeners::default(), &[]), // TODO: Icons?
             ]),
-            b.scrollable("", self.debug_scroll, Arc::new(|_, _| {}), &[
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("Hola".into(), 18, COLOR_LIGHT), &[]),
+            b.scrollable("", self.debug_scroll, Arc::new(|state| {
+                state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
+            }), &[
+                b.text("", Text::new("1. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("2. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("3. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("4. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("5. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("6. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("7. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("8. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("9. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("10. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("11. Hola".into(), 18, COLOR_LIGHT), &[]),
+                b.text("", Text::new("12. Hola".into(), 18, COLOR_LIGHT), &[]),
             ]),
             b.div( "flex-row",
                 &[
@@ -639,10 +771,15 @@ where
 
     pub fn ui(&self, style: &str, listeners: Listeners<T>, children: &[NodeId]) -> NodeId {
         let (style, mut context) = parse_style(style);
+        context.on_scroll = listeners.on_scroll;
         context.on_mouse_exit = listeners.on_mouse_exit;
         context.on_mouse_enter = listeners.on_mouse_enter;
-        context.on_mouse_up = listeners.on_mouse_up;
-        context.on_mouse_down = listeners.on_mouse_down;
+        context.on_left_mouse_up = listeners.on_left_mouse_up;
+        context.on_left_mouse_down = listeners.on_left_mouse_down;
+        context.on_right_mouse_up = listeners.on_right_mouse_up;
+        context.on_right_mouse_down = listeners.on_right_mouse_down;
+        context.on_middle_mouse_up = listeners.on_middle_mouse_up;
+        context.on_middle_mouse_down = listeners.on_middle_mouse_down;
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
         for child in children {
@@ -678,7 +815,7 @@ where
         &self,
         style: &str,
         scroll_height: f32,
-        update_scroll: Arc<dyn Fn(&mut Renderer<T>, f32)>,
+        update_scroll: EventListener<T>,
         children: &[NodeId],
     ) -> NodeId {
         let scrollbar = {
@@ -702,10 +839,7 @@ where
         #[cfg_attr(any(), rustfmt::skip)]
         self.ui(&format!("{} flex-row border-2 border-white overflow-clip", style), Listeners::default(), &[
             self.ui("grow bg-sky-500 border-2 border-red-500", Listeners {
-                on_mouse_up: Some(Arc::new(|state| {
-                    state.debug_scroll += 0.1;
-                    info!(state.debug_scroll);
-                })), 
+                on_scroll: Some(update_scroll),
                 ..Default::default()
             }, &[scroll_content]),
             self.div("w-8 bg-red-500", &[scrollbar]),

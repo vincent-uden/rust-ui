@@ -326,7 +326,7 @@ impl Area {
                     },
                     bg_color: COLOR_BLACK,
                     bg_color_hover: NORD3,
-                    on_mouse_down: Some(Arc::new(move |state: &mut Renderer<App>| {
+                    on_left_mouse_down: Some(Arc::new(move |state: &mut Renderer<App>| {
                         let area = &mut state.app_state.area_map[id];
                         if let Some(_) = area.expanded {
                             area.expanded = None;
@@ -385,7 +385,7 @@ impl Area {
                             },
                             bg_color: COLOR_BLACK,
                             bg_color_hover: NORD3,
-                            on_mouse_up: Some(Arc::new(move |state| {
+                            on_left_mouse_up: Some(Arc::new(move |state| {
                                 state.app_state.area_map[id].area_type = kind;
                                 let area = &mut state.app_state.area_map[id];
                                 match kind {
