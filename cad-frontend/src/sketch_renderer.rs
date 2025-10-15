@@ -234,7 +234,9 @@ impl SketchPicker {
                     let center_3d = center.x * x_axis + center.y * y_axis;
                     self.circle_r.shader.use_shader();
                     self.circle_r.shader.set_uniform("entityId", &(*id as u32));
-                    self.circle_r.shader.set_uniform("sketchId", &(si.id as u32));
+                    self.circle_r
+                        .shader
+                        .set_uniform("sketchId", &(si.id as u32));
                     self.circle_r.draw_3d_oriented(
                         center_3d,
                         circle.radius as f32,

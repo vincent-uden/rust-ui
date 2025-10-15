@@ -109,12 +109,12 @@ impl CircleRenderer {
         y_axis: glm::Vec3,
     ) {
         let mut vertices = Vec::with_capacity(self.segments);
-        
+
         for i in 0..self.segments {
             let angle = 2.0 * std::f32::consts::PI * (i as f32) / (self.segments as f32);
             let x = angle.cos();
             let y = angle.sin();
-            
+
             let pos = center + radius * (x * x_axis + y * y_axis);
             vertices.push(CircleVertex {
                 position: [pos.x, pos.y, pos.z],

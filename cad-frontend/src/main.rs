@@ -136,7 +136,9 @@ fn main() {
         state.update();
         state.app_state.perf_overlay.update(avg_sleep_ms, ram_usage);
 
-        state.app_state.handle_area_events(&window_events, state.mouse_hit_layer);
+        state
+            .app_state
+            .handle_area_events(&window_events, state.mouse_hit_layer);
         window_events.clear();
 
         let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
