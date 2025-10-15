@@ -475,7 +475,7 @@ impl App {
         }
     }
 
-    pub(crate) fn handle_area_events(&mut self, window_events: &[WindowEvent]) {
+    pub fn handle_area_events(&mut self, window_events: &[WindowEvent], mouse_hit_layer: i32) {
         for e in window_events {
             match *e {
                 WindowEvent::MouseButton(button, action, modifiers) => {
@@ -491,30 +491,36 @@ impl App {
                             }
                             Action::Press => match button {
                                 glfw::MouseButton::Button1 => {
-                                    for (bid, bdry) in self.bdry_map.iter() {
-                                        if self.distance_to_point(bdry, self.mouse_pos)
-                                            < BDRY_TOLERANCE
-                                        {
-                                            self.dragging_boundary = Some(*bid);
+                                    if mouse_hit_layer < (self.area_map.len() as i32) * 2 {
+                                        for (bid, bdry) in self.bdry_map.iter() {
+                                            if self.distance_to_point(bdry, self.mouse_pos)
+                                                < BDRY_TOLERANCE
+                                            {
+                                                self.dragging_boundary = Some(*bid);
+                                            }
                                         }
                                     }
                                 }
                                 _ => {}
                             },
-                            Action::Repeat => todo!(),
+                            Action::Repeat => {}
                         },
                     }
                     if self.dragging_boundary.is_none() {
                         let mut state = self.mutable_state.borrow_mut();
-                        for area in self.area_map.values_mut() {
-                            area.handle_mouse_button(&mut state, button, action, modifiers);
+                        for (i, area) in self.area_map.values_mut().enumerate() {
+                            if ((i as i32) * 2) >= mouse_hit_layer {
+                                area.handle_mouse_button(&mut state, button, action, modifiers);
+                            }
                         }
                     }
                 }
                 WindowEvent::Scroll(x, y) => {
                     let mut state = self.mutable_state.borrow_mut();
-                    for area in self.area_map.values_mut() {
-                        area.handle_mouse_scroll(&mut state, Vector::new(x as f32, y as f32));
+                    for (i, area) in self.area_map.values_mut().enumerate() {
+                        if ((i as i32) * 2) >= mouse_hit_layer {
+                            area.handle_mouse_scroll(&mut state, Vector::new(x as f32, y as f32));
+                        }
                     }
                 }
                 _ => {}

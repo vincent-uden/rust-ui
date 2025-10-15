@@ -136,16 +136,7 @@ fn main() {
         state.update();
         state.app_state.perf_overlay.update(avg_sleep_ms, ram_usage);
 
-        window_events.retain(|e| match e {
-            glfw::WindowEvent::MouseButton(_, _, _) => {
-                state.mouse_hit_layer < (state.app_state.area_map.len() as i32) * 2
-            }
-            glfw::WindowEvent::Scroll(_, _) => {
-                state.mouse_hit_layer < (state.app_state.area_map.len() as i32) * 2
-            }
-            _ => false,
-        });
-        state.app_state.handle_area_events(&window_events);
+        state.app_state.handle_area_events(&window_events, state.mouse_hit_layer);
         window_events.clear();
 
         let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
