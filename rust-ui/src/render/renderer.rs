@@ -173,9 +173,9 @@ where
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,
-            show_debug_layer: true,
+            show_debug_layer: false,
             debug_position: Vector::zero(),
-            debug_size: Vector::new(200.0, 200.0),
+            debug_size: Vector::new(400.0, 200.0),
             debug_scroll: 0.0,
             layers: Arc::new(vec![]),
             mouse_hit_layer: -1,
@@ -619,37 +619,26 @@ where
         let tree = RefCell::new(tree);
 
         let b = UiBuilder::new(&tree);
+        let mut entries = vec![];
+        for key_value in DEBUG_MAP.iter() {
+            let key = key_value.key();
+            let value = key_value.value();
+            entries.push(b.text("", Text::new(key.clone(), 12, COLOR_LIGHT)));
+            entries.push(b.text_explicit("", Text::new(value.clone(), 12, COLOR_LIGHT)));
+        }
+
         #[cfg_attr(any(), rustfmt::skip)]
         let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
             b.ui("flex-row", Listeners::default(), &[
-                b.text("grow",
-                    Text::new("Debug".into(), 18, COLOR_LIGHT),
-                    &[],
-                ),
+                b.text("grow", Text::new("Debug".into(), 18, COLOR_LIGHT)),
                 b.ui("", Listeners::default(), &[]), // TODO: Icons?
             ]),
             b.scrollable("", self.debug_scroll, Arc::new(|state| {
                 state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
-            }), &[
-                b.text("", Text::new("1. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("2. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("3. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("4. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("5. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("6. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("7. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("8. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("9. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("10. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("11. Hola".into(), 18, COLOR_LIGHT), &[]),
-                b.text("", Text::new("12. Hola".into(), 18, COLOR_LIGHT), &[]),
-            ]),
+            }), &entries),
             b.div( "flex-row",
                 &[
-                b.text("grow",
-                    Text::new("Debug".into(), 18, COLOR_LIGHT),
-                    &[],
-                ),
+                b.text("grow", Text::new("Debug".into(), 18, COLOR_LIGHT)),
                     b.ui( "", Listeners::default(), &[])
                 ],// TODO: Icons?
             ),
@@ -818,15 +807,21 @@ where
         return parent;
     }
 
-    fn text(&self, style: &str, text: Text, children: &[NodeId]) -> NodeId {
+    fn text(&self, style: &str, text: Text) -> NodeId {
         let (style, mut context) = parse_style(style);
         context.text = text;
         context.flags |= flags::TEXT;
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
-        for child in children {
-            tree.add_child(parent, *child).unwrap();
-        }
+        return parent;
+    }
+
+    fn text_explicit(&self, style: &str, text: Text) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.text = text;
+        context.flags |= flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT;
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
         return parent;
     }
 
