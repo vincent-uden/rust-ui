@@ -541,10 +541,12 @@ impl Area {
     pub fn handle_mouse_scroll(&mut self, _state: &mut AppMutableState, scroll_delta: Vector<f32>) {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => {
-                if scroll_delta.y < 0.0 {
-                    viewport_data.distance *= 1.15;
-                } else {
-                    viewport_data.distance /= 1.15;
+                if self.bbox.contains(self.mouse_pos) {
+                    if scroll_delta.y < 0.0 {
+                        viewport_data.distance *= 1.15;
+                    } else {
+                        viewport_data.distance /= 1.15;
+                    }
                 }
             }
             _ => {}

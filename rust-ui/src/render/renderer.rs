@@ -138,6 +138,9 @@ where
     pub debug_size: Vector<f32>,
     pub debug_scroll: f32,
     layers: Arc<Vec<RenderLayout<T>>>,
+    // --- Event capture
+    /// Has the mouse hit any ui elements in a layer? This is the layer in which it happened
+    pub mouse_hit_layer: i32,
 }
 
 impl<T> Renderer<T>
@@ -175,6 +178,7 @@ where
             debug_size: Vector::new(200.0, 200.0),
             debug_scroll: 0.0,
             layers: Arc::new(vec![]),
+            mouse_hit_layer: -1,
         }
     }
 
@@ -216,6 +220,7 @@ where
     /// Should be called on every frame, before the application states update method *(if it has
     /// any)*
     pub fn update(&mut self) {
+        self.mouse_hit_layer = -1;
         self.compute_layout();
         self.run_event_listeners();
     }
@@ -283,7 +288,7 @@ where
             layers.push(self.debug_layer());
         }
 
-        for layer in layers.iter_mut() {
+        for (i, layer) in layers.iter_mut().enumerate().rev() {
             layer
                 .tree
                 .compute_layout_with_measure(
@@ -311,7 +316,7 @@ where
                 Anchor::BottomRight => window_size - layer.root_pos - size,
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
-            let _ = self.collect_event_listeners(&layer.tree, layer.root, pos);
+            let _ = self.collect_event_listeners(&layer.tree, layer.root, pos, i as i32);
         }
         self.layers = layers.into();
     }
@@ -352,6 +357,7 @@ where
         tree: &TaffyTree<NodeContext<T>>,
         root_node: NodeId,
         position: Vector<f32>,
+        layer_idx: i32,
     ) -> taffy::TaffyResult<()> {
         let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
         while let Some((id, parent_pos)) = to_render.pop() {
@@ -364,6 +370,77 @@ where
                 x0: abs_pos.into(),
                 x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
             };
+            if abs_bbox.contains(self.mouse_pos) {
+                if let Some(on_mouse_down) = &ctx.on_left_mouse_down
+                    && self.mouse_left_down
+                    && !self.mouse_left_was_down
+                    && layer_idx >= self.mouse_hit_layer
+                {
+                    self.pending_event_listeners.push(on_mouse_down.clone());
+                    self.mouse_hit_layer = layer_idx;
+                }
+                if let Some(on_mouse_up) = &ctx.on_left_mouse_up
+                    && !self.mouse_left_down
+                    && self.mouse_left_was_down
+                {
+                    self.pending_event_listeners.push(on_mouse_up.clone());
+                }
+                if let Some(on_mouse_down) = &ctx.on_right_mouse_down
+                    && self.mouse_right_down
+                    && !self.mouse_right_was_down
+                    && layer_idx >= self.mouse_hit_layer
+                {
+                    self.pending_event_listeners.push(on_mouse_down.clone());
+                    self.mouse_hit_layer = layer_idx;
+                }
+                if let Some(on_mouse_up) = &ctx.on_right_mouse_up
+                    && !self.mouse_right_down
+                    && self.mouse_right_was_down
+                {
+                    self.pending_event_listeners.push(on_mouse_up.clone());
+                }
+                if let Some(on_mouse_down) = &ctx.on_middle_mouse_down
+                    && self.mouse_middle_down
+                    && !self.mouse_middle_was_down
+                    && layer_idx >= self.mouse_hit_layer
+                {
+                    self.pending_event_listeners.push(on_mouse_down.clone());
+                    self.mouse_hit_layer = layer_idx;
+                }
+                if let Some(on_mouse_up) = &ctx.on_middle_mouse_up
+                    && !self.mouse_middle_down
+                    && self.mouse_middle_was_down
+                {
+                    self.pending_event_listeners.push(on_mouse_up.clone());
+                }
+                if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
+                    if abs_bbox.contains(self.mouse_pos) {
+                        self.hover_states.insert(id, true);
+                    } else {
+                        self.hover_states.insert(id, false);
+                    }
+                }
+                if let Some(on_scroll) = &ctx.on_scroll
+                    && (self.scroll_delta.x.abs() > 0.01 || self.scroll_delta.y.abs() > 0.01)
+                    && abs_bbox.contains(self.mouse_pos)
+                    && layer_idx >= self.mouse_hit_layer
+                {
+                    self.pending_event_listeners.push(on_scroll.clone());
+                    self.mouse_hit_layer = layer_idx;
+                }
+
+                // Even if no event listener is registered, an element with text, an icon or a
+                // background colour should occlude anything behind it. Eventually all this should
+                // probably be replaced a proper rounded rectangle-drawing picker buffer similar to
+                // how sketch objects are picked.
+                if (ctx.bg_color.a != 0.0
+                    || (ctx.flags & (flags::TEXT | flags::SPRITE | flags::HOVER_BG) != 0))
+                    && layer_idx >= self.mouse_hit_layer
+                {
+                    self.mouse_hit_layer = layer_idx;
+                }
+            }
+
             if let Some(on_mouse_enter) = &ctx.on_mouse_enter
                 && abs_bbox.contains(self.mouse_pos)
                 && !*self.hover_states.get(&id).unwrap_or(&false)
@@ -375,61 +452,6 @@ where
                 && *self.hover_states.get(&id).unwrap_or(&false)
             {
                 self.pending_event_listeners.push(on_mouse_exit.clone());
-            }
-            if let Some(on_mouse_down) = &ctx.on_left_mouse_down
-                && abs_bbox.contains(self.mouse_pos)
-                && self.mouse_left_down
-                && !self.mouse_left_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_down.clone());
-            }
-            if let Some(on_mouse_up) = &ctx.on_left_mouse_up
-                && abs_bbox.contains(self.mouse_pos)
-                && !self.mouse_left_down
-                && self.mouse_left_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_up.clone());
-            }
-            if let Some(on_mouse_down) = &ctx.on_right_mouse_down
-                && abs_bbox.contains(self.mouse_pos)
-                && self.mouse_right_down
-                && !self.mouse_right_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_down.clone());
-            }
-            if let Some(on_mouse_up) = &ctx.on_right_mouse_up
-                && abs_bbox.contains(self.mouse_pos)
-                && !self.mouse_right_down
-                && self.mouse_right_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_up.clone());
-            }
-            if let Some(on_mouse_down) = &ctx.on_middle_mouse_down
-                && abs_bbox.contains(self.mouse_pos)
-                && self.mouse_middle_down
-                && !self.mouse_middle_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_down.clone());
-            }
-            if let Some(on_mouse_up) = &ctx.on_middle_mouse_up
-                && abs_bbox.contains(self.mouse_pos)
-                && !self.mouse_middle_down
-                && self.mouse_middle_was_down
-            {
-                self.pending_event_listeners.push(on_mouse_up.clone());
-            }
-            if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
-                if abs_bbox.contains(self.mouse_pos) {
-                    self.hover_states.insert(id, true);
-                } else {
-                    self.hover_states.insert(id, false);
-                }
-            }
-            if let Some(on_scroll) = &ctx.on_scroll
-                && (self.scroll_delta.x.abs() > 0.01 || self.scroll_delta.y.abs() > 0.01)
-                && abs_bbox.contains(self.mouse_pos)
-            {
-                self.pending_event_listeners.push(on_scroll.clone());
             }
 
             for child in tree.children(id)?.iter().rev() {

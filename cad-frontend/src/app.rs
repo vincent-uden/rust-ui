@@ -6,7 +6,7 @@ use cad::{
     entity::{Circle, FundamentalEntity, GuidedEntity, Line, Point},
     registry::Registry,
 };
-use glfw::{Action, Key, Modifiers, Scancode};
+use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
     geometry::{Rect, Vector},
     perf_overlay::PerformanceOverlay,
@@ -474,6 +474,53 @@ impl App {
             state.mode = Mode::EditSketch(sketch.id, SketchMode::Select);
         }
     }
+
+    pub(crate) fn handle_area_events(&mut self, window_events: &[WindowEvent]) {
+        for e in window_events {
+            match *e {
+                WindowEvent::MouseButton(button, action, modifiers) => {
+                    let current_mode = self.mutable_state.borrow().mode.clone();
+                    match current_mode {
+                        Mode::EditSketch(_, _) => {
+                            // TODO: Do something, but in the area handler since this is dependent on the
+                            // viewport
+                        }
+                        Mode::None => match action {
+                            Action::Release => {
+                                self.dragging_boundary = None;
+                            }
+                            Action::Press => match button {
+                                glfw::MouseButton::Button1 => {
+                                    for (bid, bdry) in self.bdry_map.iter() {
+                                        if self.distance_to_point(bdry, self.mouse_pos)
+                                            < BDRY_TOLERANCE
+                                        {
+                                            self.dragging_boundary = Some(*bid);
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            },
+                            Action::Repeat => todo!(),
+                        },
+                    }
+                    if self.dragging_boundary.is_none() {
+                        let mut state = self.mutable_state.borrow_mut();
+                        for area in self.area_map.values_mut() {
+                            area.handle_mouse_button(&mut state, button, action, modifiers);
+                        }
+                    }
+                }
+                WindowEvent::Scroll(x, y) => {
+                    let mut state = self.mutable_state.borrow_mut();
+                    for area in self.area_map.values_mut() {
+                        area.handle_mouse_scroll(&mut state, Vector::new(x as f32, y as f32));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 impl Default for App {
@@ -747,43 +794,9 @@ impl AppState for App {
         action: Action,
         modifiers: Modifiers,
     ) {
-        let current_mode = self.mutable_state.borrow().mode.clone();
-        match current_mode {
-            Mode::EditSketch(_, _) => {
-                // TODO: Do something, but in the area handler since this is dependent on the
-                // viewport
-            }
-            Mode::None => match action {
-                Action::Release => {
-                    self.dragging_boundary = None;
-                }
-                Action::Press => match button {
-                    glfw::MouseButton::Button1 => {
-                        for (bid, bdry) in self.bdry_map.iter() {
-                            if self.distance_to_point(bdry, self.mouse_pos) < BDRY_TOLERANCE {
-                                self.dragging_boundary = Some(*bid);
-                            }
-                        }
-                    }
-                    _ => {}
-                },
-                Action::Repeat => todo!(),
-            },
-        }
-        if self.dragging_boundary.is_none() {
-            let mut state = self.mutable_state.borrow_mut();
-            for area in self.area_map.values_mut() {
-                area.handle_mouse_button(&mut state, button, action, modifiers);
-            }
-        }
     }
 
-    fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {
-        let mut state = self.mutable_state.borrow_mut();
-        for area in self.area_map.values_mut() {
-            area.handle_mouse_scroll(&mut state, scroll_delta);
-        }
-    }
+    fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {}
 }
 
 #[cfg(test)]

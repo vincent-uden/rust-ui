@@ -85,6 +85,9 @@ fn main() {
 
     let debug_renderer = LineRenderer::new(line_shader);
 
+    // Defer the direct handling of some of these events until we know they weren't handled by UI
+    let mut window_events = vec![];
+
     while !window.should_close() {
         let frame_start = Instant::now();
 
@@ -96,10 +99,12 @@ fn main() {
                 glfw::WindowEvent::Scroll(x, y) => {
                     if x.abs() > 0.01 || y.abs() > 0.01 {
                         state.handle_mouse_scroll(Vector::new(x as f32, y as f32));
+                        window_events.push(event);
                     }
                 }
                 glfw::WindowEvent::MouseButton(button, action, modifiers) => {
                     state.handle_mouse_button(button, action, modifiers);
+                    window_events.push(event);
                 }
                 glfw::WindowEvent::CursorPos(x, y) => {
                     state.handle_mouse_position(Vector::new(x as f32, y as f32));
@@ -130,6 +135,18 @@ fn main() {
 
         state.update();
         state.app_state.perf_overlay.update(avg_sleep_ms, ram_usage);
+
+        window_events.retain(|e| match e {
+            glfw::WindowEvent::MouseButton(_, _, _) => {
+                state.mouse_hit_layer < (state.app_state.area_map.len() as i32) * 2
+            }
+            glfw::WindowEvent::Scroll(_, _) => {
+                state.mouse_hit_layer < (state.app_state.area_map.len() as i32) * 2
+            }
+            _ => false,
+        });
+        state.app_state.handle_area_events(&window_events);
+        window_events.clear();
 
         let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
 
