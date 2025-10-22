@@ -65,7 +65,7 @@ pub struct TextRenderer {
     #[allow(dead_code)] // This holds on to some important information until its dropped
     ft_library: ft::Library,
     ft_face: ft::Face,
-    atlases: HashMap<u32, FontAtlas>,
+    atlases: Vec<(u32, FontAtlas)>,
 }
 
 impl std::fmt::Debug for TextRenderer {
@@ -94,7 +94,7 @@ impl TextRenderer {
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
         }
 
-        let atlases = HashMap::new();
+        let atlases = Vec::new();
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
         let mut instance_vbo = 0;
@@ -195,41 +195,44 @@ impl TextRenderer {
     }
 
     fn get_or_create_atlas(&mut self, font_size: u32) -> &mut FontAtlas {
-        self.atlases.entry(font_size).or_insert_with(|| {
-            let atlas_size = Vector::new(512, 512);
-            let mut texture_id: GLuint = 0;
+        if let Some(idx) = self.atlases.iter().position(|(fs, _)| *fs == font_size) {
+            return &mut self.atlases[idx].1;
+        }
+        let atlas_size = Vector::new(512, 512);
+        let mut texture_id: GLuint = 0;
 
-            unsafe {
-                gl::GenTextures(1, &mut texture_id);
-                gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                gl::TexImage2D(
-                    gl::TEXTURE_2D,
-                    0,
-                    gl::RED as i32,
-                    atlas_size.x,
-                    atlas_size.y,
-                    0,
-                    gl::RED,
-                    gl::UNSIGNED_BYTE,
-                    std::ptr::null(),
-                );
+        unsafe {
+            gl::GenTextures(1, &mut texture_id);
+            gl::BindTexture(gl::TEXTURE_2D, texture_id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RED as i32,
+                atlas_size.x,
+                atlas_size.y,
+                0,
+                gl::RED,
+                gl::UNSIGNED_BYTE,
+                std::ptr::null(),
+            );
 
-                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-                gl::BindTexture(gl::TEXTURE_2D, 0);
-            }
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
 
-            FontAtlas {
-                texture_id,
-                size: atlas_size,
-                characters: HashMap::new(),
-                current_x: 2,
-                current_y: 2,
-                line_height: 0,
-            }
-        })
+        let new_atlas = FontAtlas {
+            texture_id,
+            size: atlas_size,
+            characters: HashMap::new(),
+            current_x: 2,
+            current_y: 2,
+            line_height: 0,
+        };
+        self.atlases.push((font_size, new_atlas));
+        &mut self.atlases.last_mut().unwrap().1
     }
 
     fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
@@ -374,7 +377,7 @@ impl TextRenderer {
         let color_vec = glm::make_vec4(&[color.r, color.g, color.b, color.a]);
         self.shader.set_uniform("textColor", &color_vec);
 
-        let atlas_texture_id = self.atlases[&font_size].texture_id;
+        let atlas_texture_id = self.atlases.iter().find(|(fs, _)| *fs == font_size).unwrap().1.texture_id;
 
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
@@ -580,7 +583,7 @@ impl TextRenderer {
 impl Drop for TextRenderer {
     fn drop(&mut self) {
         // Free OpenGL atlas textures to avoid memory leaks
-        for atlas in self.atlases.values() {
+        for (_, atlas) in &self.atlases {
             unsafe {
                 gl::DeleteTextures(1, &atlas.texture_id);
             }
