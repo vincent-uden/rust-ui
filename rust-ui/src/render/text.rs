@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::c_void, path::Path};
+use std::{ffi::c_void, path::Path};
 
 use anyhow::{Result, anyhow};
 use freetype as ft;
@@ -42,7 +42,7 @@ pub struct CharacterInstance {
 pub struct FontAtlas {
     texture_id: GLuint,
     size: Vector<i32>,
-    characters: HashMap<char, Character>,
+    characters: Vec<(char, Character)>,
     current_x: i32,
     current_y: i32,
     line_height: i32,
@@ -226,7 +226,7 @@ impl TextRenderer {
         let new_atlas = FontAtlas {
             texture_id,
             size: atlas_size,
-            characters: HashMap::new(),
+            characters: Vec::new(),
             current_x: 2,
             current_y: 2,
             line_height: 0,
@@ -238,8 +238,10 @@ impl TextRenderer {
     fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
         let atlas = self.get_or_create_atlas(font_size);
 
-        if let Some(&char_info) = atlas.characters.get(&character) {
-            return Ok(char_info);
+        for (c, char_info) in &atlas.characters {
+            if *c == character {
+                return Ok(*char_info);
+            }
         }
 
         self.ft_face.set_pixel_sizes(0, font_size)?;
@@ -309,7 +311,7 @@ impl TextRenderer {
 
         atlas.line_height = atlas.line_height.max(glyph_height);
         atlas.current_x += glyph_width + 2;
-        atlas.characters.insert(character, char_info);
+        atlas.characters.push((character, char_info));
 
         Ok(char_info)
     }
