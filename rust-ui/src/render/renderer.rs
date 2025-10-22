@@ -763,7 +763,7 @@ pub trait AppState: Default {
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
 }
 
-struct UiBuilder<'a, T>
+pub struct UiBuilder<'a, T>
 where
     T: AppState + Default,
 {
@@ -797,7 +797,7 @@ where
         return parent;
     }
 
-    fn div(&self, style: &str, children: &[NodeId]) -> NodeId {
+    pub fn div(&self, style: &str, children: &[NodeId]) -> NodeId {
         let (style, context) = parse_style(style);
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
@@ -807,7 +807,7 @@ where
         return parent;
     }
 
-    fn text(&self, style: &str, text: Text) -> NodeId {
+    pub fn text(&self, style: &str, text: Text) -> NodeId {
         let (style, mut context) = parse_style(style);
         context.text = text;
         context.flags |= flags::TEXT;
@@ -816,7 +816,7 @@ where
         return parent;
     }
 
-    fn text_explicit(&self, style: &str, text: Text) -> NodeId {
+    pub fn text_explicit(&self, style: &str, text: Text) -> NodeId {
         let (style, mut context) = parse_style(style);
         context.text = text;
         context.flags |= flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT;
@@ -826,7 +826,7 @@ where
     }
 
     /// Scroll height is in percent. Thus if items are added, scrolling is preserved
-    fn scrollable(
+    pub fn scrollable(
         &self,
         style: &str,
         scroll_height: f32,
