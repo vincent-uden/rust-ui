@@ -383,10 +383,13 @@ impl TextRenderer {
         }
 
         let atlas = self.get_or_create_atlas(font_size);
-        let mut instances = atlas.line_cache.iter_mut().find(|(k, _)| k == text).unwrap().1.clone();
-        for (instance, base_position) in instances.iter_mut() {
-            instance.position[0] = base_position[0] + position.x;
-            instance.position[1] = base_position[1] + position.y;
+        let cached = &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1;
+        let mut instances: Vec<CharacterInstance> = Vec::with_capacity(cached.len());
+        for (instance, base_position) in cached.iter() {
+            let mut inst = *instance;
+            inst.position[0] = base_position[0] + position.x;
+            inst.position[1] = base_position[1] + position.y;
+            instances.push(inst);
         }
 
         // Batch render all characters
