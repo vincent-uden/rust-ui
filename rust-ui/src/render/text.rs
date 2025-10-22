@@ -372,6 +372,7 @@ impl TextRenderer {
         if text.is_empty() {
             return;
         }
+        // TODO: There are some "dots" or pixels in the text rendering of cad-frontend. Investigate
 
         self.get_or_create_atlas(font_size); // ensure exists
         let atlas_texture_id = self.atlases.iter().find(|(fs, _)| *fs == font_size).unwrap().1.texture_id;
@@ -384,6 +385,8 @@ impl TextRenderer {
 
         let atlas = self.get_or_create_atlas(font_size);
         let cached = &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1;
+        // This can be avoided by changing cache from Vec<(CharacterInstance, [f32;2])> to
+        // (Vec<CharacterInstance>, Vec<[f32;2]>). Or at least the extra allocation
         let mut instances: Vec<CharacterInstance> = Vec::with_capacity(cached.len());
         for (instance, base_position) in cached.iter() {
             let mut inst = *instance;

@@ -34,6 +34,13 @@ Benchmark 1: ./target/release/benchmarks --iters 200 text-rendering
   Range (min … max):    3.515 s …  3.538 s    10 runs
 ```
 
+After bug fixes:
+```
+Benchmark 1: ./target/release/benchmarks --iters 200 text-rendering
+  Time (mean ± σ):      3.518 s ±  0.006 s    [User: 0.477 s, System: 0.133 s]
+  Range (min … max):    3.510 s …  3.527 s    10 runs
+```
+
 ## Resources
 
 Render infinte amounts of text with one draw call: https://github.com/Samson-Mano/opengl_textrendering
