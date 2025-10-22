@@ -3,4 +3,7 @@ members = ["benchmarks","cad", "cad-frontend", "demo", "nurbs","rust-ui"]
 resolver = "3"
 
 [profile.release]
+
+[profile.bench]
+inherits = "release"
 debug = true
