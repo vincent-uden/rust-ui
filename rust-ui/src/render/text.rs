@@ -68,6 +68,7 @@ pub struct TextRenderer {
     ft_face: ft::Face,
     atlases: Vec<(u32, FontAtlas)>,
     line_cache: Vec<(DefaultAtom, Vec<(CharacterInstance, [f32;2])>)>,
+    size_cache: HashMap<(DefaultAtom, u32), Vector<f32>>,
 }
 
 impl std::fmt::Debug for TextRenderer {
@@ -194,6 +195,7 @@ impl TextRenderer {
             ft_face,
             atlases,
             line_cache: Vec::new(),
+            size_cache: HashMap::new(),
         })
     }
 
@@ -379,7 +381,7 @@ impl TextRenderer {
         let (_,instances) = self.line_cache.iter_mut().find(|(k, _)| k == text).unwrap();
         for (instance, base_position) in instances.iter_mut() {
             instance.position[0] = base_position[0] + position.x;
-            instance.position[1] = base_position[1] + position.x;
+            instance.position[1] = base_position[1] + position.y;
         }
 
         // Batch render all characters
@@ -469,6 +471,11 @@ impl TextRenderer {
             return Vector::new(0.0, font_size as f32);
         }
 
+        let key = (DefaultAtom::from(text), font_size);
+        if let Some(&size) = self.size_cache.get(&key) {
+            return size;
+        }
+
         let mut width: f32 = 0.0;
         let mut max_ascent: f32 = 0.0;
         let mut max_descent: f32 = 0.0;
@@ -485,7 +492,9 @@ impl TextRenderer {
             height = font_size as f32; // Fallback if no height data
         }
 
-        Vector::new(width, height)
+        let size = Vector::new(width, height);
+        self.size_cache.insert(key, size);
+        size
     }
 
     /// Wraps text inside the given `available_space`. Always respects the horizontal spacing but
