@@ -47,6 +47,8 @@ pub struct FontAtlas {
     current_x: i32,
     current_y: i32,
     line_height: i32,
+    line_cache: Vec<(DefaultAtom, Vec<(CharacterInstance, [f32;2])>)>,
+    size_cache: HashMap<DefaultAtom, Vector<f32>>,
 }
 
 #[derive(Debug)]
@@ -67,8 +69,6 @@ pub struct TextRenderer {
     ft_library: ft::Library,
     ft_face: ft::Face,
     atlases: Vec<(u32, FontAtlas)>,
-    line_cache: Vec<(DefaultAtom, Vec<(CharacterInstance, [f32;2])>)>,
-    size_cache: HashMap<(DefaultAtom, u32), Vector<f32>>,
 }
 
 impl std::fmt::Debug for TextRenderer {
@@ -79,7 +79,7 @@ impl std::fmt::Debug for TextRenderer {
             .field("quad_vbo", &self.quad_vbo)
             .field("instance_vbo", &self.instance_vbo)
             .field("atlases", &self.atlases)
-            .finish_non_exhaustive()
+            .finish()
     }
 }
 
@@ -194,8 +194,6 @@ impl TextRenderer {
             ft_library,
             ft_face,
             atlases,
-            line_cache: Vec::new(),
-            size_cache: HashMap::new(),
         })
     }
 
@@ -235,6 +233,8 @@ impl TextRenderer {
             current_x: 2,
             current_y: 2,
             line_height: 0,
+            line_cache: Vec::new(),
+            size_cache: HashMap::new(),
         };
         self.atlases.push((font_size, new_atlas));
         &mut self.atlases.last_mut().unwrap().1
@@ -373,12 +373,17 @@ impl TextRenderer {
             return;
         }
 
-        // Technically bad to iterate twice but is probably fine
-        if self.line_cache.iter_mut().find(|(k, _)| k == text).is_none() {
+        self.get_or_create_atlas(font_size); // ensure exists
+        let atlas_texture_id = self.atlases.iter().find(|(fs, _)| *fs == font_size).unwrap().1.texture_id;
+
+        if self.atlases.iter().find(|(fs, _)| *fs == font_size).and_then(|(_, atlas)| atlas.line_cache.iter().find(|(k, _)| k == text)).is_none() {
             let instances = self.compute_glyph_positions(text, font_size, scale);
-            self.line_cache.push((DefaultAtom::from(text), instances));
+            let atlas = self.get_or_create_atlas(font_size);
+            atlas.line_cache.push((DefaultAtom::from(text), instances));
         }
-        let (_,instances) = self.line_cache.iter_mut().find(|(k, _)| k == text).unwrap();
+
+        let atlas = self.get_or_create_atlas(font_size);
+        let mut instances = atlas.line_cache.iter_mut().find(|(k, _)| k == text).unwrap().1.clone();
         for (instance, base_position) in instances.iter_mut() {
             instance.position[0] = base_position[0] + position.x;
             instance.position[1] = base_position[1] + position.y;
@@ -390,8 +395,6 @@ impl TextRenderer {
         self.shader.set_uniform("text", &text_unit);
         let color_vec = glm::make_vec4(&[color.r, color.g, color.b, color.a]);
         self.shader.set_uniform("textColor", &color_vec);
-
-        let atlas_texture_id = self.atlases.iter().find(|(fs, _)| *fs == font_size).unwrap().1.texture_id;
 
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
@@ -471,9 +474,11 @@ impl TextRenderer {
             return Vector::new(0.0, font_size as f32);
         }
 
-        let key = (DefaultAtom::from(text), font_size);
-        if let Some(&size) = self.size_cache.get(&key) {
-            return size;
+        let key = DefaultAtom::from(text);
+        if let Some(atlas) = self.atlases.iter().find(|(fs, _)| *fs == font_size) {
+            if let Some(&size) = atlas.1.size_cache.get(&key) {
+                return size;
+            }
         }
 
         let mut width: f32 = 0.0;
@@ -493,7 +498,8 @@ impl TextRenderer {
         }
 
         let size = Vector::new(width, height);
-        self.size_cache.insert(key, size);
+        let atlas = self.get_or_create_atlas(font_size);
+        atlas.size_cache.insert(key, size);
         size
     }
 
