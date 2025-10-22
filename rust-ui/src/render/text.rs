@@ -1,8 +1,9 @@
-use std::{ffi::c_void, path::Path};
+use std::{collections::HashMap, ffi::c_void, path::Path, str::CharIndices};
 
 use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
+use string_cache::DefaultAtom;
 use taffy::AvailableSpace;
 
 use crate::{
@@ -66,6 +67,7 @@ pub struct TextRenderer {
     ft_library: ft::Library,
     ft_face: ft::Face,
     atlases: Vec<(u32, FontAtlas)>,
+    line_cache: Vec<(DefaultAtom, Vec<(CharacterInstance, [f32;2])>)>,
 }
 
 impl std::fmt::Debug for TextRenderer {
@@ -191,6 +193,7 @@ impl TextRenderer {
             ft_library,
             ft_face,
             atlases,
+            line_cache: Vec::new(),
         })
     }
 
@@ -316,32 +319,17 @@ impl TextRenderer {
         Ok(char_info)
     }
 
-    /// Draws a single line of text
-    pub fn draw_line(
+    fn compute_glyph_positions(
         &mut self,
         text: &str,
-        position: Vector<f32>,
         font_size: u32,
         scale: f32,
-        color: Color,
-    ) {
-        if text.is_empty() {
-            return;
-        }
-
-        // Load all characters and build instance data
+    ) -> Vec<(CharacterInstance, [f32;2])> {
         let mut instances = Vec::new();
         let size = self.measure_text_size(text, font_size);
-        let mut x = position.x;
+        let position = Vector::zero();
+        let mut x: f32 = position.x;
         let baseline_y = position.y + size.y * 0.8;
-
-        if let Some(first_char) = text.chars().next() {
-            if self.load_character(first_char, font_size).is_err() {
-                return;
-            }
-        } else {
-            return;
-        }
 
         for c in text.chars() {
             let ch = match self.load_character(c, font_size) {
@@ -364,12 +352,34 @@ impl TextRenderer {
                 atlas_size: [ch.atlas_size.x, ch.atlas_size.y],
             };
 
-            instances.push(instance);
+            instances.push((instance, [xpos, ypos]));
             x += ch.advance * scale;
         }
+        instances
+    }
 
-        if instances.is_empty() {
+    /// Draws a single line of text
+    pub fn draw_line(
+        &mut self,
+        text: &str,
+        position: Vector<f32>,
+        font_size: u32,
+        scale: f32,
+        color: Color,
+    ) {
+        if text.is_empty() {
             return;
+        }
+
+        // Technically bad to iterate twice but is probably fine
+        if self.line_cache.iter_mut().find(|(k, _)| k == text).is_none() {
+            let instances = self.compute_glyph_positions(text, font_size, scale);
+            self.line_cache.push((DefaultAtom::from(text), instances));
+        }
+        let (_,instances) = self.line_cache.iter_mut().find(|(k, _)| k == text).unwrap();
+        for (instance, base_position) in instances.iter_mut() {
+            instance.position[0] = base_position[0] + position.x;
+            instance.position[1] = base_position[1] + position.x;
         }
 
         // Batch render all characters
