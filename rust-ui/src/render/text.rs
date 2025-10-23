@@ -47,7 +47,7 @@ pub struct FontAtlas {
     current_x: i32,
     current_y: i32,
     line_height: i32,
-    line_cache: Vec<(DefaultAtom, Vec<(CharacterInstance, [f32;2])>)>,
+    line_cache: Vec<(DefaultAtom, (Vec<CharacterInstance>, Vec<Vector<f32>>))>,
     size_cache: HashMap<DefaultAtom, Vector<f32>>,
 }
 
@@ -108,7 +108,7 @@ impl TextRenderer {
             0.0, 1.0, 0.0, 1.0,
             1.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 0.0,
-            
+
             0.0, 1.0, 0.0, 1.0,
             1.0, 1.0, 1.0, 1.0,
             1.0, 0.0, 1.0, 0.0
@@ -326,8 +326,9 @@ impl TextRenderer {
         text: &str,
         font_size: u32,
         scale: f32,
-    ) -> Vec<(CharacterInstance, [f32;2])> {
+    ) -> (Vec<CharacterInstance>, Vec<Vector<f32>>) {
         let mut instances = Vec::new();
+        let mut base_positions = Vec::new();
         let size = self.measure_text_size(text, font_size);
         let position = Vector::zero();
         let mut x: f32 = position.x;
@@ -354,10 +355,11 @@ impl TextRenderer {
                 atlas_size: [ch.atlas_size.x, ch.atlas_size.y],
             };
 
-            instances.push((instance, [xpos, ypos]));
+            instances.push(instance);
+            base_positions.push(Vector::new(xpos, ypos));
             x += ch.advance * scale;
         }
-        instances
+        (instances, base_positions)
     }
 
     /// Draws a single line of text
@@ -367,17 +369,21 @@ impl TextRenderer {
         position: Vector<f32>,
         font_size: u32,
         scale: f32,
-        color: Color,
+        instances: &mut Vec<CharacterInstance>,
     ) {
         if text.is_empty() {
             return;
         }
         // TODO: There are some "dots" or pixels in the text rendering of cad-frontend. Investigate
+        self.get_or_create_atlas(font_size);
 
-        self.get_or_create_atlas(font_size); // ensure exists
-        let atlas_texture_id = self.atlases.iter().find(|(fs, _)| *fs == font_size).unwrap().1.texture_id;
-
-        if self.atlases.iter().find(|(fs, _)| *fs == font_size).and_then(|(_, atlas)| atlas.line_cache.iter().find(|(k, _)| k == text)).is_none() {
+        if self
+            .atlases
+            .iter()
+            .find(|(fs, _)| *fs == font_size)
+            .and_then(|(_, atlas)| atlas.line_cache.iter().find(|(k, _)| k == text))
+            .is_none()
+        {
             let instances = self.compute_glyph_positions(text, font_size, scale);
             let atlas = self.get_or_create_atlas(font_size);
             atlas.line_cache.push((DefaultAtom::from(text), instances));
@@ -386,16 +392,25 @@ impl TextRenderer {
         let atlas = self.get_or_create_atlas(font_size);
         let cached = &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1;
         // This can be avoided by changing cache from Vec<(CharacterInstance, [f32;2])> to
-        // (Vec<CharacterInstance>, Vec<[f32;2]>). Or at least the extra allocation
-        let mut instances: Vec<CharacterInstance> = Vec::with_capacity(cached.len());
-        for (instance, base_position) in cached.iter() {
+        // (Vec<CharacterInstance>, Vec<[f32;2]>). Or at least the extra allocation. Still the
+        // bottleneck is probably the amount of draw calls
+        for (instance, base_position) in cached.0.iter().zip(cached.1.iter()) {
             let mut inst = *instance;
-            inst.position[0] = base_position[0] + position.x;
-            inst.position[1] = base_position[1] + position.y;
+            inst.position[0] = base_position.x + position.x;
+            inst.position[1] = base_position.y + position.y;
             instances.push(inst);
         }
+    }
 
-        // Batch render all characters
+    fn commit_drawing(&self, instances: &mut Vec<CharacterInstance>, font_size: u32, color: Color) {
+        let atlas_texture_id = self
+            .atlases
+            .iter()
+            .find(|(fs, _)| *fs == font_size)
+            .unwrap()
+            .1
+            .texture_id;
+
         self.shader.use_shader();
         let text_unit = 0;
         self.shader.set_uniform("text", &text_unit);
@@ -417,7 +432,6 @@ impl TextRenderer {
 
             // Draw all characters in one call
             gl::DrawArraysInstanced(gl::TRIANGLES, 0, 6, instances.len() as i32);
-
             gl::BindVertexArray(0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
@@ -431,6 +445,7 @@ impl TextRenderer {
         position: Vector<f32>,
         size: taffy::geometry::Size<f32>,
     ) {
+        let mut instances = vec![];
         for line in self.layout_text(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
@@ -444,9 +459,10 @@ impl TextRenderer {
                 position + line.position,
                 text.font_size,
                 1.0,
-                text.color,
+                &mut instances,
             );
         }
+        self.commit_drawing(&mut instances, text.font_size, text.color);
     }
 
     /// Wraps text inside `size` with explicit newline handling and draws the layed out lines at `position`
@@ -457,6 +473,7 @@ impl TextRenderer {
         position: Vector<f32>,
         size: taffy::geometry::Size<f32>,
     ) {
+        let mut instances = vec![];
         for line in self.layout_text_explicit(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
@@ -470,9 +487,10 @@ impl TextRenderer {
                 position + line.position,
                 text.font_size,
                 1.0,
-                text.color,
+                &mut instances,
             );
         }
+        self.commit_drawing(&mut instances, text.font_size, text.color);
     }
 
     fn measure_text_size(&mut self, text: &str, font_size: u32) -> Vector<f32> {
