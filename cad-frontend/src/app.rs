@@ -333,6 +333,7 @@ impl App {
     }
 
     pub fn update_areas(&mut self) {
+        let _span = tracy_client::span!("Update areas");
         visual_log("mouse_pos".into(), format!("{:#?}", self.mouse_pos));
         visual_log("mutable_state".into(), format!("{:#?}", self.mutable_state));
         for area in self.area_map.values_mut() {
@@ -343,6 +344,7 @@ impl App {
     /// Some areas contain stuff that isn't part of the regular UI tree such as the viewport that
     /// renders 3D scenes. Those are rendered here, before the UI pass.
     pub fn draw_special_areas(&mut self) {
+        let _span = tracy_client::span!("Special areas");
         // Render pass
         for area in self.area_map.values_mut() {
             match area.area_type {

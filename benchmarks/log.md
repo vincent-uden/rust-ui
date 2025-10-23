@@ -50,6 +50,8 @@ Benchmark 1: ./target/release/benchmarks --iters 200 text-rendering
 
 It turns out the vsync was enabled even though I thought it wasnt. With an option to disable it, things sped up by a lot.
 
+After all these changes, we're comfortable back to being CPU limited and are way below the frame budget on release build. On debug builds we exceed the frame budget if the debug window is open.
+
 ## Resources
 
 Render infinte amounts of text with one draw call: https://github.com/Samson-Mano/opengl_textrendering

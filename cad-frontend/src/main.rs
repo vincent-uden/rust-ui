@@ -31,6 +31,7 @@ mod entity_picker;
 mod sketch_renderer;
 mod ui;
 
+// While VSYNC can do most of the work it is nice to have an explicit frame limit as well
 pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
@@ -159,15 +160,18 @@ fn main() {
         }
         state.app_state.update_areas();
         state.app_state.draw_special_areas();
-        state.render();
-        if state.app_state.debug_draw {
-            state.app_state.debug_draw(
-                &debug_renderer,
-                Vector::new(state.width as f32, state.height as f32),
-            )
-        }
+        {
+            let _span = tracy_client::span!("Opengl draw calls");
+            state.render();
+            if state.app_state.debug_draw {
+                state.app_state.debug_draw(
+                    &debug_renderer,
+                    Vector::new(state.width as f32, state.height as f32),
+                )
+            }
 
-        window.swap_buffers();
+            window.swap_buffers();
+        }
 
         let frame_time = frame_start.elapsed();
         let sleep_duration = if frame_time < FRAME_TIME {

@@ -220,6 +220,7 @@ where
     /// Should be called on every frame, before the application states update method *(if it has
     /// any)*
     pub fn update(&mut self) {
+        let _span = tracy_client::span!("App update");
         self.mouse_hit_layer = -1;
         self.compute_layout();
         self.run_event_listeners();
