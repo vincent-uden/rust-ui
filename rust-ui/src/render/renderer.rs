@@ -263,8 +263,6 @@ where
             _ => {}
         }
 
-        visual_log("test state".into(), format!("{:#?}", self.line_r));
-
         self.compute_layout();
         self.run_event_listeners();
     }
@@ -404,13 +402,34 @@ where
         layer_idx: i32,
     ) -> taffy::TaffyResult<()> {
         let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
+        let mut trail: Vec<(NodeId, Option<crate::geometry::Rect<f32>>)> = vec![];
+        let mut current_scissor: Option<crate::geometry::Rect<f32>> = None;
         while let Some((id, parent_pos)) = to_render.pop() {
             let layout = tree.layout(id)?;
             let abs_pos = layout.location + parent_pos;
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
 
-            let abs_bbox = crate::geometry::Rect {
+            // Traverse trail to find parent
+            while trail.last().is_some() && tree.parent(id) != trail.last().map(|x| x.0) {
+                trail.pop();
+            }
+            // Set current_scissor
+            let node_rect = crate::geometry::Rect {
+                x0: Into::<Vector<f32>>::into(abs_pos),
+                x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
+            };
+            if ctx.scissor {
+                current_scissor = Some(node_rect);
+                trail.push((id, Some(node_rect)));
+            } else {
+                current_scissor = trail.iter().rev().find_map(|(_, s)| *s);
+                trail.push((id, None));
+            }
+
+            let mouse_in_scissor = current_scissor.map_or(true, |r| r.contains(self.mouse_pos));
+            if mouse_in_scissor {
+                let abs_bbox = crate::geometry::Rect {
                 x0: abs_pos.into(),
                 x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
             };
@@ -496,6 +515,7 @@ where
                 && *self.hover_states.get(&id).unwrap_or(&false)
             {
                 self.pending_event_listeners.push(on_mouse_exit.clone());
+            }
             }
 
             for child in tree.children(id)?.iter().rev() {
