@@ -17,7 +17,7 @@ use rust_ui::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     sketch_renderer::{SketchPicker, SketchRenderer},
@@ -334,8 +334,6 @@ impl App {
 
     pub fn update_areas(&mut self) {
         let _span = tracy_client::span!("Update areas");
-        visual_log("mouse_pos".into(), format!("{:#?}", self.mouse_pos));
-        visual_log("mutable_state".into(), format!("{:#?}", self.mutable_state));
         for area in self.area_map.values_mut() {
             area.update();
         }

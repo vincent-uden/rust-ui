@@ -6,12 +6,12 @@ use rust_ui::{
     geometry::{Rect, Vector},
     render::{
         COLOR_BLACK, COLOR_LIGHT, Color, NORD1, NORD3, NORD9, NORD11, NORD14, Text,
-        renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags},
+        renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags, visual_log},
     },
 };
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
     app::{self, App, AppMutableState},
@@ -483,12 +483,14 @@ impl Area {
         match &mut self.area_data {
             AreaData::Viewport(viewport_data) => match action {
                 Action::Release => match button {
-                    glfw::MouseButton::Button1 => {
-                        viewport_data.interaction_state = viewport::InteractionState::None;
-                    }
-                    glfw::MouseButton::Button2 | glfw::MouseButton::Button3 => {
-                        viewport_data.interaction_state = viewport::InteractionState::None;
-                    }
+                    glfw::MouseButton::Button1
+                    | glfw::MouseButton::Button2
+                    | glfw::MouseButton::Button3 => match viewport_data.interaction_state {
+                        viewport::InteractionState::Orbit | viewport::InteractionState::Pan => {
+                            viewport_data.interaction_state = viewport::InteractionState::None;
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 },
                 Action::Press => match button {
