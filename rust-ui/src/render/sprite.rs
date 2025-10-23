@@ -1,9 +1,12 @@
-use std::{collections::HashMap, ffi::c_void, fs, hash::Hash, path::Path, str::FromStr};
+use std::{
+    collections::HashMap, ffi::c_void, fmt::Debug, fs, hash::Hash, path::Path, str::FromStr,
+};
 
 use gl::types::GLuint;
 
 use anyhow::{Result, anyhow};
 use image::ImageReader;
+use tracing::error;
 
 use crate::{
     geometry::{Rect, Vector},
@@ -24,7 +27,7 @@ pub struct SpriteInstance {
     atlas_size: [f32; 2],
 }
 
-pub trait SpriteKey: Hash + Clone + FromStr + PartialEq + Eq {}
+pub trait SpriteKey: Hash + Clone + FromStr + PartialEq + Eq + Debug {}
 
 #[derive(Debug)]
 pub struct SpriteAtlas<K>
@@ -149,7 +152,7 @@ impl<K: SpriteKey> SpriteRenderer<K> {
             0.0, 1.0, 0.0, 1.0,
             1.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 0.0,
-            
+
             0.0, 1.0, 0.0, 1.0,
             1.0, 1.0, 1.0, 1.0,
             1.0, 0.0, 1.0, 0.0
@@ -266,6 +269,12 @@ impl<K: SpriteKey> SpriteRenderer<K> {
                 gl::BindVertexArray(0);
                 gl::BindTexture(gl::TEXTURE_2D, 0);
             }
+        } else {
+            error!(
+                "Unknown sprite key: {:?}, available keys are {:?}",
+                key,
+                self.atlas.map.keys().collect::<Vec<_>>()
+            );
         }
     }
 }

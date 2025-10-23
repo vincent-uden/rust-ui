@@ -69,6 +69,23 @@ where
     pub scissor: bool,
 }
 
+impl<T> NodeContext<T>
+where
+    T: AppState + std::default::Default,
+{
+    pub fn set_listeners(&mut self, listeners: Listeners<T>) {
+        self.on_scroll = listeners.on_scroll;
+        self.on_mouse_exit = listeners.on_mouse_exit;
+        self.on_mouse_enter = listeners.on_mouse_enter;
+        self.on_left_mouse_up = listeners.on_left_mouse_up;
+        self.on_left_mouse_down = listeners.on_left_mouse_down;
+        self.on_right_mouse_up = listeners.on_right_mouse_up;
+        self.on_right_mouse_down = listeners.on_right_mouse_down;
+        self.on_middle_mouse_up = listeners.on_middle_mouse_up;
+        self.on_middle_mouse_down = listeners.on_middle_mouse_down;
+    }
+}
+
 #[derive(Default)]
 pub struct Listeners<T>
 where
@@ -632,16 +649,16 @@ where
         let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
             b.ui("flex-row", Listeners::default(), &[
                 b.text("grow", Text::new("Debug".into(), 18, COLOR_LIGHT)),
-                b.ui("", Listeners::default(), &[]), // TODO: Icons?
+                b.sprite("w-30 h-30", "Up", Listeners::default()),
             ]),
-            b.scrollable("", self.debug_scroll, Arc::new(|state| {
+            b.scrollable("grow", self.debug_scroll, Arc::new(|state| {
                 state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
             }), &entries),
-            b.div( "flex-row",
+            b.div("flex-row",
                 &[
-                b.text("grow", Text::new("Debug".into(), 18, COLOR_LIGHT)),
-                    b.ui( "", Listeners::default(), &[])
-                ],// TODO: Icons?
+                    b.div("grow", &[]),
+                    b.sprite("w-30 h-30", "Handle", Listeners::default()),
+                ],
             ),
         ]);
 
@@ -781,15 +798,7 @@ where
 
     pub fn ui(&self, style: &str, listeners: Listeners<T>, children: &[NodeId]) -> NodeId {
         let (style, mut context) = parse_style(style);
-        context.on_scroll = listeners.on_scroll;
-        context.on_mouse_exit = listeners.on_mouse_exit;
-        context.on_mouse_enter = listeners.on_mouse_enter;
-        context.on_left_mouse_up = listeners.on_left_mouse_up;
-        context.on_left_mouse_down = listeners.on_left_mouse_down;
-        context.on_right_mouse_up = listeners.on_right_mouse_up;
-        context.on_right_mouse_down = listeners.on_right_mouse_down;
-        context.on_middle_mouse_up = listeners.on_middle_mouse_up;
-        context.on_middle_mouse_down = listeners.on_middle_mouse_down;
+        context.set_listeners(listeners);
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
         for child in children {
@@ -861,6 +870,16 @@ where
             }, &[scroll_content]),
             self.div("w-8", &[scrollbar]),
         ])
+    }
+
+    pub fn sprite(&self, style: &str, sprite_key: &str, listeners: Listeners<T>) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.flags |= flags::SPRITE;
+        context.sprite_key = sprite_key.into();
+        context.set_listeners(listeners);
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        return parent;
     }
 }
 
