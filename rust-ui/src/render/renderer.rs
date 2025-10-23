@@ -112,6 +112,13 @@ pub fn visual_log(key: String, message: String) {
     DEBUG_MAP.insert(key, message);
 }
 
+#[derive(Debug)]
+pub enum MouseDragState {
+    /// Contains the point at which the mouse was pressed
+    Pressed(Vector<f32>),
+    Released,
+}
+
 /// Renders a [taffy::TaffyTree] and handles event listeners associated with UI nodes.
 pub struct Renderer<T>
 where
@@ -148,12 +155,16 @@ where
     hover_states: HashMap<NodeId, bool>,
     /// The application state to be provided by a consumer of the library
     pub app_state: T,
+    // --- Debug state
     /// Wether or not the debug layer should be shown. This is drawn on top of everything drawn by
     /// the app layer
     pub show_debug_layer: bool,
     pub debug_position: Vector<f32>,
     pub debug_size: Vector<f32>,
+    pub debug_cached_size: Vector<f32>,
     pub debug_scroll: f32,
+    pub debug_drag: MouseDragState,
+    pub debug_expanded: bool,
     layers: Arc<Vec<RenderLayout<T>>>,
     // --- Event capture
     /// Has the mouse hit any ui elements in a layer? This is the layer in which it happened
@@ -193,7 +204,10 @@ where
             show_debug_layer: false,
             debug_position: Vector::zero(),
             debug_size: Vector::new(400.0, 200.0),
+            debug_cached_size: Vector::new(400.0, 200.0),
             debug_scroll: 0.0,
+            debug_drag: MouseDragState::Released,
+            debug_expanded: true,
             layers: Arc::new(vec![]),
             mouse_hit_layer: -1,
         }
@@ -239,6 +253,18 @@ where
     pub fn update(&mut self) {
         let _span = tracy_client::span!("App update");
         self.mouse_hit_layer = -1;
+
+        match self.debug_drag {
+            MouseDragState::Pressed(pressed_at) => {
+                let delta = pressed_at - self.mouse_pos;
+                self.debug_size.x = self.debug_cached_size.x + delta.x;
+                self.debug_size.y = self.debug_cached_size.y - delta.y;
+            }
+            _ => {}
+        }
+
+        visual_log("test state".into(), format!("{:#?}", self.line_r));
+
         self.compute_layout();
         self.run_event_listeners();
     }
@@ -618,21 +644,6 @@ where
     }
 
     fn debug_layer(&self) -> RenderLayout<T> {
-        // Goal:
-        // Container (floating position)
-        //   Header (flex-row)
-        //     Label
-        //     Open/Close
-        //   Body (flex-col, scrollable)
-        //     Block
-        //       BlockHeader (flex-row)
-        //         Label
-        //         Delete
-        //         Open/Close
-        //       BlockData
-        //         Text
-        //   Footer
-        //     Size-drag
         let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
         let tree = RefCell::new(tree);
 
@@ -645,22 +656,45 @@ where
             entries.push(b.text_explicit("", Text::new(value.clone(), 12, COLOR_LIGHT)));
         }
 
-        #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col", &[
+        let mut resize_listener = Listeners::default();
+        resize_listener.on_left_mouse_down = Some(Arc::new(|state: &mut Self| {
+            state.debug_drag = MouseDragState::Pressed(state.mouse_pos);
+            state.debug_cached_size = state.debug_size;
+        }));
+        resize_listener.on_left_mouse_up = Some(Arc::new(|state| {
+            state.debug_drag = MouseDragState::Released;
+        }));
+        let mut expand_listener = Listeners::default();
+        expand_listener.on_left_mouse_up = Some(Arc::new(|state: &mut Self| {
+            state.debug_expanded = !state.debug_expanded;
+        }));
+
+        let mut children = vec![
+            #[cfg_attr(any(), rustfmt::skip)]
             b.ui("flex-row", Listeners::default(), &[
-                b.text("grow", Text::new("Debug".into(), 18, COLOR_LIGHT)),
-                b.sprite("w-30 h-30", "Up", Listeners::default()),
+                b.text("grow", Text::new("Debug".into(), 24, COLOR_LIGHT)),
+                b.sprite("w-30 h-30", if self.debug_expanded { "Up" } else { "Down" }, expand_listener),
             ]),
-            b.scrollable("grow", self.debug_scroll, Arc::new(|state| {
-                state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
-            }), &entries),
-            b.div("flex-row",
-                &[
-                    b.div("grow", &[]),
-                    b.sprite("w-30 h-30", "Handle", Listeners::default()),
-                ],
-            ),
-        ]);
+        ];
+        if self.debug_expanded {
+            #[cfg_attr(any(), rustfmt::skip)]
+            children.extend(&[
+                b.scrollable("grow", self.debug_scroll, Arc::new(|state| {
+                    state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
+                }), &entries),
+                b.div("flex-row",
+                    &[
+                        b.sprite("w-30 h-30", "HandleLeft", resize_listener),
+                        b.div("grow", &[]),
+                    ],
+                ),
+            ])
+        }
+
+        let root = b.div(
+            "rounded-8 bg-black opacity-40 w-full h-full p-8 flex-col",
+            &children,
+        );
 
         let data = unsafe { std::ptr::read(tree.as_ptr()) };
         std::mem::forget(tree);
@@ -669,7 +703,11 @@ where
             root,
             desired_size: Size {
                 width: AvailableSpace::Definite(self.debug_size.x),
-                height: AvailableSpace::Definite(self.debug_size.y),
+                height: if self.debug_expanded {
+                    AvailableSpace::Definite(self.debug_size.y)
+                } else {
+                    AvailableSpace::MaxContent
+                },
             },
             root_pos: self.debug_position.into(),
             anchor: Anchor::TopRight,
