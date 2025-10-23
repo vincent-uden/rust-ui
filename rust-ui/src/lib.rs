@@ -23,6 +23,7 @@ pub fn init_open_gl(
     width: u32,
     height: u32,
     resizable: bool,
+    vsync: bool,
 ) -> (
     glfw::Glfw,
     glfw::PWindow,
@@ -69,7 +70,11 @@ pub fn init_open_gl(
         }
     });
 
-    glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
+    if vsync {
+        glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
+    } else {
+        glfw.set_swap_interval(glfw::SwapInterval::Sync(0));
+    }
 
     unsafe {
         gl::Viewport(0, 0, width as i32, height as i32);

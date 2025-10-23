@@ -40,7 +40,7 @@ fn main() {
         .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))
         .init();
 
-    let (mut glfw, mut window, events) = init_open_gl(1000, 800, false);
+    let (mut glfw, mut window, events) = init_open_gl(1000, 800, false, true);
 
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();

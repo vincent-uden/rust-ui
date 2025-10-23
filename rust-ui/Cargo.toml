@@ -19,6 +19,7 @@ sysinfo = "0.37.0"
 serde = { version = "1.0.219", features = ["derive"] }
 dashmap = "6.1.0"
 string_cache = "0.9.0"
+tracy-client = { version = "0.18.2", default-features = false, features = ["enable"] }
 
 [build-dependencies]
 walkdir = "2"

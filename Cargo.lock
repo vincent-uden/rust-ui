@@ -191,6 +191,7 @@ dependencies = [
  "nalgebra-glm",
  "rust-ui",
  "taffy",
+ "tracy-client",
 ]
 
 [[package]]
@@ -583,6 +584,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcc0df122fbe0e18a274358b3212f1a7271df8c280ba030af6ec90364d469e69"
 dependencies = [
  "nalgebra",
+]
+
+[[package]]
+name = "generator"
+version = "0.8.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "605183a538e3e2a9c1038635cc5c2d194e2ee8fd0d1b66b8349fad7dbacce5a2"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "log",
+ "rustversion",
+ "windows",
 ]
 
 [[package]]
@@ -1101,6 +1116,19 @@ name = "log"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
+
+[[package]]
+name = "loom"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "419e0dc8046cb947daa77eb95ae174acfbddb7673b4151f56d1eed8e93fbfaca"
+dependencies = [
+ "cfg-if",
+ "generator",
+ "scoped-tls",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "loop9"
@@ -1821,6 +1849,7 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
+ "tracy-client",
  "walkdir",
 ]
 
@@ -1853,6 +1882,12 @@ checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "scoped-tls"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
 
 [[package]]
 name = "scopeguard"
@@ -2194,6 +2229,27 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracy-client"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef54005d3d760186fd662dad4b7bb27ecd5531cdef54d1573ebd3f20a9205ed7"
+dependencies = [
+ "loom",
+ "once_cell",
+ "tracy-client-sys",
+]
+
+[[package]]
+name = "tracy-client-sys"
+version = "0.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "319c70195101a93f56db4c74733e272d720768e13471f400c78406a326b172b0"
+dependencies = [
+ "cc",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]

@@ -77,7 +77,7 @@ impl AppState for TextRendering {
 }
 
 pub fn render_text(iters: usize) {
-    let (mut glfw, mut window, events) = init_open_gl(1000, 800, true);
+    let (mut glfw, mut window, events) = init_open_gl(1000, 800, true, false);
 
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
@@ -94,6 +94,7 @@ pub fn render_text(iters: usize) {
 
     let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, TextRendering::default());
     while !window.should_close() && state.app_state.i < iters {
+        let _span = tracy_client::span!("Loop iteration");
         glfw.poll_events();
         state.pre_update();
         for (_, _) in glfw::flush_messages(&events) {}
