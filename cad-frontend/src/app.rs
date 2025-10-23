@@ -673,7 +673,6 @@ impl Default for App {
 
 impl AppState for App {
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
-        visual_log("app".into(), format!("{:#?}", self.mutable_state));
         let mut out = vec![];
         out.extend(self.base_layer(window_size));
         if self.perf_overlay.visible {
