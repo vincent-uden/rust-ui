@@ -3,8 +3,12 @@
 ## Roadmap
 - Multiple fonts
 
-## Keeping data
-
-It was in fact not the Dashmap that was slow but rather it is the text rendering.
-
-Perhaps I can use typst/comemo to cache a bunch of necessary text results?
+## Installing tracy profiler
+```nu
+git clone https://github.com/wolfpld/tracy
+git checkout v0.12.2
+cmake -B profiler/build -S profiler
+cd profiler/build
+make
+cp ./tracy-profiler ~/.local/bin
+```

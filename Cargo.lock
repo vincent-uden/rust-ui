@@ -278,6 +278,7 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
+ "tracy-client",
 ]
 
 [[package]]

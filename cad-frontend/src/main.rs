@@ -40,7 +40,7 @@ fn main() {
         .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))
         .init();
 
-    let (mut glfw, mut window, events) = init_open_gl(1000, 800, false, true);
+    let (mut glfw, mut window, events) = init_open_gl(1000, 800, false, false);
 
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
@@ -89,6 +89,7 @@ fn main() {
     let mut window_events = vec![];
 
     while !window.should_close() {
+        let _span = tracy_client::span!("Frame");
         let frame_start = Instant::now();
 
         glfw.poll_events();
