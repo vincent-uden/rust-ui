@@ -396,8 +396,8 @@ impl TextRenderer {
         // bottleneck is probably the amount of draw calls
         for (instance, base_position) in cached.0.iter().zip(cached.1.iter()) {
             let mut inst = *instance;
-            inst.position[0] = base_position.x + position.x;
-            inst.position[1] = base_position.y + position.y;
+            inst.position[0] = (base_position.x + position.x).floor();
+            inst.position[1] = (base_position.y + position.y).floor();
             instances.push(inst);
         }
     }

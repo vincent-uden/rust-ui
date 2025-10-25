@@ -5,6 +5,7 @@ use std::{
 };
 
 use dashmap::DashMap;
+use string_cache::DefaultAtom;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use tracing::{debug, error, field::debug, info};
 
@@ -104,12 +105,12 @@ where
 
 impl SpriteKey for String {}
 
-static DEBUG_MAP: std::sync::LazyLock<DashMap<String, String>> =
+static DEBUG_MAP: std::sync::LazyLock<DashMap<DefaultAtom, String>> =
     std::sync::LazyLock::new(|| DashMap::new());
 
 /// Inserts a logging message to be rendered in the visual debugging overlay
-pub fn visual_log(key: String, message: String) {
-    DEBUG_MAP.insert(key, message);
+pub fn visual_log(key: &str, message: String) {
+    DEBUG_MAP.insert(DefaultAtom::from(key), message);
 }
 
 #[derive(Debug)]
@@ -672,7 +673,7 @@ where
         for key_value in DEBUG_MAP.iter() {
             let key = key_value.key();
             let value = key_value.value();
-            entries.push(b.text("", Text::new(key.clone(), 12, COLOR_LIGHT)));
+            entries.push(b.text("", Text::new(key.as_ref().to_string(), 12, COLOR_LIGHT)));
             entries.push(b.text_explicit("", Text::new(value.clone(), 12, COLOR_LIGHT)));
         }
 

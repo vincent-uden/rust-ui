@@ -495,7 +495,10 @@ impl Area {
                 },
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
+                        visual_log("mode", format!("{:?}", _state.mode));
+                        debug!("HELLO");
                         if self.bbox.contains(self.mouse_pos) {
+                            // TODO: Point mode is never activated
                             if let app::Mode::EditSketch(sketch_id, app::SketchMode::Point) =
                                 _state.mode
                             {
@@ -510,7 +513,6 @@ impl Area {
                                             &sketch_info.plane,
                                         )
                                     {
-                                        debug!("{:?}", sketch_coords);
                                         // sketch_info.sketch.fundamental_entities.insert(
                                         //     cad::entity::FundamentalEntity::Point(
                                         //         cad::entity::Point { pos: sketch_coords },
