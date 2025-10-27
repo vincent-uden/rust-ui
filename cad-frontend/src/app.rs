@@ -35,14 +35,14 @@ struct AreaSerializer {
     pub bdry_map: Registry<BoundaryId, Boundary>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum SketchMode {
     Select,
     Point,
     // ...
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum Mode {
     EditSketch(u16, SketchMode), // Sketch id
     None,

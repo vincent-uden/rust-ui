@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, sync::Arc, time::Instant};
+use std::{cell::RefCell, f32::consts::PI, sync::Arc, time::Instant};
 
 use cad::{entity::GuidedEntity, registry::RegId};
 use glfw::{Action, Key, Modifiers, Scancode};
@@ -6,7 +6,7 @@ use rust_ui::{
     geometry::{Rect, Vector},
     render::{
         COLOR_BLACK, COLOR_LIGHT, Color, NORD1, NORD3, NORD9, NORD11, NORD14, Text,
-        renderer::{Anchor, NodeContext, RenderLayout, Renderer, flags, visual_log},
+        renderer::{Anchor, NodeContext, RenderLayout, Renderer, UiBuilder, flags, visual_log},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -196,10 +196,13 @@ impl Area {
     }
 
     pub fn generate_layout(&mut self, state: &AppMutableState) -> RenderLayout<App> {
-        let mut tree = TaffyTree::new();
+        let tree = TaffyTree::new();
+        let reftree = RefCell::new(tree);
+
         let id = self.id;
 
-        let root = tree
+        let root = reftree
+            .borrow_mut()
             .new_leaf_with_context(
                 Style {
                     size: Size {
@@ -234,19 +237,20 @@ impl Area {
             AreaType::Red | AreaType::Blue | AreaType::Green => {}
             AreaType::Viewport => {
                 viewport::Viewport::generate_layout(
-                    &mut tree,
+                    &reftree,
                     root,
                     &self.area_data.try_into().unwrap(),
                 );
             }
             AreaType::SceneExplorer => {
-                scene_explorer::SceneExplorer::generate_layout(&mut tree, root, state);
+                scene_explorer::SceneExplorer::generate_layout(&reftree, root, state);
             }
             AreaType::Modes => {
-                modes::Modes::generate_layout(&mut tree, root, state);
+                modes::Modes::generate_layout(&reftree, root, state);
             }
         }
 
+        let tree = UiBuilder::extract_tree(reftree);
         RenderLayout {
             tree,
             root,

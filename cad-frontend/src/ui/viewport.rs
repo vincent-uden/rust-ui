@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     f32::consts::PI,
     time::{Duration, Instant},
 };
@@ -238,10 +239,11 @@ pub struct Viewport {}
 
 impl Viewport {
     pub fn generate_layout(
-        tree: &mut TaffyTree<NodeContext<App>>,
+        tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
         data: &ViewportData,
     ) {
+        let mut tree = tree.borrow_mut();
         // For debug purposes
         let data_disp = tree
             .new_leaf_with_context(

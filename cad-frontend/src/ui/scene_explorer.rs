@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use rust_ui::{
     geometry::Vector,
@@ -19,11 +19,12 @@ pub struct SceneExplorer {}
 
 impl SceneExplorer {
     pub fn generate_layout(
-        tree: &mut TaffyTree<NodeContext<App>>,
+        tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
         state: &AppMutableState,
     ) {
         let header = tree
+            .borrow_mut()
             .new_leaf_with_context(
                 Style {
                     margin: Rect {
@@ -51,6 +52,7 @@ impl SceneExplorer {
             )
             .unwrap();
         let container = tree
+            .borrow_mut()
             .new_with_children(
                 Style {
                     padding: Rect {
@@ -73,6 +75,7 @@ impl SceneExplorer {
             .unwrap();
         for (i, sketch) in state.scene.sketches.iter().enumerate() {
             let row = tree
+                .borrow_mut()
                 .new_leaf(Style {
                     flex_direction: FlexDirection::Row,
                     gap: length(4.0),
@@ -90,6 +93,7 @@ impl SceneExplorer {
                 crate::app::Mode::None => {}
             }
             let s = tree
+                .borrow_mut()
                 .new_leaf_with_context(
                     Style {
                         flex_grow: 1.0,
@@ -107,6 +111,7 @@ impl SceneExplorer {
                 )
                 .unwrap();
             let visibility = tree
+                .borrow_mut()
                 .new_leaf_with_context(
                     Style {
                         size: Size::length(24.0),
@@ -142,6 +147,7 @@ impl SceneExplorer {
                 .unwrap();
             let id = sketch.id;
             let edit = tree
+                .borrow_mut()
                 .new_leaf_with_context(
                     Style {
                         size: Size::length(24.0),
@@ -158,11 +164,11 @@ impl SceneExplorer {
                     },
                 )
                 .unwrap();
-            tree.add_child(row, s).unwrap();
-            tree.add_child(row, visibility).unwrap();
-            tree.add_child(row, edit).unwrap();
-            tree.add_child(container, row).unwrap();
+            tree.borrow_mut().add_child(row, s).unwrap();
+            tree.borrow_mut().add_child(row, visibility).unwrap();
+            tree.borrow_mut().add_child(row, edit).unwrap();
+            tree.borrow_mut().add_child(container, row).unwrap();
         }
-        tree.add_child(parent, container).unwrap();
+        tree.borrow_mut().add_child(parent, container).unwrap();
     }
 }

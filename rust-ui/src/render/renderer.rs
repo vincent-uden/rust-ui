@@ -1,12 +1,13 @@
 use std::{
+    borrow::Borrow,
     cell::{LazyCell, RefCell},
     collections::{HashMap, VecDeque},
     sync::Arc,
 };
 
 use dashmap::DashMap;
-use string_cache::DefaultAtom;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
+use string_cache::DefaultAtom;
 use tracing::{debug, error, field::debug, info};
 
 use crate::{
@@ -431,92 +432,92 @@ where
             let mouse_in_scissor = current_scissor.map_or(true, |r| r.contains(self.mouse_pos));
             if mouse_in_scissor {
                 let abs_bbox = crate::geometry::Rect {
-                x0: abs_pos.into(),
-                x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
-            };
-            if abs_bbox.contains(self.mouse_pos) {
-                if let Some(on_mouse_down) = &ctx.on_left_mouse_down
-                    && self.mouse_left_down
-                    && !self.mouse_left_was_down
-                    && layer_idx >= self.mouse_hit_layer
-                {
-                    self.pending_event_listeners.push(on_mouse_down.clone());
-                    self.mouse_hit_layer = layer_idx;
-                }
-                if let Some(on_mouse_up) = &ctx.on_left_mouse_up
-                    && !self.mouse_left_down
-                    && self.mouse_left_was_down
-                {
-                    self.pending_event_listeners.push(on_mouse_up.clone());
-                }
-                if let Some(on_mouse_down) = &ctx.on_right_mouse_down
-                    && self.mouse_right_down
-                    && !self.mouse_right_was_down
-                    && layer_idx >= self.mouse_hit_layer
-                {
-                    self.pending_event_listeners.push(on_mouse_down.clone());
-                    self.mouse_hit_layer = layer_idx;
-                }
-                if let Some(on_mouse_up) = &ctx.on_right_mouse_up
-                    && !self.mouse_right_down
-                    && self.mouse_right_was_down
-                {
-                    self.pending_event_listeners.push(on_mouse_up.clone());
-                }
-                if let Some(on_mouse_down) = &ctx.on_middle_mouse_down
-                    && self.mouse_middle_down
-                    && !self.mouse_middle_was_down
-                    && layer_idx >= self.mouse_hit_layer
-                {
-                    self.pending_event_listeners.push(on_mouse_down.clone());
-                    self.mouse_hit_layer = layer_idx;
-                }
-                if let Some(on_mouse_up) = &ctx.on_middle_mouse_up
-                    && !self.mouse_middle_down
-                    && self.mouse_middle_was_down
-                {
-                    self.pending_event_listeners.push(on_mouse_up.clone());
-                }
-                if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
-                    if abs_bbox.contains(self.mouse_pos) {
-                        self.hover_states.insert(id, true);
-                    } else {
-                        self.hover_states.insert(id, false);
+                    x0: abs_pos.into(),
+                    x1: Into::<Vector<f32>>::into(abs_pos) + layout.size.into(),
+                };
+                if abs_bbox.contains(self.mouse_pos) {
+                    if let Some(on_mouse_down) = &ctx.on_left_mouse_down
+                        && self.mouse_left_down
+                        && !self.mouse_left_was_down
+                        && layer_idx >= self.mouse_hit_layer
+                    {
+                        self.pending_event_listeners.push(on_mouse_down.clone());
+                        self.mouse_hit_layer = layer_idx;
+                    }
+                    if let Some(on_mouse_up) = &ctx.on_left_mouse_up
+                        && !self.mouse_left_down
+                        && self.mouse_left_was_down
+                    {
+                        self.pending_event_listeners.push(on_mouse_up.clone());
+                    }
+                    if let Some(on_mouse_down) = &ctx.on_right_mouse_down
+                        && self.mouse_right_down
+                        && !self.mouse_right_was_down
+                        && layer_idx >= self.mouse_hit_layer
+                    {
+                        self.pending_event_listeners.push(on_mouse_down.clone());
+                        self.mouse_hit_layer = layer_idx;
+                    }
+                    if let Some(on_mouse_up) = &ctx.on_right_mouse_up
+                        && !self.mouse_right_down
+                        && self.mouse_right_was_down
+                    {
+                        self.pending_event_listeners.push(on_mouse_up.clone());
+                    }
+                    if let Some(on_mouse_down) = &ctx.on_middle_mouse_down
+                        && self.mouse_middle_down
+                        && !self.mouse_middle_was_down
+                        && layer_idx >= self.mouse_hit_layer
+                    {
+                        self.pending_event_listeners.push(on_mouse_down.clone());
+                        self.mouse_hit_layer = layer_idx;
+                    }
+                    if let Some(on_mouse_up) = &ctx.on_middle_mouse_up
+                        && !self.mouse_middle_down
+                        && self.mouse_middle_was_down
+                    {
+                        self.pending_event_listeners.push(on_mouse_up.clone());
+                    }
+                    if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
+                        if abs_bbox.contains(self.mouse_pos) {
+                            self.hover_states.insert(id, true);
+                        } else {
+                            self.hover_states.insert(id, false);
+                        }
+                    }
+                    if let Some(on_scroll) = &ctx.on_scroll
+                        && (self.scroll_delta.x.abs() > 0.01 || self.scroll_delta.y.abs() > 0.01)
+                        && abs_bbox.contains(self.mouse_pos)
+                        && layer_idx >= self.mouse_hit_layer
+                    {
+                        self.pending_event_listeners.push(on_scroll.clone());
+                        self.mouse_hit_layer = layer_idx;
+                    }
+
+                    // Even if no event listener is registered, an element with text, an icon or a
+                    // background colour should occlude anything behind it. Eventually all this should
+                    // probably be replaced a proper rounded rectangle-drawing picker buffer similar to
+                    // how sketch objects are picked.
+                    if (ctx.bg_color.a != 0.0
+                        || (ctx.flags & (flags::TEXT | flags::SPRITE | flags::HOVER_BG) != 0))
+                        && layer_idx >= self.mouse_hit_layer
+                    {
+                        self.mouse_hit_layer = layer_idx;
                     }
                 }
-                if let Some(on_scroll) = &ctx.on_scroll
-                    && (self.scroll_delta.x.abs() > 0.01 || self.scroll_delta.y.abs() > 0.01)
+
+                if let Some(on_mouse_enter) = &ctx.on_mouse_enter
                     && abs_bbox.contains(self.mouse_pos)
-                    && layer_idx >= self.mouse_hit_layer
+                    && !*self.hover_states.get(&id).unwrap_or(&false)
                 {
-                    self.pending_event_listeners.push(on_scroll.clone());
-                    self.mouse_hit_layer = layer_idx;
+                    self.pending_event_listeners.push(on_mouse_enter.clone());
                 }
-
-                // Even if no event listener is registered, an element with text, an icon or a
-                // background colour should occlude anything behind it. Eventually all this should
-                // probably be replaced a proper rounded rectangle-drawing picker buffer similar to
-                // how sketch objects are picked.
-                if (ctx.bg_color.a != 0.0
-                    || (ctx.flags & (flags::TEXT | flags::SPRITE | flags::HOVER_BG) != 0))
-                    && layer_idx >= self.mouse_hit_layer
+                if let Some(on_mouse_exit) = &ctx.on_mouse_exit
+                    && !abs_bbox.contains(self.mouse_pos)
+                    && *self.hover_states.get(&id).unwrap_or(&false)
                 {
-                    self.mouse_hit_layer = layer_idx;
+                    self.pending_event_listeners.push(on_mouse_exit.clone());
                 }
-            }
-
-            if let Some(on_mouse_enter) = &ctx.on_mouse_enter
-                && abs_bbox.contains(self.mouse_pos)
-                && !*self.hover_states.get(&id).unwrap_or(&false)
-            {
-                self.pending_event_listeners.push(on_mouse_enter.clone());
-            }
-            if let Some(on_mouse_exit) = &ctx.on_mouse_exit
-                && !abs_bbox.contains(self.mouse_pos)
-                && *self.hover_states.get(&id).unwrap_or(&false)
-            {
-                self.pending_event_listeners.push(on_mouse_exit.clone());
-            }
             }
 
             for child in tree.children(id)?.iter().rev() {
@@ -706,7 +707,7 @@ where
                 b.div("flex-row",
                     &[
                         b.sprite("w-30 h-30", "HandleLeft", resize_listener),
-                        b.div("grow", &[]),
+                        b.div("grow", &[] as &[NodeId]),
                     ],
                 ),
             ])
@@ -855,23 +856,31 @@ where
         Self { tree }
     }
 
-    pub fn ui(&self, style: &str, listeners: Listeners<T>, children: &[NodeId]) -> NodeId {
+    pub fn ui<I, B>(&self, style: &str, listeners: Listeners<T>, children: I) -> NodeId
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<NodeId>,
+    {
         let (style, mut context) = parse_style(style);
         context.set_listeners(listeners);
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
         for child in children {
-            tree.add_child(parent, *child).unwrap();
+            tree.add_child(parent, *child.borrow()).unwrap();
         }
         return parent;
     }
 
-    pub fn div(&self, style: &str, children: &[NodeId]) -> NodeId {
+    pub fn div<I, B>(&self, style: &str, children: I) -> NodeId
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<NodeId>,
+    {
         let (style, context) = parse_style(style);
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
         for child in children {
-            tree.add_child(parent, *child).unwrap();
+            tree.add_child(parent, *child.borrow()).unwrap();
         }
         return parent;
     }
@@ -900,7 +909,7 @@ where
         style: &str,
         scroll_height: f32,
         update_scroll: EventListener<T>,
-        children: &[NodeId],
+        children: impl IntoIterator<Item = &'a NodeId>,
     ) -> NodeId {
         let scrollbar = {
             let mut tree = self.tree.borrow_mut();
@@ -939,6 +948,14 @@ where
         let mut tree = self.tree.borrow_mut();
         let parent = tree.new_leaf_with_context(style, context).unwrap();
         return parent;
+    }
+
+    pub fn extract_tree(
+        tree: RefCell<taffy::TaffyTree<NodeContext<T>>>,
+    ) -> taffy::TaffyTree<NodeContext<T>> {
+        let data = unsafe { std::ptr::read(tree.as_ptr()) };
+        std::mem::forget(tree);
+        data
     }
 }
 
