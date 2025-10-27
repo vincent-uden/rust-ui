@@ -1,14 +1,13 @@
 use std::{
     borrow::Borrow,
-    cell::{LazyCell, RefCell},
-    collections::{HashMap, VecDeque},
+    cell::RefCell,
+    collections::HashMap,
     sync::Arc,
 };
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use string_cache::DefaultAtom;
-use tracing::{debug, error, field::debug, info};
 
 use crate::{
     geometry::Vector,
@@ -21,7 +20,7 @@ use crate::{
     },
     style::parse_style,
 };
-use taffy::{prelude::*, print_tree};
+use taffy::prelude::*;
 
 type Flag = u8;
 

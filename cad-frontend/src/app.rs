@@ -13,11 +13,11 @@ use rust_ui::{
     render::{
         Color,
         line::LineRenderer,
-        renderer::{AppState, RenderLayout, visual_log},
+        renderer::{AppState, RenderLayout},
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 use crate::{
     sketch_renderer::{SketchPicker, SketchRenderer},

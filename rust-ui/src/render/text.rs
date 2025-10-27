@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::c_void, path::Path, str::CharIndices};
+use std::{collections::HashMap, ffi::c_void, path::Path};
 
 use anyhow::{Result, anyhow};
 use freetype as ft;

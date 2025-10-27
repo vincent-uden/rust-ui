@@ -2,7 +2,6 @@ use std::{
     cell::RefCell,
     path::PathBuf,
     str::FromStr as _,
-    time::{Duration, Instant},
 };
 
 use glfw::Context as _;

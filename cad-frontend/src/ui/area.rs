@@ -6,12 +6,11 @@ use rust_ui::{
     geometry::{Rect, Vector},
     render::{
         COLOR_BLACK, COLOR_LIGHT, Color, NORD1, NORD3, NORD9, NORD11, NORD14, Text,
-        renderer::{Anchor, NodeContext, RenderLayout, Renderer, UiBuilder, flags, visual_log},
+        renderer::{Anchor, NodeContext, RenderLayout, Renderer, UiBuilder, flags},
     },
 };
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, prelude::length};
-use tracing::{debug, error};
 
 use crate::{
     app::{self, App, AppMutableState},

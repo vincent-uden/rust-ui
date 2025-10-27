@@ -24,7 +24,6 @@ use rust_ui::{
     style::TAILWIND_COLORS,
 };
 use sysinfo::{ProcessesToUpdate, System};
-use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;

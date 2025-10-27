@@ -1,6 +1,6 @@
 use std::ffi::c_void;
 
-use crate::{geometry::Vector, render::Color, shader::Shader};
+use crate::{render::Color, shader::Shader};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
