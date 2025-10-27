@@ -4,6 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use cad::entity::{BiConstraint, GuidedEntity};
 use rust_ui::{geometry::Vector, render::renderer::NodeContext};
 use taffy::{NodeId, Style, TaffyTree};
 
@@ -21,6 +22,15 @@ pub enum InteractionState {
     Orbit,
     Pan,
     AutoMoving,
+    #[default]
+    None,
+}
+
+/// Represents a pending state for user input
+#[derive(Debug, Clone, Copy, Default)]
+pub enum Pending {
+    Entity(GuidedEntity),
+    Constraint(BiConstraint),
     #[default]
     None,
 }
@@ -54,8 +64,11 @@ pub struct ViewportData {
     pub start_azimuthal_angle: f32,
     /// Animation state
     pub start_polar_angle: f32,
-    pub debug_hovered_pixel: (u8, u8, u8, u8),
+    /// Orthograph or Perspective projection
     pub projection_mode: ProjectionMode,
+    /// A possible entity that is being input by the user
+    /// *What makes this different from the active mode? It is related to the active mode. Perhaps this information should be stored there instead*
+    pub pending: Pending,
 }
 
 impl Default for ViewportData {
@@ -73,8 +86,8 @@ impl Default for ViewportData {
             auto_move_duration: Duration::from_millis(500),
             start_azimuthal_angle: 0.0,
             start_polar_angle: 0.0,
-            debug_hovered_pixel: (0, 0, 0, 0),
             projection_mode: ProjectionMode::default(),
+            pending: Pending::default(),
         }
     }
 }

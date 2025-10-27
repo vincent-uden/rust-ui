@@ -350,14 +350,6 @@ impl App {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
                     data.size = area.bbox.size();
 
-                    let mouse_in_area = self.mouse_pos - area.bbox.x0;
-                    let opengl_y = (area.bbox.height() - mouse_in_area.y) as i32;
-
-                    let pixel = self
-                        .sketch_picker
-                        .picker
-                        .read_pixel(mouse_in_area.x as i32, opengl_y);
-                    data.debug_hovered_pixel = (pixel.r, pixel.g, pixel.b, pixel.a);
                     self.sketch_picker.picker.enable_writing();
                     unsafe {
                         gl::BlendFunc(gl::ONE, gl::ZERO);

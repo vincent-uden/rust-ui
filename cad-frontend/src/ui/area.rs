@@ -478,7 +478,7 @@ impl Area {
 
     pub fn handle_mouse_button(
         &mut self,
-        _state: &mut AppMutableState,
+        state: &mut AppMutableState,
         button: glfw::MouseButton,
         action: Action,
         modifiers: Modifiers,
@@ -500,11 +500,11 @@ impl Area {
                     glfw::MouseButton::Button1 => {
                         if self.bbox.contains(self.mouse_pos) {
                             if let app::Mode::EditSketch(sketch_id, app::SketchMode::Point) =
-                                _state.mode
+                                state.mode
                             {
                                 let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
                                 if let Some(sketch_info) =
-                                    _state.scene.sketches.iter_mut().find(|s| s.id == sketch_id)
+                                    state.scene.sketches.iter_mut().find(|s| s.id == sketch_id)
                                 {
                                     if let Some(sketch_coords) = viewport_data
                                         .screen_to_sketch_coords(
