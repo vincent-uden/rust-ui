@@ -4,7 +4,10 @@
 - [x] Dynamic panes
 - [ ] Editing sketches
   - [x] Fix Text rendering grainy renders
-  - [ ] Make sure Point mode is enabled
+  - [x] Make sure Point mode is enabled
+  - [ ] Line mode
+  - [ ] Circle mode
+  - [ ] Show pending shapes
 
 ## Towards editing sketches
 - [x] Sprite renderer

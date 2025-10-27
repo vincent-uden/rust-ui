@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, sync::Arc, time::Instant};
 
-use cad::registry::RegId;
+use cad::{entity::GuidedEntity, registry::RegId};
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
@@ -495,15 +495,11 @@ impl Area {
                 },
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
-                        visual_log("mode", format!("{:?}", _state.mode));
-                        debug!("HELLO");
                         if self.bbox.contains(self.mouse_pos) {
-                            // TODO: Point mode is never activated
                             if let app::Mode::EditSketch(sketch_id, app::SketchMode::Point) =
                                 _state.mode
                             {
                                 let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
-
                                 if let Some(sketch_info) =
                                     _state.scene.sketches.iter_mut().find(|s| s.id == sketch_id)
                                 {
@@ -513,11 +509,15 @@ impl Area {
                                             &sketch_info.plane,
                                         )
                                     {
-                                        // sketch_info.sketch.fundamental_entities.insert(
-                                        //     cad::entity::FundamentalEntity::Point(
-                                        //         cad::entity::Point { pos: sketch_coords },
-                                        //     ),
-                                        // );
+                                        let id = sketch_info.sketch.fundamental_entities.insert(
+                                            cad::entity::FundamentalEntity::Point(
+                                                cad::entity::Point { pos: sketch_coords },
+                                            ),
+                                        );
+                                        sketch_info
+                                            .sketch
+                                            .guided_entities
+                                            .insert(GuidedEntity::Point { id });
                                     }
                                 }
                             } else {

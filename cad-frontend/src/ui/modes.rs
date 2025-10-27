@@ -5,7 +5,7 @@ use rust_ui::{
     geometry::Vector,
     render::{
         COLOR_LIGHT, NORD1, NORD3, NORD7, Text,
-        renderer::{NodeContext, Renderer, flags},
+        renderer::{NodeContext, Renderer, UiBuilder, flags},
     },
 };
 use taffy::{
@@ -13,7 +13,7 @@ use taffy::{
     prelude::{auto, length},
 };
 
-use crate::app::{self, App, AppMutableState};
+use crate::app::{self, App, AppMutableState, SketchMode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Modes {}
@@ -46,9 +46,16 @@ impl Modes {
             )
             .unwrap();
         match &state.mode {
-            app::Mode::EditSketch(_, sketch_mode) => {
+            app::Mode::EditSketch(i, sketch_mode) => {
+                let i = *i;
                 let buttons: Vec<(&str, Arc<dyn Fn(&mut Renderer<App>)>)> = vec![
-                    ("Point", Arc::new(|state| {})),
+                    (
+                        "Point",
+                        Arc::new(move |state| {
+                            state.app_state.mutable_state.borrow_mut().mode =
+                                app::Mode::EditSketch(i, SketchMode::Point);
+                        }),
+                    ),
                     (
                         "Finish Sketch",
                         Arc::new(|state| {
