@@ -798,13 +798,13 @@ impl AppState for App {
 
     fn handle_mouse_button(
         &mut self,
-        button: glfw::MouseButton,
-        action: Action,
-        modifiers: Modifiers,
+        _button: glfw::MouseButton,
+        _action: Action,
+        _modifiers: Modifiers,
     ) {
     }
 
-    fn handle_mouse_scroll(&mut self, scroll_delta: Vector<f32>) {}
+    fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
 }
 
 #[cfg(test)]

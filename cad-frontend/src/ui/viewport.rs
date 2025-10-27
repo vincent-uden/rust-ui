@@ -4,14 +4,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rust_ui::{
-    geometry::Vector,
-    render::{
-        COLOR_LIGHT, Color, Text,
-        renderer::{NodeContext, flags},
-    },
-};
-use taffy::{Dimension, NodeId, Rect, Size, Style, TaffyTree};
+use rust_ui::{geometry::Vector, render::renderer::NodeContext};
+use taffy::{NodeId, Style, TaffyTree};
 
 use crate::app::App;
 
@@ -241,33 +235,9 @@ impl Viewport {
     pub fn generate_layout(
         tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
-        data: &ViewportData,
+        _data: &ViewportData,
     ) {
         let mut tree = tree.borrow_mut();
-        // For debug purposes
-        let data_disp = tree
-            .new_leaf_with_context(
-                Style {
-                    padding: Rect::length(8.0),
-                    size: Size {
-                        width: Dimension::length(280.0),
-                        height: Dimension::auto(),
-                    },
-                    ..Default::default()
-                },
-                NodeContext {
-                    flags: flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT,
-                    bg_color: Color::new(0.0, 0.0, 0.0, 0.2),
-                    text: Text {
-                        text: format!("{:#?}", data),
-                        font_size: 12,
-                        color: COLOR_LIGHT,
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
         let spacer = tree
             .new_leaf(Style {
                 flex_grow: 1.0,

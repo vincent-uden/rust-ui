@@ -1,9 +1,4 @@
-use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    collections::HashMap,
-    sync::Arc,
-};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, sync::Arc};
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
@@ -404,7 +399,7 @@ where
     ) -> taffy::TaffyResult<()> {
         let mut to_render: Vec<(NodeId, taffy::Point<f32>)> = vec![(root_node, position.into())];
         let mut trail: Vec<(NodeId, Option<crate::geometry::Rect<f32>>)> = vec![];
-        let mut current_scissor: Option<crate::geometry::Rect<f32>> = None;
+        let mut current_scissor: Option<crate::geometry::Rect<f32>>;
         while let Some((id, parent_pos)) = to_render.pop() {
             let layout = tree.layout(id)?;
             let abs_pos = layout.location + parent_pos;

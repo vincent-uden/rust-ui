@@ -781,7 +781,7 @@ mod tests {
     #[test]
     pub fn can_parse_basic_style() {
         let style_str = "rounded-8 bg-black";
-        let (style, ctx) = parse_style::<DummyState>(style_str);
+        let (_, ctx) = parse_style::<DummyState>(style_str);
 
         assert!(
             ctx.border.radius.top_left == 8.0,
@@ -804,7 +804,7 @@ mod tests {
     #[test]
     pub fn hover_bg_and_bg_parsing() {
         let style_str = "w-full bg-red-800 hover:bg-red-900 h-16 rounded-4";
-        let (style, ctx) = parse_style::<DummyState>(style_str);
+        let (_, ctx) = parse_style::<DummyState>(style_str);
         assert!(
             (ctx.flags & flags::HOVER_BG) != 0,
             "Should have a hover bg color"
