@@ -12,6 +12,8 @@ use rust_ui::{
     geometry::Vector,
     init_open_gl,
     render::{
+        NORD0, NORD1, NORD2, NORD3, NORD4, NORD5, NORD6, NORD7, NORD8, NORD9, NORD10, NORD11,
+        NORD12, NORD13, NORD14, NORD15,
         line::LineRenderer,
         rect::RectRenderer,
         renderer::Renderer,
@@ -19,6 +21,7 @@ use rust_ui::{
         text::TextRenderer,
     },
     shader::{Shader, ShaderName},
+    style::TAILWIND_COLORS,
 };
 use sysinfo::{ProcessesToUpdate, System};
 use tracing::debug;
@@ -88,6 +91,28 @@ fn main() {
 
     // Defer the direct handling of some of these events until we know they weren't handled by UI
     let mut window_events = vec![];
+
+    {
+        let mut colors = (*TAILWIND_COLORS).write().unwrap();
+        colors.extend_from_slice(&[
+            (String::from("nord0"), NORD0),
+            (String::from("nord1"), NORD1),
+            (String::from("nord2"), NORD2),
+            (String::from("nord3"), NORD3),
+            (String::from("nord4"), NORD4),
+            (String::from("nord5"), NORD5),
+            (String::from("nord6"), NORD6),
+            (String::from("nord7"), NORD7),
+            (String::from("nord8"), NORD8),
+            (String::from("nord9"), NORD9),
+            (String::from("nord10"), NORD10),
+            (String::from("nord11"), NORD11),
+            (String::from("nord12"), NORD12),
+            (String::from("nord13"), NORD13),
+            (String::from("nord14"), NORD14),
+            (String::from("nord15"), NORD15),
+        ]);
+    }
 
     while !window.should_close() {
         let _span = tracy_client::span!("Frame");
