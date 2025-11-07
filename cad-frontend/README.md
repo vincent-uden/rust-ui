@@ -74,3 +74,5 @@ We need to decouple the actual stack length changes from the moment they happen.
 If I'm going to use the borrowing alternative, the borrowed list needs to be passed in for each handler since the trait can't store data. We can enforce a constructor which borrows a list. This is more powerful since one input event is allowed to queue multiple modifications of the `ModeStack`.
 
 They will also need a mutable reference to the `App` but that can be passed into each handler.
+
+I think we can't get around having message enums. How else could we do keybindings? Each action needs a name, then a mapping from that name to some action. Should each mode have its own message? They need to in order to avoid crazy overhead in dispatch.
