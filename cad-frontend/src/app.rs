@@ -20,6 +20,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::{
+    input::{self, glfw_key_to_key_input},
+    modes::{AppMode, BindableMessage, Config, ModeStack},
     sketch_renderer::{SketchPicker, SketchRenderer},
     ui::{
         area::{Area, AreaData, AreaId, AreaType},
@@ -70,6 +72,8 @@ pub struct App {
     pub sketch_renderer: SketchRenderer,
     pub sketch_picker: SketchPicker,
     pub mutable_state: RefCell<AppMutableState>,
+    pub config: Config,
+    pub mode_stack: ModeStack<AppMode, BindableMessage>,
 }
 
 impl App {
@@ -659,6 +663,8 @@ impl Default for App {
                 mode: Mode::None,
                 scene,
             }),
+            config: Config::default(),
+            mode_stack: ModeStack::with_base(AppMode::Base),
         }
     }
 }
@@ -680,20 +686,87 @@ impl AppState for App {
         #[allow(clippy::single_match)]
         let mut state = self.mutable_state.borrow_mut();
 
-        if action == Action::Release && key == Key::F9 {
-            for area in self.area_map.values_mut() {
-                if let crate::ui::area::AreaData::Viewport(ref mut vp_data) = area.area_data {
-                    vp_data.projection_mode = match vp_data.projection_mode {
-                        viewport::ProjectionMode::Perspective => {
-                            viewport::ProjectionMode::Orthographic
+        if action == Action::Release {
+            match glfw_key_to_key_input(key, modifiers) {
+                Some(key_input) => {
+                    if let Some(action) = self
+                        .mode_stack
+                        .dispatch(&mut self.config.bindings, key_input)
+                    {
+                        match action {
+                            BindableMessage::PopMode => {
+                                self.mode_stack.pop();
+                            }
+                            BindableMessage::ToggleSettings => {
+                                self.settings_open = !self.settings_open;
+                            }
+                            BindableMessage::ToggleProjection => {
+                                for area in self.area_map.values_mut() {
+                                    if let crate::ui::area::AreaData::Viewport(ref mut vp_data) =
+                                        area.area_data
+                                    {
+                                        vp_data.projection_mode = match vp_data.projection_mode {
+                                            viewport::ProjectionMode::Perspective => {
+                                                viewport::ProjectionMode::Orthographic
+                                            }
+                                            viewport::ProjectionMode::Orthographic => {
+                                                viewport::ProjectionMode::Perspective
+                                            }
+                                        };
+                                    }
+                                }
+                            }
+                            BindableMessage::ToggleDebugDraw => {
+                                self.debug_draw = !self.debug_draw;
+                            }
+                            BindableMessage::DumpDebugPick => {
+                                self.debug_picker = !self.debug_picker;
+                                let filename = format!(
+                                    "picker_dump_{}.png",
+                                    std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs()
+                                );
+                                if let Err(e) = self.sketch_picker.picker.dump_to_png(
+                                    self.sketch_picker.window_width,
+                                    self.sketch_picker.window_height,
+                                    &filename,
+                                ) {
+                                    error!("Failed to dump picker framebuffer: {}", e);
+                                } else {
+                                    info!("Dumped picker framebuffer to {}", filename);
+                                }
+                            }
+                            BindableMessage::TogglePerformanceOverlay => {
+                                self.perf_overlay.visible = !self.perf_overlay.visible;
+                            }
+                            BindableMessage::SplitAreaHorizontally => {
+                                drop(state); // Release borrow before calling self methods
+                                self.split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
+                                state = self.mutable_state.borrow_mut(); // Reborrow
+                            }
+                            BindableMessage::SplitAreaVertically => {
+                                drop(state);
+                                self.split_area(self.mouse_pos, BoundaryOrientation::Vertical);
+                                state = self.mutable_state.borrow_mut();
+                            }
+                            BindableMessage::CollapseBoundary => {
+                                drop(state);
+                                self.collapse_boundary(self.mouse_pos);
+                                state = self.mutable_state.borrow_mut();
+                            }
+                            BindableMessage::ActivatePointMode => todo!(),
                         }
-                        viewport::ProjectionMode::Orthographic => {
-                            viewport::ProjectionMode::Perspective
-                        }
-                    };
+                    }
+                }
+                None => {
+                    error!(
+                        "Couldn't convert GLFW key {:?} {:?} {:?} to keybinds-key",
+                        key, modifiers, action
+                    );
                 }
             }
-            return;
         }
 
         let current_mode = state.mode.clone();
@@ -721,55 +794,7 @@ impl AppState for App {
                     _ => {}
                 },
             },
-            Mode::None => match action {
-                Action::Release => match key {
-                    Key::F10 => {
-                        self.debug_draw = !self.debug_draw;
-                    }
-                    Key::F11 => {
-                        self.debug_picker = !self.debug_picker;
-                        let filename = format!(
-                            "picker_dump_{}.png",
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs()
-                        );
-                        if let Err(e) = self.sketch_picker.picker.dump_to_png(
-                            self.sketch_picker.window_width,
-                            self.sketch_picker.window_height,
-                            &filename,
-                        ) {
-                            error!("Failed to dump picker framebuffer: {}", e);
-                        } else {
-                            info!("Dumped picker framebuffer to {}", filename);
-                        }
-                    }
-                    Key::F12 => {
-                        self.perf_overlay.visible = !self.perf_overlay.visible;
-                    }
-                    Key::H => {
-                        drop(state); // Release borrow before calling self methods
-                        self.split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
-                        state = self.mutable_state.borrow_mut(); // Reborrow
-                    }
-                    Key::V => {
-                        drop(state);
-                        self.split_area(self.mouse_pos, BoundaryOrientation::Vertical);
-                        state = self.mutable_state.borrow_mut();
-                    }
-                    Key::D => {
-                        drop(state);
-                        self.collapse_boundary(self.mouse_pos);
-                        state = self.mutable_state.borrow_mut();
-                    }
-                    Key::Escape => {
-                        self.settings_open = !self.settings_open;
-                    }
-                    _ => {}
-                },
-                _ => {}
-            },
+            _ => {}
         }
 
         for area in self.area_map.values_mut() {

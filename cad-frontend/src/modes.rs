@@ -4,28 +4,71 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug},
     hash::Hash,
+    marker::PhantomData,
     str::FromStr,
 };
 
 use keybinds::{KeyInput, Keybind, Keybinds};
 use strum::EnumString;
 
-pub trait Mode: Debug + PartialEq + Hash {}
+pub trait Mode: Debug + PartialEq + Eq + Hash {}
 
-#[derive(Debug)]
-pub struct ModeStack<M>
+#[derive(Debug, Clone)]
+pub struct ModeStack<M, A>
 where
     M: Mode,
+    A: Clone + Copy,
 {
+    phantom: PhantomData<A>,
     stack: Vec<M>,
 }
 
-impl<M> ModeStack<M>
+impl<M, A> ModeStack<M, A>
 where
     M: Mode,
+    A: Clone + Copy,
 {
     pub fn new() -> Self {
-        Self { stack: vec![] }
+        Self {
+            phantom: PhantomData,
+            stack: vec![],
+        }
+    }
+
+    pub fn with_base(base_mode: M) -> Self {
+        Self {
+            phantom: PhantomData,
+            stack: vec![base_mode],
+        }
+    }
+
+    /// Passes an input event to all active modes, from the innermost (most recently enabled) to the
+    /// outermost. If an inner mode doesn't capture the event it is passed up the stack until it
+    /// reaches the base mode.
+    pub fn dispatch<I: Into<KeyInput> + Clone>(
+        &mut self,
+        bindings: &mut HashMap<M, Keybinds<A>>,
+        input: I,
+    ) -> Option<A> {
+        let mut action = None;
+        let key: KeyInput = input.into();
+        for mode in self.stack.iter().rev() {
+            match bindings.get_mut(mode).unwrap().dispatch(key.clone()) {
+                Some(a) => {
+                    action = Some(*a);
+                    break;
+                }
+                None => {}
+            }
+        }
+
+        if action.is_some() {
+            for mode in &self.stack {
+                bindings.get_mut(mode).unwrap().reset();
+            }
+        }
+
+        action
     }
 
     pub fn is_active(&self, mode: &M) -> bool {
@@ -213,7 +256,7 @@ impl ConfigParseResult {
 
 #[derive(Debug)]
 pub struct Config {
-    bindings: HashMap<AppMode, Keybinds<BindableMessage>>,
+    pub bindings: HashMap<AppMode, Keybinds<BindableMessage>>,
     pub mouse: HashMap<AppMode, Vec<MouseBinding>>,
 }
 
@@ -377,21 +420,49 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         let base_keybinds = vec![
-            Keybind::new(KeyInput::from_str("Escape").unwrap(), BindableMessage::PopMode),
-            Keybind::new(KeyInput::from_str("F8").unwrap(), BindableMessage::ToggleSettings),
-            Keybind::new(KeyInput::from_str("F9").unwrap(), BindableMessage::ToggleProjection),
-            Keybind::new(KeyInput::from_str("F10").unwrap(), BindableMessage::ToggleDebugDraw),
-            Keybind::new(KeyInput::from_str("F11").unwrap(), BindableMessage::DumpDebugPick),
-            Keybind::new(KeyInput::from_str("F12").unwrap(), BindableMessage::TogglePerformanceOverlay),
-            Keybind::new(KeyInput::from_str("h").unwrap(), BindableMessage::SplitAreaHorizontally),
-            Keybind::new(KeyInput::from_str("v").unwrap(), BindableMessage::SplitAreaVertically),
-            Keybind::new(KeyInput::from_str("d").unwrap(), BindableMessage::CollapseBoundary),
+            Keybind::new(
+                KeyInput::from_str("Escape").unwrap(),
+                BindableMessage::PopMode,
+            ),
+            Keybind::new(
+                KeyInput::from_str("F8").unwrap(),
+                BindableMessage::ToggleSettings,
+            ),
+            Keybind::new(
+                KeyInput::from_str("F9").unwrap(),
+                BindableMessage::ToggleProjection,
+            ),
+            Keybind::new(
+                KeyInput::from_str("F10").unwrap(),
+                BindableMessage::ToggleDebugDraw,
+            ),
+            Keybind::new(
+                KeyInput::from_str("F11").unwrap(),
+                BindableMessage::DumpDebugPick,
+            ),
+            Keybind::new(
+                KeyInput::from_str("F12").unwrap(),
+                BindableMessage::TogglePerformanceOverlay,
+            ),
+            Keybind::new(
+                KeyInput::from_str("h").unwrap(),
+                BindableMessage::SplitAreaHorizontally,
+            ),
+            Keybind::new(
+                KeyInput::from_str("v").unwrap(),
+                BindableMessage::SplitAreaVertically,
+            ),
+            Keybind::new(
+                KeyInput::from_str("d").unwrap(),
+                BindableMessage::CollapseBoundary,
+            ),
         ];
         let base_bindings = Keybinds::new(base_keybinds);
 
-        let sketch_keybinds = vec![
-            Keybind::new(KeyInput::from_str("p").unwrap(), BindableMessage::ActivatePointMode),
-        ];
+        let sketch_keybinds = vec![Keybind::new(
+            KeyInput::from_str("p").unwrap(),
+            BindableMessage::ActivatePointMode,
+        )];
         let sketch_bindings = Keybinds::new(sketch_keybinds);
 
         let mut bindings = HashMap::new();
@@ -399,13 +470,23 @@ impl Default for Config {
         bindings.insert(AppMode::Sketch, sketch_bindings);
 
         let mut mouse = HashMap::new();
-        mouse.insert(AppMode::Base, vec![
-            (MouseInput::from_str("Middle").unwrap(), MouseAction::Pan),
-            (MouseInput::from_str("Shift+Middle").unwrap(), MouseAction::Orbit),
-        ]);
-        mouse.insert(AppMode::Point, vec![
-            (MouseInput::from_str("Left").unwrap(), MouseAction::PlacePoint),
-        ]);
+        mouse.insert(
+            AppMode::Base,
+            vec![
+                (MouseInput::from_str("Middle").unwrap(), MouseAction::Pan),
+                (
+                    MouseInput::from_str("Shift+Middle").unwrap(),
+                    MouseAction::Orbit,
+                ),
+            ],
+        );
+        mouse.insert(
+            AppMode::Point,
+            vec![(
+                MouseInput::from_str("Left").unwrap(),
+                MouseAction::PlacePoint,
+            )],
+        );
 
         Self { bindings, mouse }
     }
