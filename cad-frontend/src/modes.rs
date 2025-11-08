@@ -7,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-use keybinds::{Key, KeyInput, Keybind, Keybinds};
+use keybinds::{KeyInput, Keybind, Keybinds};
 use strum::EnumString;
 
 pub trait Mode: Debug + PartialEq + Hash {}
@@ -340,7 +340,7 @@ impl Config {
                 }
 
                 let setting = &parts[1];
-                let value = &parts[2];
+                let _value = &parts[2];
 
                 match setting.as_str() {
                     _ => return Err(format!("Unknown setting: {setting}")),

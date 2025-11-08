@@ -30,6 +30,7 @@ use crate::app::App;
 
 mod app;
 mod entity_picker;
+mod input;
 mod modes;
 mod sketch_renderer;
 mod ui;
