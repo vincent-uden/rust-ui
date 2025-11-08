@@ -79,16 +79,9 @@ pub struct MouseInput {
 )]
 pub enum MouseAction {
     #[default]
-    Panning,
-    Selection,
-    NextPage,
-    PreviousPage,
-    ZoomIn,
-    ZoomOut,
-    MoveUp,
-    MoveDown,
-    MoveLeft,
-    MoveRight,
+    Pan,
+    Orbit,
+    PlacePoint,
 }
 
 pub type MouseBinding = (MouseInput, MouseAction);
@@ -129,6 +122,15 @@ impl FromStr for MouseInput {
 #[derive(Debug, EnumString, Clone, Copy, PartialEq, Eq)]
 pub enum BindableMessage {
     PopMode,
+    ToggleSettings,
+    ToggleProjection,
+    ToggleDebugDraw,
+    DumpDebugPick,
+    TogglePerformanceOverlay,
+    SplitAreaHorizontally,
+    SplitAreaVertically,
+    CollapseBoundary,
+    ActivatePointMode,
 }
 
 #[derive(Debug, EnumString, Clone, Copy, PartialEq, Eq, Hash)]
@@ -374,16 +376,38 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let base_bindings = Keybinds::new(vec![Keybind::new(
-            KeyInput::from_str("Escape").unwrap(),
-            BindableMessage::PopMode,
-        )]);
+        let base_keybinds = vec![
+            Keybind::new(KeyInput::from_str("Escape").unwrap(), BindableMessage::PopMode),
+            Keybind::new(KeyInput::from_str("F8").unwrap(), BindableMessage::ToggleSettings),
+            Keybind::new(KeyInput::from_str("F9").unwrap(), BindableMessage::ToggleProjection),
+            Keybind::new(KeyInput::from_str("F10").unwrap(), BindableMessage::ToggleDebugDraw),
+            Keybind::new(KeyInput::from_str("F11").unwrap(), BindableMessage::DumpDebugPick),
+            Keybind::new(KeyInput::from_str("F12").unwrap(), BindableMessage::TogglePerformanceOverlay),
+            Keybind::new(KeyInput::from_str("h").unwrap(), BindableMessage::SplitAreaHorizontally),
+            Keybind::new(KeyInput::from_str("v").unwrap(), BindableMessage::SplitAreaVertically),
+            Keybind::new(KeyInput::from_str("d").unwrap(), BindableMessage::CollapseBoundary),
+        ];
+        let base_bindings = Keybinds::new(base_keybinds);
+
+        let sketch_keybinds = vec![
+            Keybind::new(KeyInput::from_str("p").unwrap(), BindableMessage::ActivatePointMode),
+        ];
+        let sketch_bindings = Keybinds::new(sketch_keybinds);
+
         let mut bindings = HashMap::new();
         bindings.insert(AppMode::Base, base_bindings);
-        Self {
-            bindings,
-            mouse: Default::default(),
-        }
+        bindings.insert(AppMode::Sketch, sketch_bindings);
+
+        let mut mouse = HashMap::new();
+        mouse.insert(AppMode::Base, vec![
+            (MouseInput::from_str("Middle").unwrap(), MouseAction::Pan),
+            (MouseInput::from_str("Shift+Middle").unwrap(), MouseAction::Orbit),
+        ]);
+        mouse.insert(AppMode::Point, vec![
+            (MouseInput::from_str("Left").unwrap(), MouseAction::PlacePoint),
+        ]);
+
+        Self { bindings, mouse }
     }
 }
 
@@ -412,6 +436,6 @@ mod tests {
         let default_cfg = Config::default();
 
         assert_eq!(config.bindings, default_cfg.bindings);
-        assert_eq!(config.mouse, config.mouse);
+        assert_eq!(config.mouse, default_cfg.mouse);
     }
 }
