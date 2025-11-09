@@ -23,7 +23,7 @@ where
     stack: Vec<M>,
 }
 
-impl<M, A> ModeStack<M, A>
+impl<'a, M, A> ModeStack<M, A>
 where
     M: Mode,
     A: Clone + Copy,
@@ -91,6 +91,10 @@ where
 
     pub fn push(&mut self, mode: M) {
         self.stack.push(mode);
+    }
+
+    pub fn outermost(&'a self) -> Option<&'a M> {
+        self.stack.last()
     }
 }
 

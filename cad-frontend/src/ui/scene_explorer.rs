@@ -12,7 +12,10 @@ use taffy::{
     prelude::{auto, length},
 };
 
-use crate::app::{App, AppMutableState};
+use crate::{
+    app::{App, AppMutableState},
+    modes::{AppMode, BindableMessage, ModeStack},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SceneExplorer {}
@@ -22,6 +25,7 @@ impl SceneExplorer {
         tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
         state: &AppMutableState,
+        mode_stack: &ModeStack<AppMode, BindableMessage>,
     ) {
         let header = tree
             .borrow_mut()
@@ -84,13 +88,10 @@ impl SceneExplorer {
                 })
                 .unwrap();
             let mut s_color = if sketch.visible { COLOR_LIGHT } else { NORD3 };
-            match &state.mode {
-                crate::app::Mode::EditSketch(id, _) => {
-                    if *id == sketch.id {
-                        s_color = NORD7;
-                    }
+            if mode_stack.is_active(&AppMode::Sketch) {
+                if state.sketch_mode_data.sketch_id == sketch.id {
+                    s_color = NORD7;
                 }
-                crate::app::Mode::None => {}
             }
             let s = tree
                 .borrow_mut()

@@ -37,23 +37,22 @@ struct AreaSerializer {
     pub bdry_map: Registry<BoundaryId, Boundary>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum SketchMode {
-    Select,
-    Point,
-    // ...
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SketchModeData {
+    pub sketch_id: u16,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum Mode {
-    EditSketch(u16, SketchMode), // Sketch id
-    None,
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LineModeData {
+    pub p1: Option<Vector<f32>>,
+    pub p2: Option<Vector<f32>>,
 }
 
 #[derive(Debug)]
 pub(crate) struct AppMutableState {
-    pub mode: Mode,
     pub scene: Scene,
+    pub sketch_mode_data: SketchModeData,
+    pub line_mode_data: LineModeData,
 }
 
 const BDRY_TOLERANCE: f32 = 5.0;
@@ -72,6 +71,7 @@ pub struct App {
     pub sketch_renderer: SketchRenderer,
     pub sketch_picker: SketchPicker,
     pub mutable_state: RefCell<AppMutableState>,
+
     pub config: Config,
     pub mode_stack: ModeStack<AppMode, BindableMessage>,
 }
@@ -84,7 +84,7 @@ impl App {
         // doesn' matter as they'll all be scissored.
 
         for area in self.area_map.values_mut() {
-            out.push(area.generate_layout(&self.mutable_state.borrow()));
+            out.push(area.generate_layout(&self.mutable_state.borrow(), &self.mode_stack));
         }
         for area in self.area_map.values_mut() {
             out.push(area.area_kind_picker_layout());
@@ -469,7 +469,8 @@ impl App {
                     _ => {}
                 }
             }
-            state.mode = Mode::EditSketch(sketch.id, SketchMode::Select);
+            state.sketch_mode_data.sketch_id = sketch.id;
+            self.mode_stack.push(AppMode::Sketch);
         }
     }
 
@@ -477,13 +478,8 @@ impl App {
         for e in window_events {
             match *e {
                 WindowEvent::MouseButton(button, action, modifiers) => {
-                    let current_mode = self.mutable_state.borrow().mode.clone();
-                    match current_mode {
-                        Mode::EditSketch(_, _) => {
-                            // TODO: Do something, but in the area handler since this is dependent on the
-                            // viewport
-                        }
-                        Mode::None => match action {
+                    match *self.mode_stack.outermost().unwrap() {
+                        AppMode::Base => match action {
                             Action::Release => {
                                 self.dragging_boundary = None;
                             }
@@ -503,12 +499,23 @@ impl App {
                             },
                             Action::Repeat => {}
                         },
+                        AppMode::Sketch => {
+                            // TODO: Do something, but in the area handler since this is dependent on the
+                            // viewport
+                        }
+                        AppMode::Point => todo!(),
                     }
                     if self.dragging_boundary.is_none() {
                         let mut state = self.mutable_state.borrow_mut();
                         for (i, area) in self.area_map.values_mut().enumerate() {
                             if ((i as i32) * 2) >= mouse_hit_layer {
-                                area.handle_mouse_button(&mut state, button, action, modifiers);
+                                area.handle_mouse_button(
+                                    &mut state,
+                                    &self.mode_stack,
+                                    button,
+                                    action,
+                                    modifiers,
+                                );
                             }
                         }
                     }
@@ -660,8 +667,9 @@ impl Default for App {
             sketch_renderer: SketchRenderer::new(),
             sketch_picker: SketchPicker::new(original_size.x as i32, original_size.y as i32),
             mutable_state: RefCell::new(AppMutableState {
-                mode: Mode::None,
                 scene,
+                sketch_mode_data: SketchModeData::default(),
+                line_mode_data: LineModeData::default(),
             }),
             config: Config::default(),
             mode_stack: ModeStack::with_base(AppMode::Base),
@@ -767,34 +775,6 @@ impl AppState for App {
                     );
                 }
             }
-        }
-
-        let current_mode = state.mode.clone();
-        match current_mode {
-            Mode::EditSketch(i, sketch_mode) => match sketch_mode {
-                SketchMode::Select => match action {
-                    Action::Release => match key {
-                        Key::Escape => {
-                            state.mode = Mode::None;
-                        }
-                        Key::P => {
-                            state.mode = Mode::EditSketch(i, SketchMode::Point);
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                },
-                SketchMode::Point => match action {
-                    Action::Release => match key {
-                        Key::Escape => {
-                            state.mode = Mode::EditSketch(i, SketchMode::Select);
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                },
-            },
-            _ => {}
         }
 
         for area in self.area_map.values_mut() {

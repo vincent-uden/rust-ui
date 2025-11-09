@@ -7,7 +7,10 @@ use rust_ui::render::{
 };
 use taffy::{NodeId, TaffyTree};
 
-use crate::app::{self, App, AppMutableState, SketchMode};
+use crate::{
+    app::{self, App, AppMutableState},
+    modes::AppMode,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Modes {}
@@ -16,22 +19,20 @@ impl Modes {
     pub fn generate_layout(
         tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
-        state: &AppMutableState,
+        outermost_mode: &AppMode,
     ) {
         let b = UiBuilder::new(tree);
         #[cfg_attr(any(), rustfmt::skip)]
-        let container = b.div( "px-8 pb-8 pt-30 flex-row gap-8 items-stretch w-full h-auto", match state.mode {
-            app::Mode::EditSketch(i, _) => vec![
+        let container = b.div( "px-8 pb-8 pt-30 flex-row gap-8 items-stretch w-full h-auto", match *outermost_mode {
+            AppMode::Sketch | AppMode::Point => vec![
                 mode_button(&b, "Point", Arc::new(move |state| {
-                    state.app_state.mutable_state.borrow_mut().mode =
-                        app::Mode::EditSketch(i, SketchMode::Point);
+                    state.app_state.mode_stack.push(AppMode::Point);
                 })),
                 mode_button(&b, "Finish Sketch", Arc::new(move |state| {
-                    state.app_state.mutable_state.borrow_mut().mode =
-                        app::Mode::None;
+                    state.app_state.mode_stack.pop_until(&AppMode::Base);
                 })),
             ],
-            app::Mode::None => vec![
+            AppMode::Base => vec![
                 mode_button(&b, "New sketch", Arc::new(move |state| {
                     let mut mut_state = state.app_state.mutable_state.borrow_mut();
                     // TODO: Pick the plane

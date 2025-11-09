@@ -14,6 +14,7 @@ use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, pr
 
 use crate::{
     app::{self, App, AppMutableState},
+    modes::{AppMode, BindableMessage, ModeStack},
     ui::{
         modes, scene_explorer,
         viewport::{self, ViewportData},
@@ -194,7 +195,11 @@ impl Area {
         }
     }
 
-    pub fn generate_layout(&mut self, state: &AppMutableState) -> RenderLayout<App> {
+    pub fn generate_layout(
+        &mut self,
+        state: &AppMutableState,
+        mode_stack: &ModeStack<AppMode, BindableMessage>,
+    ) -> RenderLayout<App> {
         let tree = TaffyTree::new();
         let reftree = RefCell::new(tree);
 
@@ -242,10 +247,10 @@ impl Area {
                 );
             }
             AreaType::SceneExplorer => {
-                scene_explorer::SceneExplorer::generate_layout(&reftree, root, state);
+                scene_explorer::SceneExplorer::generate_layout(&reftree, root, state, mode_stack);
             }
             AreaType::Modes => {
-                modes::Modes::generate_layout(&reftree, root, state);
+                modes::Modes::generate_layout(&reftree, root, mode_stack.outermost().unwrap());
             }
         }
 
@@ -457,18 +462,18 @@ impl Area {
                     data.looking_at += up * delta.y * pan_speed;
                 }
                 _ => {
-                    match &state.mode {
-                        app::Mode::EditSketch(_, sketch_mode) => match sketch_mode {
-                            app::SketchMode::Select => {
-                                // 3D point picker FBO "hack"
-                            }
-                            app::SketchMode::Point => {
-                                // Show a pending point
-                                // Probably want to snap to existing objects
-                            }
-                        },
-                        _ => {}
-                    }
+                    // match &state.mode {
+                    //     app::Mode::EditSketch(_, sketch_mode) => match sketch_mode {
+                    //         app::SketchMode::Select => {
+                    //             // 3D point picker FBO "hack"
+                    //         }
+                    //         app::SketchMode::Point => {
+                    //             // Show a pending point
+                    //             // Probably want to snap to existing objects
+                    //         }
+                    //     },
+                    //     _ => {}
+                    // }
                 }
             },
             _ => {}
@@ -479,6 +484,7 @@ impl Area {
     pub fn handle_mouse_button(
         &mut self,
         state: &mut AppMutableState,
+        mode_stack: &ModeStack<AppMode, BindableMessage>,
         button: glfw::MouseButton,
         action: Action,
         modifiers: Modifiers,
@@ -498,13 +504,15 @@ impl Area {
                 },
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
+                        // TODO: Figure out how to pass the mode stack and state here
                         if self.bbox.contains(self.mouse_pos) {
-                            if let app::Mode::EditSketch(sketch_id, app::SketchMode::Point) =
-                                state.mode
-                            {
+                            if mode_stack.is_outermost(&AppMode::Point) {
                                 let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
-                                if let Some(sketch_info) =
-                                    state.scene.sketches.iter_mut().find(|s| s.id == sketch_id)
+                                if let Some(sketch_info) = state
+                                    .scene
+                                    .sketches
+                                    .iter_mut()
+                                    .find(|s| s.id == state.sketch_mode_data.sketch_id)
                                 {
                                     if let Some(sketch_coords) = viewport_data
                                         .screen_to_sketch_coords(

@@ -76,3 +76,39 @@ If I'm going to use the borrowing alternative, the borrowed list needs to be pas
 They will also need a mutable reference to the `App` but that can be passed into each handler.
 
 I think we can't get around having message enums. How else could we do keybindings? Each action needs a name, then a mapping from that name to some action. Should each mode have its own message? They need to in order to avoid crazy overhead in dispatch.
+
+
+### Where to store mode state
+
+In the modestack I want the Modes to contain no state since they are used as keys in the HashMap. What if we hand
+```rust
+enum ModeId {
+    Base,
+    Sketch,
+    Point,
+    Line,
+}
+
+struct SketchModeData {
+    sketch_id: u16,
+}
+
+struct LineModeData {
+    p1: Option<Vector<f32>>,
+    p2: Option<Vector<f32>>,
+}
+
+enum ModeData {
+    Base,
+    Sketch(SketchData),
+    Point,
+    Line(LineData),
+}
+
+struct AppMode {
+    id: ModeId,
+    data: ModeData,
+}
+```
+
+If we assume that every mode can only be active once at a time (which is probably reasonable) all mode data can just be fields on the `App` struct instead. This should be more performant and ergonomic as opposed to search through the modestack on every access;
