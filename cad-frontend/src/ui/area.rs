@@ -504,7 +504,6 @@ impl Area {
                 },
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
-                        // TODO: Figure out how to pass the mode stack and state here
                         if self.bbox.contains(self.mouse_pos) {
                             if mode_stack.is_outermost(&AppMode::Point) {
                                 let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
