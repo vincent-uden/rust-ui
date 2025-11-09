@@ -43,6 +43,12 @@ pub struct SketchModeData {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
+pub struct PointModeData {
+    /// The mouse pos in sketch space
+    pub pending: Option<glm::DVec2>,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 pub struct LineModeData {
     pub p1: Option<Vector<f32>>,
     pub p2: Option<Vector<f32>>,
@@ -52,6 +58,7 @@ pub struct LineModeData {
 pub(crate) struct AppMutableState {
     pub scene: Scene,
     pub sketch_mode_data: SketchModeData,
+    pub point_mode_data: PointModeData,
     pub line_mode_data: LineModeData,
 }
 
@@ -406,6 +413,16 @@ impl App {
                                 entity_id,
                             );
                         }
+                        let active_sketch =
+                            { self.mutable_state.borrow().sketch_mode_data.sketch_id };
+                        if si.id == active_sketch {
+                            self.sketch_renderer.draw_pending(
+                                &si,
+                                data,
+                                &self.mutable_state.borrow(),
+                                &self.mode_stack,
+                            );
+                        }
                     }
                 }
                 _ => {}
@@ -499,11 +516,8 @@ impl App {
                             },
                             Action::Repeat => {}
                         },
-                        AppMode::Sketch => {
-                            // TODO: Do something, but in the area handler since this is dependent on the
-                            // viewport
-                        }
-                        AppMode::Point => todo!(),
+                        AppMode::Sketch => {}
+                        AppMode::Point => {}
                     }
                     if self.dragging_boundary.is_none() {
                         let mut state = self.mutable_state.borrow_mut();
@@ -669,6 +683,7 @@ impl Default for App {
             mutable_state: RefCell::new(AppMutableState {
                 scene,
                 sketch_mode_data: SketchModeData::default(),
+                point_mode_data: PointModeData::default(),
                 line_mode_data: LineModeData::default(),
             }),
             config: Config::default(),
@@ -789,7 +804,7 @@ impl AppState for App {
         }
         let mut state = self.mutable_state.borrow_mut();
         for area in self.area_map.values_mut() {
-            area.handle_mouse_position(&mut state, position, delta);
+            area.handle_mouse_position(&mut state, &self.mode_stack, position, delta);
         }
     }
 

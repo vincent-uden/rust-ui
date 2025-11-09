@@ -5,11 +5,22 @@ use cad::{
 };
 use rust_ui::{
     geometry::Vector,
-    render::{Color, circle::CircleRenderer, line::LineRenderer, point::PointRenderer},
+    render::{
+        COLOR_DANGER, COLOR_SUCCESS, Color, NORD1, circle::CircleRenderer, line::LineRenderer,
+        point::PointRenderer,
+    },
     shader::{Shader, ShaderName},
 };
 
-use crate::{entity_picker::EntityPicker, ui::viewport::ViewportData};
+use crate::{
+    app::AppMutableState,
+    entity_picker::EntityPicker,
+    modes::{AppMode, BindableMessage, ModeStack},
+    ui::viewport::ViewportData,
+};
+
+pub const PENDING_COLOR: Color = COLOR_SUCCESS;
+pub const HOVER_COLOR: Color = COLOR_DANGER;
 
 pub struct SketchRenderer {
     line_r: LineRenderer,
@@ -63,6 +74,9 @@ impl SketchRenderer {
         y_axis: glm::Vec3,
         hovered: Option<EntityId>,
     ) {
+        let projection = state.projection();
+        let model = state.model();
+        let view = state.view();
         for (id, eid) in sketch.guided_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
@@ -74,9 +88,6 @@ impl SketchRenderer {
                     let end: Point = sketch.fundamental_entities[*end].try_into().unwrap();
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
-                    let projection = state.projection();
-                    let model = state.model();
-                    let view = state.view();
 
                     let s_3d = s.x * x_axis + s.y * y_axis;
                     let e_3d = e.x * x_axis + e.y * y_axis;
@@ -84,7 +95,7 @@ impl SketchRenderer {
                         s_3d,
                         e_3d,
                         if *id == hovered.unwrap_or_default() {
-                            Color::new(1.0, 0.0, 0.0, 1.0)
+                            HOVER_COLOR
                         } else {
                             Color::new(1.0, 1.0, 1.0, 1.0)
                         },
@@ -97,14 +108,11 @@ impl SketchRenderer {
                 GuidedEntity::Point { id: pid } => {
                     let point: Point = sketch.fundamental_entities[*pid].try_into().unwrap();
                     let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
-                    let projection = state.projection();
-                    let model = state.model();
-                    let view = state.view();
                     let p_3d = p.x * x_axis + p.y * y_axis;
                     self.point_r.draw_3d(
                         p_3d,
                         if *id == hovered.unwrap_or_default() {
-                            Color::new(1.0, 0.0, 0.0, 1.0)
+                            HOVER_COLOR
                         } else {
                             Color::new(1.0, 1.0, 1.0, 1.0)
                         },
@@ -117,15 +125,12 @@ impl SketchRenderer {
                 GuidedEntity::Circle { id: cid } => {
                     let circle: Circle = sketch.fundamental_entities[*cid].try_into().unwrap();
                     let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
-                    let projection = state.projection();
-                    let model = state.model();
-                    let view = state.view();
                     let center_3d = center.x * x_axis + center.y * y_axis;
                     self.circle_r.draw_3d_oriented(
                         center_3d,
                         circle.radius as f32,
                         if *id == hovered.unwrap_or_default() {
-                            Color::new(1.0, 0.0, 0.0, 1.0)
+                            HOVER_COLOR
                         } else {
                             Color::new(1.0, 1.0, 1.0, 1.0)
                         },
@@ -139,6 +144,31 @@ impl SketchRenderer {
                 }
                 _ => {}
             }
+        }
+    }
+
+    pub fn draw_pending(
+        &mut self,
+        sketch_info: &SketchInfo,
+        vp_state: &mut ViewportData,
+        app_state: &AppMutableState,
+        mode_stack: &ModeStack<AppMode, BindableMessage>,
+    ) {
+        let projection = vp_state.projection();
+        let model = vp_state.model();
+        let view = vp_state.view();
+        let x_axis = sketch_info.plane.x.cast();
+        let y_axis = sketch_info.plane.y.cast();
+
+        match mode_stack.outermost() {
+            Some(AppMode::Point) => {
+                if let Some(p) = app_state.point_mode_data.pending {
+                    let p_3d = (p.x as f32) * x_axis + (p.y as f32) * y_axis;
+                    self.point_r
+                        .draw_3d(p_3d, PENDING_COLOR, 4.0, &projection, &model, &view);
+                }
+            }
+            _ => {}
         }
     }
 }

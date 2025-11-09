@@ -374,7 +374,6 @@ impl TextRenderer {
         if text.is_empty() {
             return;
         }
-        // TODO: There are some "dots" or pixels in the text rendering of cad-frontend. Investigate
         self.get_or_create_atlas(font_size);
 
         if self

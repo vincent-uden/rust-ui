@@ -444,6 +444,7 @@ impl Area {
     pub fn handle_mouse_position(
         &mut self,
         state: &mut AppMutableState,
+        mode_stack: &ModeStack<AppMode, BindableMessage>,
         position: Vector<f32>,
         delta: Vector<f32>,
     ) {
@@ -462,18 +463,18 @@ impl Area {
                     data.looking_at += up * delta.y * pan_speed;
                 }
                 _ => {
-                    // match &state.mode {
-                    //     app::Mode::EditSketch(_, sketch_mode) => match sketch_mode {
-                    //         app::SketchMode::Select => {
-                    //             // 3D point picker FBO "hack"
-                    //         }
-                    //         app::SketchMode::Point => {
-                    //             // Show a pending point
-                    //             // Probably want to snap to existing objects
-                    //         }
-                    //     },
-                    //     _ => {}
-                    // }
+                    if mode_stack.is_active(&AppMode::Point) {
+                        let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
+                        if let Some(sketch_info) = state
+                            .scene
+                            .sketches
+                            .iter_mut()
+                            .find(|s| s.id == state.sketch_mode_data.sketch_id)
+                        {
+                            state.point_mode_data.pending =
+                                data.screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane);
+                        }
+                    }
                 }
             },
             _ => {}
