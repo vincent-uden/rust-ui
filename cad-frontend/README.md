@@ -7,7 +7,7 @@
   - [x] Make sure Point mode is enabled
   - [ ] Line mode
   - [ ] Circle mode
-  - [ ] Show pending shapes
+  - [/] Show pending shapes
 
 ## Towards editing sketches
 - [x] Sprite renderer
@@ -22,7 +22,7 @@
 - [ ] Tools?
     - [ ] Select
     - [ ] Line
-    - [/] Point
+    - [x] Point
     - [ ] Circle
     - [ ] Constrain
 - [ ] Constraint rendering

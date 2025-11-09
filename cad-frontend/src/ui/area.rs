@@ -250,7 +250,7 @@ impl Area {
                 scene_explorer::SceneExplorer::generate_layout(&reftree, root, state, mode_stack);
             }
             AreaType::Modes => {
-                modes::Modes::generate_layout(&reftree, root, mode_stack.outermost().unwrap());
+                modes::Modes::generate_layout(&reftree, root, mode_stack);
             }
         }
 

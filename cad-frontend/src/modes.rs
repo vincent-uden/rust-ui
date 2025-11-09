@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use colored::Colorize as _;
 use std::{
     collections::HashMap,
-    fmt::{self, Debug},
+    fmt::{self, Debug, Display},
     hash::Hash,
     marker::PhantomData,
     str::FromStr,
@@ -96,6 +96,10 @@ where
     pub fn outermost(&'a self) -> Option<&'a M> {
         self.stack.last()
     }
+
+    pub fn modes(&'a self) -> &'a [M] {
+        &self.stack
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString)]
@@ -180,7 +184,7 @@ pub enum BindableMessage {
     ActivatePointMode,
 }
 
-#[derive(Debug, EnumString, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, EnumString, Clone, Copy, PartialEq, Eq, Hash, strum::Display)]
 pub enum AppMode {
     Base,
     Sketch,
