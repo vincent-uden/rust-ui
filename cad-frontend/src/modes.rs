@@ -7,6 +7,7 @@ use std::{
     marker::PhantomData,
     str::FromStr,
 };
+use tracing::debug;
 
 use keybinds::{KeyInput, Keybind, Keybinds};
 use strum::EnumString;
@@ -17,7 +18,7 @@ pub trait Mode: Debug + PartialEq + Eq + Hash {}
 pub struct ModeStack<M, A>
 where
     M: Mode,
-    A: Clone + Copy,
+    A: Clone + Copy + Debug,
 {
     phantom: PhantomData<A>,
     stack: Vec<M>,
@@ -26,7 +27,7 @@ where
 impl<'a, M, A> ModeStack<M, A>
 where
     M: Mode,
-    A: Clone + Copy,
+    A: Clone + Copy + Debug,
 {
     pub fn new() -> Self {
         Self {
@@ -53,18 +54,20 @@ where
         let mut action = None;
         let key: KeyInput = input.into();
         for mode in self.stack.iter().rev() {
-            match bindings.get_mut(mode).unwrap().dispatch(key.clone()) {
-                Some(a) => {
-                    action = Some(*a);
-                    break;
+            if let Some(key_binds) = bindings.get_mut(mode) {
+                match key_binds.dispatch(key.clone()) {
+                    Some(a) => {
+                        action = Some(*a);
+                        break;
+                    }
+                    None => {}
                 }
-                None => {}
             }
         }
 
         if action.is_some() {
             for mode in &self.stack {
-                bindings.get_mut(mode).unwrap().reset();
+                bindings.get_mut(mode).map(|b| b.reset());
             }
         }
 
@@ -170,6 +173,7 @@ impl FromStr for MouseInput {
     }
 }
 
+// TODO(Next): Confirm message, which places line
 #[derive(Debug, EnumString, Clone, Copy, PartialEq, Eq)]
 pub enum BindableMessage {
     PopMode,
@@ -189,6 +193,8 @@ pub enum AppMode {
     Base,
     Sketch,
     Point,
+    Line,
+    Circle,
 }
 
 impl Mode for AppMode {}

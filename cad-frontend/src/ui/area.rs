@@ -475,6 +475,23 @@ impl Area {
                                 data.screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane);
                         }
                     }
+                    if mode_stack.is_active(&AppMode::Line) {
+                        let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
+                        if let Some(sketch_info) = state
+                            .scene
+                            .sketches
+                            .iter_mut()
+                            .find(|s| s.id == state.sketch_mode_data.sketch_id)
+                            && let Some(sketch_coords) =
+                                data.screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane)
+                        {
+                            if let Some(last) = state.line_mode_data.points.last_mut() {
+                                *last = sketch_coords;
+                            } else {
+                                state.line_mode_data.points.push(sketch_coords);
+                            }
+                        }
+                    }
                 }
             },
             _ => {}
@@ -506,29 +523,35 @@ impl Area {
                 Action::Press => match button {
                     glfw::MouseButton::Button1 => {
                         if self.bbox.contains(self.mouse_pos) {
-                            if mode_stack.is_outermost(&AppMode::Point) {
-                                let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
-                                if let Some(sketch_info) = state
-                                    .scene
-                                    .sketches
-                                    .iter_mut()
-                                    .find(|s| s.id == state.sketch_mode_data.sketch_id)
+                            let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
+                            if let Some(sketch_info) = state
+                                .scene
+                                .sketches
+                                .iter_mut()
+                                .find(|s| s.id == state.sketch_mode_data.sketch_id)
+                            {
+                                if let Some(sketch_coords) = viewport_data
+                                    .screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane)
                                 {
-                                    if let Some(sketch_coords) = viewport_data
-                                        .screen_to_sketch_coords(
-                                            mouse_in_viewport,
-                                            &sketch_info.plane,
-                                        )
-                                    {
-                                        let id = sketch_info.sketch.fundamental_entities.insert(
-                                            cad::entity::FundamentalEntity::Point(
-                                                cad::entity::Point { pos: sketch_coords },
-                                            ),
-                                        );
-                                        sketch_info
-                                            .sketch
-                                            .guided_entities
-                                            .insert(GuidedEntity::Point { id });
+                                    use cad::entity::*;
+                                    match mode_stack.outermost().unwrap() {
+                                        AppMode::Point => {
+                                            let id = sketch_info
+                                                .sketch
+                                                .fundamental_entities
+                                                .insert(FundamentalEntity::Point(Point {
+                                                    pos: sketch_coords,
+                                                }));
+                                            sketch_info
+                                                .sketch
+                                                .guided_entities
+                                                .insert(GuidedEntity::Point { id });
+                                        }
+                                        AppMode::Line => {
+                                            state.line_mode_data.points.push(sketch_coords);
+                                        }
+                                        AppMode::Circle => todo!(),
+                                        _ => {}
                                     }
                                 }
                             } else {

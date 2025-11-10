@@ -48,10 +48,9 @@ pub struct PointModeData {
     pub pending: Option<glm::DVec2>,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct LineModeData {
-    pub p1: Option<Vector<f32>>,
-    pub p2: Option<Vector<f32>>,
+    pub points: Vec<glm::DVec2>,
 }
 
 #[derive(Debug)]
@@ -517,7 +516,7 @@ impl App {
                             Action::Repeat => {}
                         },
                         AppMode::Sketch => {}
-                        AppMode::Point => {}
+                        AppMode::Point | AppMode::Line | AppMode::Circle => {}
                     }
                     if self.dragging_boundary.is_none() {
                         let mut state = self.mutable_state.borrow_mut();

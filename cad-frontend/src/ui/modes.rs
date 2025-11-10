@@ -33,9 +33,18 @@ impl Modes {
         #[cfg_attr(any(), rustfmt::skip)]
         let outer = b.div("flex-col", [
             b.div("px-8 pb-8 pt-30 flex-row gap-8 items-stretch w-full h-auto", match *mode_stack.outermost().unwrap() {
-                AppMode::Sketch | AppMode::Point => vec![
+                AppMode::Sketch | AppMode::Point | AppMode::Line | AppMode::Circle => vec![
                     mode_button(&b, "Point", Arc::new(move |state| {
+                        state.app_state.mode_stack.pop_until(&AppMode::Sketch);
                         state.app_state.mode_stack.push(AppMode::Point);
+                    })),
+                    mode_button(&b, "Line", Arc::new(move |state| {
+                        state.app_state.mode_stack.pop_until(&AppMode::Sketch);
+                        state.app_state.mode_stack.push(AppMode::Line);
+                    })),
+                    mode_button(&b, "Circle", Arc::new(move |state| {
+                        state.app_state.mode_stack.pop_until(&AppMode::Sketch);
+                        state.app_state.mode_stack.push(AppMode::Circle);
                     })),
                     mode_button(&b, "Finish Sketch", Arc::new(move |state| {
                         state.app_state.mode_stack.pop_until(&AppMode::Base);

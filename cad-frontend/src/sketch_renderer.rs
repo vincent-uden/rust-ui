@@ -168,6 +168,29 @@ impl SketchRenderer {
                         .draw_3d(p_3d, PENDING_COLOR, 4.0, &projection, &model, &view);
                 }
             }
+            Some(AppMode::Line) => {
+                for w in app_state.line_mode_data.points.windows(2) {
+                    let start = w[0];
+                    let end = w[1];
+                    let start_3d = (start.x as f32) * x_axis + (start.y as f32) * y_axis;
+                    let end_3d = (end.x as f32) * x_axis + (end.y as f32) * y_axis;
+                    self.line_r.draw_3d(
+                        start_3d,
+                        end_3d,
+                        PENDING_COLOR,
+                        2.0,
+                        &projection,
+                        &model,
+                        &view,
+                    );
+                }
+
+                for p in &app_state.line_mode_data.points {
+                    let p_3d = (p.x as f32) * x_axis + (p.y as f32) * y_axis;
+                    self.point_r
+                        .draw_3d(p_3d, PENDING_COLOR, 4.0, &projection, &model, &view);
+                }
+            }
             _ => {}
         }
     }
