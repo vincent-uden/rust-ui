@@ -13,7 +13,7 @@ use rust_ui::{
 };
 
 use crate::{
-    app::AppMutableState,
+    app::{self, AppMutableState},
     entity_picker::EntityPicker,
     modes::{AppMode, BindableMessage, ModeStack},
     ui::viewport::ViewportData,
@@ -189,6 +189,34 @@ impl SketchRenderer {
                     let p_3d = (p.x as f32) * x_axis + (p.y as f32) * y_axis;
                     self.point_r
                         .draw_3d(p_3d, PENDING_COLOR, 4.0, &projection, &model, &view);
+                }
+            }
+            Some(AppMode::Circle) => {
+                if let Some(center) = app_state.circle_mode_data.center {
+                    let center_3d = (center.x as f32) * x_axis + (center.y as f32) * y_axis;
+                    if let Some(bdry) = app_state.circle_mode_data.boundary {
+                        let radius = (center - bdry).norm();
+                        self.circle_r.draw_3d_oriented(
+                            center_3d,
+                            radius as f32,
+                            PENDING_COLOR,
+                            2.0,
+                            &projection,
+                            &model,
+                            &view,
+                            x_axis,
+                            y_axis,
+                        );
+                    } else {
+                        self.point_r.draw_3d(
+                            center_3d,
+                            PENDING_COLOR,
+                            4.0,
+                            &projection,
+                            &model,
+                            &view,
+                        );
+                    }
                 }
             }
             _ => {}

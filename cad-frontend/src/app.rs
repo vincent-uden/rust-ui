@@ -53,12 +53,19 @@ pub struct LineModeData {
     pub points: Vec<glm::DVec2>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct CircleModeData {
+    pub center: Option<glm::DVec2>,
+    pub boundary: Option<glm::DVec2>,
+}
+
 #[derive(Debug)]
 pub(crate) struct AppMutableState {
     pub scene: Scene,
     pub sketch_mode_data: SketchModeData,
     pub point_mode_data: PointModeData,
     pub line_mode_data: LineModeData,
+    pub circle_mode_data: CircleModeData,
 }
 
 const BDRY_TOLERANCE: f32 = 5.0;
@@ -693,6 +700,7 @@ impl Default for App {
                 sketch_mode_data: SketchModeData::default(),
                 point_mode_data: PointModeData::default(),
                 line_mode_data: LineModeData::default(),
+                circle_mode_data: CircleModeData::default(),
             }),
             config: Config::default(),
             mode_stack: ModeStack::with_base(AppMode::Base),

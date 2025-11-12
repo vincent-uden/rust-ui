@@ -2,7 +2,7 @@ use nalgebra::Vector2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::entity::{BiConstraint, EntityId, FundamentalEntity, GuidedEntity, Line, Point};
+use crate::entity::{BiConstraint, Circle, EntityId, FundamentalEntity, GuidedEntity, Line, Point};
 use crate::registry::Registry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -107,6 +107,17 @@ impl Sketch {
             });
             start_id = end_id;
         }
+    }
+
+    pub fn insert_circle(&mut self, center: Vector2<f64>, radius: f64) {
+        let circle_id = self
+            .fundamental_entities
+            .insert(FundamentalEntity::Circle(Circle {
+                pos: center,
+                radius,
+            }));
+        self.guided_entities
+            .insert(GuidedEntity::Circle { id: circle_id });
     }
 
     #[allow(unused)]

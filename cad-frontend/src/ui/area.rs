@@ -492,6 +492,23 @@ impl Area {
                             }
                         }
                     }
+                    if mode_stack.is_active(&AppMode::Circle) {
+                        let mouse_in_viewport = self.mouse_pos - self.bbox.x0;
+                        if let Some(sketch_info) = state
+                            .scene
+                            .sketches
+                            .iter_mut()
+                            .find(|s| s.id == state.sketch_mode_data.sketch_id)
+                        {
+                            if state.circle_mode_data.boundary.is_none() {
+                                state.circle_mode_data.center = data
+                                    .screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane);
+                            } else {
+                                state.circle_mode_data.boundary = data
+                                    .screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane);
+                            }
+                        }
+                    }
                 }
             },
             _ => {}
@@ -540,7 +557,21 @@ impl Area {
                                         AppMode::Line => {
                                             state.line_mode_data.points.push(sketch_coords);
                                         }
-                                        AppMode::Circle => todo!(),
+                                        AppMode::Circle => {
+                                            if state.circle_mode_data.boundary.is_none() {
+                                                state.circle_mode_data.boundary =
+                                                    Some(sketch_coords);
+                                            } else {
+                                                sketch_info.sketch.insert_circle(
+                                                    state.circle_mode_data.center.unwrap(),
+                                                    (state.circle_mode_data.center.unwrap()
+                                                        - state.circle_mode_data.boundary.unwrap())
+                                                    .norm(),
+                                                );
+                                                state.circle_mode_data.center = None;
+                                                state.circle_mode_data.boundary = None;
+                                            }
+                                        }
                                         _ => {}
                                     }
                                 }
