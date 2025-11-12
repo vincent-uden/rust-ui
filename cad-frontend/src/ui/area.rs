@@ -533,19 +533,9 @@ impl Area {
                                 if let Some(sketch_coords) = viewport_data
                                     .screen_to_sketch_coords(mouse_in_viewport, &sketch_info.plane)
                                 {
-                                    use cad::entity::*;
                                     match mode_stack.outermost().unwrap() {
                                         AppMode::Point => {
-                                            let id = sketch_info
-                                                .sketch
-                                                .fundamental_entities
-                                                .insert(FundamentalEntity::Point(Point {
-                                                    pos: sketch_coords,
-                                                }));
-                                            sketch_info
-                                                .sketch
-                                                .guided_entities
-                                                .insert(GuidedEntity::Point { id });
+                                            sketch_info.sketch.insert_point(sketch_coords);
                                         }
                                         AppMode::Line => {
                                             state.line_mode_data.points.push(sketch_coords);

@@ -186,6 +186,7 @@ pub enum BindableMessage {
     SplitAreaVertically,
     CollapseBoundary,
     ActivatePointMode,
+    Confirm,
 }
 
 #[derive(Debug, EnumString, Clone, Copy, PartialEq, Eq, Hash, strum::Display)]
@@ -478,10 +479,16 @@ impl Default for Config {
             BindableMessage::ActivatePointMode,
         )];
         let sketch_bindings = Keybinds::new(sketch_keybinds);
+        let line_keybinds = vec![Keybind::new(
+            KeyInput::from_str("Enter").unwrap(),
+            BindableMessage::Confirm,
+        )];
+        let line_bindings = Keybinds::new(line_keybinds);
 
         let mut bindings = HashMap::new();
         bindings.insert(AppMode::Base, base_bindings);
         bindings.insert(AppMode::Sketch, sketch_bindings);
+        bindings.insert(AppMode::Line, line_bindings);
 
         let mut mouse = HashMap::new();
         mouse.insert(

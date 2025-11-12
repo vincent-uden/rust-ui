@@ -17,7 +17,7 @@ use rust_ui::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     input::{self, glfw_key_to_key_input},
@@ -778,7 +778,29 @@ impl AppState for App {
                                 self.collapse_boundary(self.mouse_pos);
                                 state = self.mutable_state.borrow_mut();
                             }
-                            BindableMessage::ActivatePointMode => todo!(),
+                            BindableMessage::ActivatePointMode => {
+                                self.mode_stack.push(AppMode::Point);
+                            }
+                            BindableMessage::Confirm => {
+                                debug!("Confirm!");
+                                match self.mode_stack.outermost().unwrap() {
+                                    AppMode::Line => {
+                                        let sid = state.sketch_mode_data.sketch_id;
+                                        let points =
+                                            std::mem::take(&mut state.line_mode_data.points);
+                                        let sketch = state
+                                            .scene
+                                            .sketches
+                                            .iter_mut()
+                                            .find(|s| s.id == sid)
+                                            .unwrap();
+                                        sketch.sketch.insert_capped_lines(&points);
+                                        self.mode_stack.pop_until(&AppMode::Sketch);
+                                    }
+                                    AppMode::Circle => todo!(),
+                                    _ => {}
+                                }
+                            }
                         }
                     }
                 }

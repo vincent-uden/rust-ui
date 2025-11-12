@@ -2,7 +2,7 @@ use nalgebra::Vector2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::entity::{BiConstraint, EntityId, FundamentalEntity, GuidedEntity, Point};
+use crate::entity::{BiConstraint, EntityId, FundamentalEntity, GuidedEntity, Line, Point};
 use crate::registry::Registry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -72,6 +72,40 @@ impl Sketch {
         } else {
             self.fundamental_entities
                 .insert(FundamentalEntity::Point(Point { pos: *query_pos }))
+        }
+    }
+
+    pub fn insert_point(&mut self, pos: Vector2<f64>) -> EntityId {
+        let id = self
+            .fundamental_entities
+            .insert(FundamentalEntity::Point(Point { pos }));
+        self.guided_entities.insert(GuidedEntity::Point { id })
+    }
+
+    /// Inserts `n - 1` lines were `n` is the length of `points`. Each line but the first shares its
+    /// starting point with the end point of the preceeding line.
+    pub fn insert_capped_lines(&mut self, points: &[Vector2<f64>]) {
+        let mut start_id = self
+            .fundamental_entities
+            .insert(FundamentalEntity::Point(Point { pos: points[0] }));
+        for w in points.windows(2) {
+            let start = w[0];
+            let end = w[1];
+            let end_id = self
+                .fundamental_entities
+                .insert(FundamentalEntity::Point(Point { pos: end }));
+            let line_id = self
+                .fundamental_entities
+                .insert(FundamentalEntity::Line(Line {
+                    offset: start,
+                    direction: (end - start),
+                }));
+            self.guided_entities.insert(GuidedEntity::CappedLine {
+                start: start_id,
+                end: end_id,
+                line: line_id,
+            });
+            start_id = end_id;
         }
     }
 
