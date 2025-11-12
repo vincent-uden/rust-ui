@@ -1,8 +1,4 @@
-use std::{
-    cell::RefCell,
-    path::PathBuf,
-    str::FromStr as _,
-};
+use std::{cell::RefCell, path::PathBuf, str::FromStr as _};
 
 use glfw::Context as _;
 use rust_ui::{
@@ -44,6 +40,8 @@ struct TextRendering {
 }
 
 impl AppState for TextRendering {
+    type SpriteKey = String;
+
     fn generate_layout(
         &mut self,
         window_size: rust_ui::geometry::Vector<f32>,

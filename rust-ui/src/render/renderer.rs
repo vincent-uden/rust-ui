@@ -49,7 +49,7 @@ where
     // Border
     pub border: Border,
     pub text: Text,
-    pub sprite_key: String,
+    pub sprite_key: T::SpriteKey,
     pub offset: Vector<f32>,
     // Event listeners
     pub on_scroll: Option<EventListener<T>>,
@@ -145,7 +145,7 @@ where
     pub rect_r: RectRenderer,
     pub text_r: TextRenderer,
     pub line_r: LineRenderer,
-    pub sprite_r: SpriteRenderer<String>,
+    pub sprite_r: SpriteRenderer<T::SpriteKey>,
     /// Event listeners which have been triggered and are waiting to be called
     pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
@@ -175,7 +175,7 @@ where
         rect_renderer: RectRenderer,
         text_renderer: TextRenderer,
         line_renderer: LineRenderer,
-        sprite_renderer: SpriteRenderer<String>,
+        sprite_renderer: SpriteRenderer<T::SpriteKey>,
         initial_state: T,
     ) -> Self {
         Self {
@@ -815,6 +815,8 @@ where
 }
 
 pub trait AppState: Default {
+    type SpriteKey: crate::render::sprite::SpriteKey;
+
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
     fn handle_key(
         &mut self,

@@ -133,8 +133,5 @@ pub fn glfw_scroll_to_mouse_input(x: f64, y: f64, modifiers: Modifiers) -> Optio
         shift: modifiers.contains(Modifiers::Shift),
     };
 
-    Some(MouseInput {
-        button,
-        modifiers,
-    })
+    Some(MouseInput { button, modifiers })
 }

@@ -1,6 +1,23 @@
 {
   "area_map": {
     "map": {
+      "5": {
+        "id": 5,
+        "area_type": "Viewport",
+        "bbox": {
+          "x0": {
+            "x": 161.60156,
+            "y": 167.0
+          },
+          "x1": {
+            "x": 1000.0,
+            "y": 837.0
+          }
+        },
+        "hovered": null,
+        "expanded": null,
+        "expand_hovered": null
+      },
       "0": {
         "id": 0,
         "area_type": "SceneExplorer",
@@ -12,6 +29,23 @@
           "x1": {
             "x": 161.60156,
             "y": 837.0
+          }
+        },
+        "hovered": null,
+        "expanded": null,
+        "expand_hovered": null
+      },
+      "4": {
+        "id": 4,
+        "area_type": "Modes",
+        "bbox": {
+          "x0": {
+            "x": 161.60156,
+            "y": 86.39844
+          },
+          "x1": {
+            "x": 1000.0,
+            "y": 167.0
           }
         },
         "hovered": null,
@@ -34,26 +68,9 @@
         "hovered": null,
         "expanded": null,
         "expand_hovered": null
-      },
-      "4": {
-        "id": 4,
-        "area_type": "Viewport",
-        "bbox": {
-          "x0": {
-            "x": 161.60156,
-            "y": 86.39844
-          },
-          "x1": {
-            "x": 1000.0,
-            "y": 837.0
-          }
-        },
-        "hovered": null,
-        "expanded": null,
-        "expand_hovered": null
       }
     },
-    "next_id": 5
+    "next_id": 6
   },
   "bdry_map": {
     "map": {
@@ -69,7 +86,8 @@
         ],
         "side2": [
           3,
-          4
+          4,
+          5
         ]
       },
       "3": {
@@ -85,8 +103,22 @@
         "side2": [
           4
         ]
+      },
+      "4": {
+        "id": 4,
+        "orientation": "Horizontal",
+        "active": false,
+        "thickness": 3,
+        "hovered_thickness": 6,
+        "hovered": false,
+        "side1": [
+          4
+        ],
+        "side2": [
+          5
+        ]
       }
     },
-    "next_id": 4
+    "next_id": 5
   }
 }

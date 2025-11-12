@@ -261,6 +261,8 @@ impl PerfStats {
 }
 
 impl AppState for PerfStats {
+    type SpriteKey = String;
+
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
         if self.visible {
             let mut top_left = self.stats_overlay(window_size);

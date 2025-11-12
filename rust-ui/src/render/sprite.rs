@@ -27,7 +27,10 @@ pub struct SpriteInstance {
     atlas_size: [f32; 2],
 }
 
-pub trait SpriteKey: Hash + Clone + FromStr + PartialEq + Eq + Debug {}
+pub trait SpriteKey:
+    Hash + Clone + FromStr + PartialEq + Eq + Debug + Default + for<'a> From<&'a str>
+{
+}
 
 #[derive(Debug)]
 pub struct SpriteAtlas<K>

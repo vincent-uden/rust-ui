@@ -5,9 +5,9 @@
 - [ ] Editing sketches
   - [x] Fix Text rendering grainy renders
   - [x] Make sure Point mode is enabled
-  - [ ] Line mode
-  - [ ] Circle mode
-  - [/] Show pending shapes
+  - [x] Line mode
+  - [x] Circle mode
+  - [x] Show pending shapes
 
 ## Towards editing sketches
 - [x] Sprite renderer
@@ -21,9 +21,9 @@
     - [x] Circle renderer
 - [ ] Tools?
     - [ ] Select
-    - [ ] Line
+    - [x] Line
     - [x] Point
-    - [ ] Circle
+    - [x] Circle
     - [ ] Constrain
 - [ ] Constraint rendering
     - [ ] Non-parametrized constraints

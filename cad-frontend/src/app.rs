@@ -709,6 +709,8 @@ impl Default for App {
 }
 
 impl AppState for App {
+    type SpriteKey = String;
+
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
         let mut out = vec![];
         out.extend(self.base_layer(window_size));
