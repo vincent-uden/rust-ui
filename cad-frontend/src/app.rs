@@ -486,6 +486,7 @@ impl App {
                 }
             }
             state.sketch_mode_data.sketch_id = sketch.id;
+            self.mode_stack.pop_until(&AppMode::Base);
             self.mode_stack.push(AppMode::Sketch);
         }
     }
@@ -542,6 +543,14 @@ impl App {
                     }
                 }
                 _ => {}
+            }
+        }
+    }
+
+    pub fn toggle_visibility(&self, sketch_id: u16) {
+        for s in self.mutable_state.borrow_mut().scene.sketches.iter_mut() {
+            if s.id == sketch_id {
+                s.visible = !s.visible;
             }
         }
     }

@@ -4,7 +4,7 @@ use rust_ui::{
     geometry::Vector,
     render::{
         COLOR_LIGHT, NORD3, NORD7, Text,
-        renderer::{NodeContext, flags},
+        renderer::{Listeners, NodeContext, Renderer, UiBuilder, flags},
     },
 };
 use taffy::{
@@ -27,149 +27,54 @@ impl SceneExplorer {
         state: &AppMutableState,
         mode_stack: &ModeStack<AppMode, BindableMessage>,
     ) {
-        let header = tree
-            .borrow_mut()
-            .new_leaf_with_context(
-                Style {
-                    margin: Rect {
-                        left: length(0.0),
-                        right: length(0.0),
-                        top: length(0.0),
-                        bottom: length(12.0),
-                    },
-                    ..Default::default()
-                },
-                NodeContext {
-                    flags: flags::TEXT,
-                    text: Text {
-                        text: state
-                            .scene
-                            .path
-                            .as_ref()
-                            .and_then(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
-                            .unwrap_or_else(|| "Untitled".into()),
-                        font_size: 18,
-                        color: COLOR_LIGHT,
-                    },
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-        let container = tree
-            .borrow_mut()
-            .new_with_children(
-                Style {
-                    padding: Rect {
-                        left: length(8.0),
-                        right: length(8.0),
-                        top: length(30.0),
-                        bottom: length(8.0),
-                    },
-                    flex_direction: taffy::FlexDirection::Column,
-                    gap: length(4.0),
-                    align_items: Some(AlignItems::Stretch),
-                    size: Size {
-                        width: Dimension::percent(1.0),
-                        height: auto(),
-                    },
-                    ..Default::default()
-                },
-                &[header],
-            )
-            .unwrap();
+        let b = UiBuilder::new(tree);
+        #[cfg_attr(any(), rustfmt::skip)]
+        let header = b.text("mb-12", Text {
+            text: state
+                .scene
+                .path
+                .as_ref()
+                .and_then(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
+                .unwrap_or_else(|| "Untitled".into()),
+            font_size: 18,
+            color: COLOR_LIGHT,
+        });
+        let mut sketch_rows = vec![header];
+        #[cfg_attr(any(), rustfmt::skip)]
         for (i, sketch) in state.scene.sketches.iter().enumerate() {
-            let row = tree
-                .borrow_mut()
-                .new_leaf(Style {
-                    flex_direction: FlexDirection::Row,
-                    gap: length(4.0),
-                    align_items: Some(AlignItems::Center),
-                    ..Default::default()
-                })
-                .unwrap();
             let mut s_color = if sketch.visible { COLOR_LIGHT } else { NORD3 };
             if mode_stack.is_active(&AppMode::Sketch) {
                 if state.sketch_mode_data.sketch_id == sketch.id {
                     s_color = NORD7;
                 }
             }
-            let s = tree
-                .borrow_mut()
-                .new_leaf_with_context(
-                    Style {
-                        flex_grow: 1.0,
-                        ..Default::default()
-                    },
-                    NodeContext {
-                        flags: flags::TEXT,
-                        text: Text {
-                            text: sketch.name.clone(),
-                            font_size: 14,
-                            color: s_color,
-                        },
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
-            let visibility = tree
-                .borrow_mut()
-                .new_leaf_with_context(
-                    Style {
-                        size: Size::length(24.0),
-                        ..Default::default()
-                    },
-                    NodeContext {
-                        flags: flags::SPRITE,
-                        sprite_key: if sketch.visible {
-                            "Visible"
-                        } else {
-                            "Invisible"
-                        }
-                        .into(),
-                        offset: Vector::new(0.0, 2.0),
-                        on_left_mouse_up: Some(Arc::new(move |state| {
-                            for (j, s) in state
-                                .app_state
-                                .mutable_state
-                                .borrow_mut()
-                                .scene
-                                .sketches
-                                .iter_mut()
-                                .enumerate()
-                            {
-                                if j == i {
-                                    s.visible = !s.visible;
-                                }
-                            }
-                        })),
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
-            let id = sketch.id;
-            let edit = tree
-                .borrow_mut()
-                .new_leaf_with_context(
-                    Style {
-                        size: Size::length(24.0),
-                        ..Default::default()
-                    },
-                    NodeContext {
-                        flags: flags::SPRITE,
-                        sprite_key: "EditSketch".into(),
-                        offset: Vector::new(0.0, 3.0),
-                        on_left_mouse_up: Some(Arc::new(move |state| {
-                            state.app_state.edit_sketch(id);
-                        })),
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
-            tree.borrow_mut().add_child(row, s).unwrap();
-            tree.borrow_mut().add_child(row, visibility).unwrap();
-            tree.borrow_mut().add_child(row, edit).unwrap();
-            tree.borrow_mut().add_child(container, row).unwrap();
+            let sketch_id = sketch.id;
+            let id = b.div("flex-row gap-4 items-center", &[
+                b.text("grow", Text {
+                    text: sketch.name.clone(),
+                    font_size: 14,
+                    color: s_color,
+                }),
+                b.sprite("w-24 h-24 translate-y-2", if sketch.visible { "Visible" } else { "Invisible" }, Listeners {
+                    on_left_mouse_up: Some(Arc::new(move |state| {
+                        state.app_state.toggle_visibility(sketch_id);
+                    })),
+                    ..Default::default()
+                }),
+                b.sprite("w-24 h-24 translate-y-3", "EditSketch", Listeners {
+                    on_left_mouse_up: Some(Arc::new(move |state| {
+                        state.app_state.edit_sketch(sketch_id);
+                    })),
+                    ..Default::default()
+                })
+            ]);
+            sketch_rows.push(id);
         }
+        let container = b.div(
+            "px-8 pt-30 pb-8 flex-col items-stretch w-full",
+            &sketch_rows,
+        );
+
         tree.borrow_mut().add_child(parent, container).unwrap();
     }
 }
