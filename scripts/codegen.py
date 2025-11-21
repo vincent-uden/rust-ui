@@ -1,3 +1,5 @@
+import glob
+import os
 from abc import ABC, abstractmethod
 
 
@@ -39,3 +41,34 @@ class RustSimpleEnum(RustItem):
         output += "}"
 
         return output
+
+
+def main():
+    icon_dir = "../assets/icons"
+    destination = "../cad-frontend/src/ui/icons.rs"
+    png_files = glob.glob(os.path.join(icon_dir, "*.png"))
+    if not png_files:
+        raise FileNotFoundError()
+
+    names = [os.path.basename(x)[:-4] for x in png_files]
+    print(names)
+
+    icon_enum = RustSimpleEnum(
+        "SpriteIcon",
+        names,
+        [
+            "Hash",
+            "Clone",
+            "FromStr",
+            "PartialEq",
+            "Eq",
+            "Debug",
+            "Default",
+        ],
+    )
+
+    print(icon_enum.to_string())
+
+
+if __name__ == "__main__":
+    main()
