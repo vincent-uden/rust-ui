@@ -28,3 +28,18 @@
 - [ ] Constraint rendering
     - [ ] Non-parametrized constraints
     - [ ] Dimensions
+- [ ] Wires (series of lines (shapes???))
+    - [ ] Split line into line-point-line
+    - [ ] Split circle into arc-point-arc
+- [ ] Loops (closed wire)
+    - [ ] Is the mouse INSIDE or OUTSIDE a given loop?
+
+## Towards extrude
+- [ ] Extrude polygon
+    - [ ] Extrude mode (in base)
+    - [ ] Determine which wire 
+    - [ ] Mesh shader
+- [ ] Extrude circle
+- [ ] 3D Boolean join
+    - [ ] Intersection of 3D bodies
+- [ ] 3D Boolean cut
