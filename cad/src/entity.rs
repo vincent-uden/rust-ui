@@ -309,8 +309,12 @@ impl BiConstraint {
     ) {
         match e1 {
             FundamentalEntity::Point { pos } => Self::apply_grad_error_p(pos, e2, *c, step_size),
-            FundamentalEntity::Line { offset, direction } => Self::apply_grad_error_l(offset, direction, e2, *c, step_size),
-            FundamentalEntity::Circle { pos, radius } => Self::apply_grad_error_c(pos, radius, e2, *c, step_size),
+            FundamentalEntity::Line { offset, direction } => {
+                Self::apply_grad_error_l(offset, direction, e2, *c, step_size)
+            }
+            FundamentalEntity::Circle { pos, radius } => {
+                Self::apply_grad_error_c(pos, radius, e2, *c, step_size)
+            }
         }
     }
 
@@ -360,7 +364,13 @@ impl BiConstraint {
         *p1_pos -= step * step_size;
     }
 
-    fn apply_grad_error_l(l_offset: &mut Vector2<f64>, l_direction: &mut Vector2<f64>, e: &FundamentalEntity, c: ConstraintType, step_size: f64) {
+    fn apply_grad_error_l(
+        l_offset: &mut Vector2<f64>,
+        l_direction: &mut Vector2<f64>,
+        e: &FundamentalEntity,
+        c: ConstraintType,
+        step_size: f64,
+    ) {
         let h = 1e-4;
         let o_x_errors = [
             Self::error(
@@ -587,7 +597,10 @@ impl GuidedEntity {
                     Some(FundamentalEntity::Point { pos: start_pos }),
                     Some(FundamentalEntity::Point { pos: middle_pos }),
                     Some(FundamentalEntity::Point { pos: end_pos }),
-                    Some(FundamentalEntity::Circle { pos: circle_pos, radius: circle_radius }),
+                    Some(FundamentalEntity::Circle {
+                        pos: circle_pos,
+                        radius: circle_radius,
+                    }),
                 ) = (
                     entity_reg.get(start),
                     entity_reg.get(middle),
@@ -597,7 +610,10 @@ impl GuidedEntity {
                     let start_point = Point { pos: *start_pos };
                     let middle_point = Point { pos: *middle_pos };
                     let end_point = Point { pos: *end_pos };
-                    let circle_entity = Circle { pos: *circle_pos, radius: *circle_radius };
+                    let circle_entity = Circle {
+                        pos: *circle_pos,
+                        radius: *circle_radius,
+                    };
                     let tolerance = 5.0 * PI / 180.0;
                     let start_angle = vector_angle(start_point.pos - circle_entity.pos);
                     let mut end_angle = vector_angle(end_point.pos - circle_entity.pos);
@@ -657,17 +673,17 @@ mod tests {
 
     #[test]
     fn contraint_possibility_matrix() {
-        let point = FundamentalEntity::Point(Point {
+        let point = FundamentalEntity::Point {
             pos: Vector2::<f64>::zeros(),
-        });
-        let circle = FundamentalEntity::Circle(Circle {
+        };
+        let circle = FundamentalEntity::Circle {
             pos: Vector2::<f64>::zeros(),
             radius: 0.0,
-        });
-        let line = FundamentalEntity::Line(Line {
+        };
+        let line = FundamentalEntity::Line {
             offset: Vector2::<f64>::zeros(),
             direction: Vector2::<f64>::zeros(),
-        });
+        };
 
         assert!(BiConstraint::possible(
             &point,

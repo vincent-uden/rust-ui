@@ -92,19 +92,17 @@ impl Sketch {
     pub fn insert_capped_lines(&mut self, points: &[Vector2<f64>]) {
         let mut start_id = self
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point { pos: points[0] }));
+            .insert(FundamentalEntity::Point { pos: points[0] });
         for w in points.windows(2) {
             let start = w[0];
             let end = w[1];
             let end_id = self
                 .fundamental_entities
-                .insert(FundamentalEntity::Point(Point { pos: end }));
-            let line_id = self
-                .fundamental_entities
-                .insert(FundamentalEntity::Line(Line {
-                    offset: start,
-                    direction: (end - start),
-                }));
+                .insert(FundamentalEntity::Point { pos: end });
+            let line_id = self.fundamental_entities.insert(FundamentalEntity::Line {
+                offset: start,
+                direction: (end - start),
+            });
             self.guided_entities.insert(GuidedEntity::CappedLine {
                 start: start_id,
                 end: end_id,
@@ -115,12 +113,10 @@ impl Sketch {
     }
 
     pub fn insert_circle(&mut self, center: Vector2<f64>, radius: f64) {
-        let circle_id = self
-            .fundamental_entities
-            .insert(FundamentalEntity::Circle(Circle {
-                pos: center,
-                radius,
-            }));
+        let circle_id = self.fundamental_entities.insert(FundamentalEntity::Circle {
+            pos: center,
+            radius,
+        });
         self.guided_entities
             .insert(GuidedEntity::Circle { id: circle_id });
     }
@@ -141,7 +137,28 @@ impl Sketch {
         ray: Vector2<f64>,
         line: &CappedLine,
     ) -> bool {
-        todo!()
+        let start_pos = match self.fundamental_entities.get(&line.start) {
+            Some(FundamentalEntity::Point { pos }) => *pos,
+            _ => return false,
+        };
+        let end_pos = match self.fundamental_entities.get(&line.end) {
+            Some(FundamentalEntity::Point { pos }) => *pos,
+            _ => return false,
+        };
+
+        let dx = end_pos.x - start_pos.x;
+        let dy = end_pos.y - start_pos.y;
+        let denom = dx * ray.y - dy * ray.x;
+
+        if denom.abs() < 1e-12 {
+            // Parallel or coincident, no intersection
+            return false;
+        }
+
+        let t = ((start_pos.x - point.x) * ray.y - (start_pos.y - point.y) * ray.x) / denom;
+        let s = ((start_pos.x - point.x) * dy - (start_pos.y - point.y) * dx) / denom;
+
+        t >= 0.0 && (0.0..=1.0).contains(&s)
     }
 
     /// Determines if `point` is inside `l` (assuming `l` is a properly constructed
@@ -177,13 +194,10 @@ impl Sketch {
                             end,
                             circle,
                         };
-                        let start_point: Point = self
-                            .fundamental_entities
-                            .get(&start)
-                            .unwrap()
+                        let circle: Circle = (*self.fundamental_entities.get(&circle).unwrap())
                             .try_into()
                             .unwrap();
-                        if self.is_outside_arc(point, &arc) {
+                        if (point - circle.pos).norm_squared() > circle.radius.powi(2) {
                             if self.intersects_capped_line(
                                 point,
                                 test_ray,
@@ -196,12 +210,28 @@ impl Sketch {
                                 intersections += 1;
                             }
                         } else {
-                            if todo!("test-point is inside horizontal belt of chord") {
-                                if todo!("visible part of arc is right of chord") {
+                            let start: Point = (*self.fundamental_entities.get(&start).unwrap())
+                                .try_into()
+                                .unwrap();
+                            let middle: Point = (*self.fundamental_entities.get(&middle).unwrap())
+                                .try_into()
+                                .unwrap();
+                            let end: Point = (*self.fundamental_entities.get(&end).unwrap())
+                                .try_into()
+                                .unwrap();
+                            // Cross product < 0 means middle point is to the right of chord vector,
+                            // indicating the arc bulges to the right
+                            let chord_dir = end.pos - start.pos;
+                            let mid_vec = middle.pos - start.pos;
+                            let cross = chord_dir.x * mid_vec.y - chord_dir.y * mid_vec.x;
+                            let ymax = start.pos.y.max(end.pos.y);
+                            let ymin = start.pos.y.min(end.pos.y);
+                            if point.y > ymin && point.y < ymax {
+                                if cross < 0.0 {
                                     intersections += 1
                                 }
                             } else {
-                                if todo!("visible part of arc is left of chord") {
+                                if cross >= 0.0 {
                                     intersections += 1
                                 }
                             }
@@ -244,14 +274,14 @@ mod tests {
         let mut sketch = Sketch::new("Basic Error Setup".to_string());
         let e1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.0, 0.0),
-            }));
+            });
         let e2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(1.0, 1.0),
-            }));
+            });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -266,14 +296,14 @@ mod tests {
         let mut sketch = Sketch::new("Basic Grad Error Setup".to_string());
         let e1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.0, 0.0),
-            }));
+            });
         let e2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(1.0, 1.0),
-            }));
+            });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -297,19 +327,19 @@ mod tests {
         let mut sketch = Sketch::new("Pythagorean Triplet".to_string());
         let e1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.0, 0.0),
-            }));
+            });
         let e2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(1.0, 0.1),
-            }));
+            });
         let e3 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.1, 1.0),
-            }));
+            });
 
         sketch.bi_constraints.push(BiConstraint {
             e1,
@@ -336,12 +366,18 @@ mod tests {
             sketch.sgd_step();
         }
 
-        if let FundamentalEntity::Point(top_corner) = &sketch.fundamental_entities[e3]
-            && let FundamentalEntity::Point(right_corner) = &sketch.fundamental_entities[e2]
-        {
-            let diff = (top_corner.pos - right_corner.pos).norm();
-            assert!((diff - 5.0) < 1e-6);
-        }
+        let top_corner = if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e3] {
+            Point { pos: *pos }
+        } else {
+            panic!("Expected Point");
+        };
+        let right_corner = if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e2] {
+            Point { pos: *pos }
+        } else {
+            panic!("Expected Point");
+        };
+        let diff = (top_corner.pos - right_corner.pos).norm();
+        assert!((diff - 5.0) < 1e-6);
 
         assert!(
             sketch.error() < 1e-6,
@@ -354,15 +390,15 @@ mod tests {
         let mut sketch = Sketch::new("Point Line Coincident".to_string());
         let e1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(3.0, 1.0),
-            }));
+            });
         let e2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Line(Line {
+            .insert(FundamentalEntity::Line {
                 offset: Vector2::new(1.0, 1.2),
                 direction: Vector2::new(-1.0, -1.0),
-            }));
+            });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -387,17 +423,17 @@ mod tests {
         let mut sketch = Sketch::new("Circle Line Tangent".to_string());
         let e1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Circle(Circle {
+            .insert(FundamentalEntity::Circle {
                 pos: Vector2::new(0.0, -1.0),
                 radius: 1.0,
-            }));
+            });
         sketch.dump("Circle Line Tangent Intial");
         let e2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Line(Line {
+            .insert(FundamentalEntity::Line {
                 offset: Vector2::new(1.0, 1.0),
                 direction: Vector2::new(1.0, -1.0),
-            }));
+            });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -416,20 +452,22 @@ mod tests {
         );
 
         match sketch.fundamental_entities[e1] {
-            FundamentalEntity::Point(_) => panic!("e1 should be a circle"),
-            FundamentalEntity::Line(_) => panic!("e1 should be a circle"),
-            FundamentalEntity::Circle(c) => {
+            FundamentalEntity::Point { .. } => panic!("e1 should be a circle"),
+            FundamentalEntity::Line { .. } => panic!("e1 should be a circle"),
+            FundamentalEntity::Circle { pos, radius } => {
+                let c = Circle { pos, radius };
                 println!("{:?}", c);
                 assert!(c.radius > 1e-2, "The radius should be larger than 1e-2")
             }
         }
 
         match sketch.fundamental_entities[e2] {
-            FundamentalEntity::Point(_) => panic!("e2 should be a line"),
-            FundamentalEntity::Line(l) => {
+            FundamentalEntity::Point { .. } => panic!("e2 should be a line"),
+            FundamentalEntity::Line { offset, direction } => {
+                let l = Line { offset, direction };
                 println!("{:?}", l);
             }
-            FundamentalEntity::Circle(_) => panic!("e2 should be a line"),
+            FundamentalEntity::Circle { .. } => panic!("e2 should be a line"),
         }
     }
 
@@ -439,31 +477,31 @@ mod tests {
         let mut sketch = Sketch::new("Rotating Line Sketch".to_string());
         let origin = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.0, 0.0),
-            }));
+            });
         let x = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(1.0, 0.0),
-            }));
+            });
         let y = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point {
+            .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.0, -1.0),
-            }));
+            });
         let l1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Line(Line {
+            .insert(FundamentalEntity::Line {
                 offset: Vector2::new(0.0, 0.0),
                 direction: Vector2::new(1.0, 0.2),
-            }));
+            });
         let l2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Line(Line {
+            .insert(FundamentalEntity::Line {
                 offset: Vector2::new(1.0, 1.0),
                 direction: Vector2::new(0.2, 1.0),
-            }));
+            });
         sketch.bi_constraints.push(BiConstraint {
             e1: origin,
             e2: x,
@@ -523,22 +561,22 @@ mod tests {
         let mut sketch = Sketch::new("Circle Tangent With Two Lines Sketch".to_string());
         let c = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Circle(Circle {
+            .insert(FundamentalEntity::Circle {
                 pos: Vector2::new(-0.01453125, -0.3746484375),
                 radius: 1.1365623545023815,
-            }));
+            });
         let l1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Line(Line {
+            .insert(FundamentalEntity::Line {
                 offset: Vector2::new(1.56115234375, 0.7165625),
                 direction: Vector2::new(-2.3505859375, 0.7005468749999999),
-            }));
+            });
         let l2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Line(Line {
+            .insert(FundamentalEntity::Line {
                 offset: Vector2::new(-1.03939453125, -2.0318359375),
                 direction: Vector2::new(2.04685546875, 0.4622460937499999),
-            }));
+            });
 
         sketch.bi_constraints.push(BiConstraint {
             e1: c,
