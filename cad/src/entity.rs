@@ -1,5 +1,6 @@
 use std::f64::consts::PI;
 
+use enum_variant_type::EnumVariantType;
 use nalgebra::{Rotation2, Vector2};
 use serde::{Deserialize, Serialize};
 
@@ -522,24 +523,23 @@ impl BiConstraint {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, EnumVariantType)]
 pub enum GuidedEntity {
-    Point {
-        id: EntityId,
-    },
+    #[evt(skip)]
+    Point { id: EntityId },
     /// An infinte line such as the Cartesian axes
-    Line {
-        id: EntityId,
-    },
-    Circle {
-        id: EntityId,
-    },
+    #[evt(skip)]
+    Line { id: EntityId },
+    #[evt(skip)]
+    Circle { id: EntityId },
     /// A finite line between two points
+    #[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]
     CappedLine {
         start: EntityId,
         end: EntityId,
         line: EntityId,
     },
+    #[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]
     ArcThreePoint {
         start: EntityId,
         middle: EntityId,

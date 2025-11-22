@@ -13,6 +13,7 @@ use crate::sketch::Sketch;
 pub mod entity;
 pub mod registry;
 pub mod sketch;
+pub mod topology;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Plane {

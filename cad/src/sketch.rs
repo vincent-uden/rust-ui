@@ -1,9 +1,11 @@
 use nalgebra::Vector2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 use crate::entity::{BiConstraint, Circle, EntityId, FundamentalEntity, GuidedEntity, Line, Point};
 use crate::registry::Registry;
+use crate::topology::Loop;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Sketch {
@@ -128,6 +130,57 @@ impl Sketch {
         ))
         .unwrap();
         serde_json::to_writer_pretty(&mut file, &self).expect("Failed to write sketch to file");
+    }
+
+    /// Determines if `point` is inside `l` (assuming `l` is a properly constructed
+    /// [Loop]). Algorithm is implemented based on [Containment test for polygons
+    /// containing circular arcs](https://ieeexplore.ieee.org/document/1011280).
+    pub fn is_inside(&self, l: &Loop, point: Vector2<f64>) -> bool {
+        let mut intersections = 0;
+
+        for id in &l.ids {
+            match self.guided_entities.get(id) {
+                Some(x) => match x {
+                    GuidedEntity::Circle { id } => todo!(),
+                    GuidedEntity::CappedLine { start, end, line } => {
+                        if todo!("test-ray intersects capped line") {
+                            intersections += 1;
+                        }
+                    }
+                    GuidedEntity::ArcThreePoint {
+                        start,
+                        middle,
+                        end,
+                        circle,
+                    } => {
+                        if todo!("point is outside of arc") {
+                            if todo!("test-ray intersects the chord") {
+                                intersections += 1;
+                            }
+                        } else {
+                            if todo!("test-point is inside horizontal belt of chord") {
+                                if todo!("visible part of arc is right of chord") {
+                                    intersections += 1
+                                }
+                            } else {
+                                if todo!("visible part of arc is left of chord") {
+                                    intersections += 1
+                                }
+                            }
+                        }
+                    }
+                    GuidedEntity::Point { id: _ } => {
+                        error!("A loop can't contain a point");
+                    }
+                    GuidedEntity::Line { id: _ } => {
+                        error!("A loop can't contain a line");
+                    }
+                },
+                None => todo!(),
+            }
+        }
+
+        intersections % 2 == 1
     }
 }
 
