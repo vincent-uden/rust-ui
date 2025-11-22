@@ -3,7 +3,10 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::entity::{BiConstraint, Circle, EntityId, FundamentalEntity, GuidedEntity, Line, Point};
+use crate::entity::{
+    ArcThreePoint, BiConstraint, CappedLine, Circle, EntityId, FundamentalEntity, GuidedEntity,
+    Line, Point,
+};
 use crate::registry::Registry;
 use crate::topology::Loop;
 
@@ -57,7 +60,7 @@ impl Sketch {
         let mut closest_id = None;
         let mut closest_dist = f64::INFINITY;
         for (id, e) in self.fundamental_entities.iter() {
-            if let FundamentalEntity::Point(_) = e {
+            if let FundamentalEntity::Point { .. } = e {
                 let dist = e.distance_to_position(query_pos);
                 if dist <= radius && dist < closest_dist {
                     closest_id = Some(*id);
@@ -73,14 +76,14 @@ impl Sketch {
             id
         } else {
             self.fundamental_entities
-                .insert(FundamentalEntity::Point(Point { pos: *query_pos }))
+                .insert(FundamentalEntity::Point { pos: *query_pos })
         }
     }
 
     pub fn insert_point(&mut self, pos: Vector2<f64>) -> EntityId {
         let id = self
             .fundamental_entities
-            .insert(FundamentalEntity::Point(Point { pos }));
+            .insert(FundamentalEntity::Point { pos });
         self.guided_entities.insert(GuidedEntity::Point { id })
     }
 
@@ -132,18 +135,33 @@ impl Sketch {
         serde_json::to_writer_pretty(&mut file, &self).expect("Failed to write sketch to file");
     }
 
+    fn intersects_capped_line(
+        &self,
+        point: Vector2<f64>,
+        ray: Vector2<f64>,
+        line: &CappedLine,
+    ) -> bool {
+        todo!()
+    }
+
     /// Determines if `point` is inside `l` (assuming `l` is a properly constructed
     /// [Loop]). Algorithm is implemented based on [Containment test for polygons
     /// containing circular arcs](https://ieeexplore.ieee.org/document/1011280).
     pub fn is_inside(&self, l: &Loop, point: Vector2<f64>) -> bool {
         let mut intersections = 0;
 
+        let test_ray = Vector2::x();
+
         for id in &l.ids {
             match self.guided_entities.get(id) {
-                Some(x) => match x {
-                    GuidedEntity::Circle { id } => todo!(),
+                Some(x) => match *x {
+                    GuidedEntity::Circle { id: _ } => todo!(),
                     GuidedEntity::CappedLine { start, end, line } => {
-                        if todo!("test-ray intersects capped line") {
+                        if self.intersects_capped_line(
+                            point,
+                            test_ray,
+                            &CappedLine { start, end, line },
+                        ) {
                             intersections += 1;
                         }
                     }
@@ -153,8 +171,28 @@ impl Sketch {
                         end,
                         circle,
                     } => {
-                        if todo!("point is outside of arc") {
-                            if todo!("test-ray intersects the chord") {
+                        let arc = ArcThreePoint {
+                            start,
+                            middle,
+                            end,
+                            circle,
+                        };
+                        let start_point: Point = self
+                            .fundamental_entities
+                            .get(&start)
+                            .unwrap()
+                            .try_into()
+                            .unwrap();
+                        if self.is_outside_arc(point, &arc) {
+                            if self.intersects_capped_line(
+                                point,
+                                test_ray,
+                                &CappedLine {
+                                    start,
+                                    end,
+                                    line: EntityId::default(),
+                                },
+                            ) {
                                 intersections += 1;
                             }
                         } else {

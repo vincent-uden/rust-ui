@@ -1,4 +1,5 @@
 use std::f64::consts::PI;
+use std::fmt::Debug;
 
 use enum_variant_type::EnumVariantType;
 use nalgebra::{Rotation2, Vector2};
@@ -23,44 +24,20 @@ impl RegId for EntityId {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, EnumVariantType)]
+#[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]
 pub enum FundamentalEntity {
-    Point(Point),
-    Line(Line),
-    Circle(Circle),
-}
-
-impl TryFrom<FundamentalEntity> for Point {
-    type Error = FundamentalEntity;
-
-    fn try_from(value: FundamentalEntity) -> Result<Self, Self::Error> {
-        match value {
-            FundamentalEntity::Point(p) => Ok(p),
-            a => Err(a),
-        }
-    }
-}
-
-impl TryFrom<FundamentalEntity> for Line {
-    type Error = FundamentalEntity;
-
-    fn try_from(value: FundamentalEntity) -> Result<Self, Self::Error> {
-        match value {
-            FundamentalEntity::Line(l) => Ok(l),
-            a => Err(a),
-        }
-    }
-}
-
-impl TryFrom<FundamentalEntity> for Circle {
-    type Error = FundamentalEntity;
-
-    fn try_from(value: FundamentalEntity) -> Result<Self, Self::Error> {
-        match value {
-            FundamentalEntity::Circle(c) => Ok(c),
-            a => Err(a),
-        }
-    }
+    Point {
+        pos: Vector2<f64>,
+    },
+    Line {
+        offset: Vector2<f64>,
+        direction: Vector2<f64>,
+    },
+    Circle {
+        pos: Vector2<f64>,
+        radius: f64,
+    },
 }
 
 fn vector_angle(a: Vector2<f64>) -> f64 {
@@ -75,13 +52,13 @@ fn vector_angle(a: Vector2<f64>) -> f64 {
 impl FundamentalEntity {
     pub fn distance_to_position(&self, target: &Vector2<f64>) -> f64 {
         match self {
-            FundamentalEntity::Point(p) => (p.pos - target).norm(),
-            FundamentalEntity::Line(l) => {
-                let ortho_a = target - project(target, &l.direction);
-                let ortho_r = l.offset - project(&l.offset, &l.direction);
+            FundamentalEntity::Point { pos } => (pos - target).norm(),
+            FundamentalEntity::Line { offset, direction } => {
+                let ortho_a = target - project(target, direction);
+                let ortho_r = offset - project(offset, direction);
                 (ortho_r - ortho_a).norm()
             }
-            FundamentalEntity::Circle(c) => ((target - c.pos).norm() - c.radius).abs(),
+            FundamentalEntity::Circle { pos, radius } => ((target - pos).norm() - radius).abs(),
         }
     }
 
@@ -105,28 +82,11 @@ impl FundamentalEntity {
 
         let radius = ((center.x - p1.x).powi(2) + (center.y - p1.y).powi(2)).sqrt();
 
-        Some(FundamentalEntity::Circle(Circle {
+        Some(FundamentalEntity::Circle {
             pos: center,
             radius,
-        }))
+        })
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
-pub struct Point {
-    pub pos: Vector2<f64>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
-pub struct Line {
-    pub offset: Vector2<f64>,
-    pub direction: Vector2<f64>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
-pub struct Circle {
-    pub pos: Vector2<f64>,
-    pub radius: f64,
 }
 
 pub fn project(a: &Vector2<f64>, b: &Vector2<f64>) -> Vector2<f64> {
@@ -207,23 +167,23 @@ impl BiConstraint {
     pub fn error(e1: &FundamentalEntity, e2: &FundamentalEntity, c: &ConstraintType) -> f64 {
         if Self::possible(e1, e2, c) {
             match (e1, e2) {
-                (FundamentalEntity::Point(p1), FundamentalEntity::Point(p2)) => {
-                    Self::error_pp(p1, p2, *c)
+                (FundamentalEntity::Point { .. }, FundamentalEntity::Point { .. }) => {
+                    Self::error_pp(e1, e2, *c)
                 }
-                (FundamentalEntity::Point(p), FundamentalEntity::Line(l)) => {
-                    Self::error_pl(p, l, *c)
+                (FundamentalEntity::Point { .. }, FundamentalEntity::Line { .. }) => {
+                    Self::error_pl(e1, e2, *c)
                 }
-                (FundamentalEntity::Point(p), FundamentalEntity::Circle(ci)) => {
-                    Self::error_pc(p, ci, *c)
+                (FundamentalEntity::Point { .. }, FundamentalEntity::Circle { .. }) => {
+                    Self::error_pc(e1, e2, *c)
                 }
-                (FundamentalEntity::Line(l1), FundamentalEntity::Line(l2)) => {
-                    Self::error_ll(l1, l2, *c)
+                (FundamentalEntity::Line { .. }, FundamentalEntity::Line { .. }) => {
+                    Self::error_ll(e1, e2, *c)
                 }
-                (FundamentalEntity::Line(l), FundamentalEntity::Circle(ci)) => {
-                    Self::error_lc(l, ci, *c)
+                (FundamentalEntity::Line { .. }, FundamentalEntity::Circle { .. }) => {
+                    Self::error_lc(e1, e2, *c)
                 }
-                (FundamentalEntity::Circle(c1), FundamentalEntity::Circle(c2)) => {
-                    Self::error_cc(c1, c2, *c)
+                (FundamentalEntity::Circle { .. }, FundamentalEntity::Circle { .. }) => {
+                    Self::error_cc(e1, e2, *c)
                 }
                 _ => Self::error(e2, e1, c),
             }
@@ -232,7 +192,12 @@ impl BiConstraint {
         }
     }
 
-    fn error_pp(p1: &Point, p2: &Point, c: ConstraintType) -> f64 {
+    fn error_pp<T>(p1: &T, p2: &T, c: ConstraintType) -> f64
+    where
+        T: TryInto<Point, Error: Debug> + Clone + Copy,
+    {
+        let p1: Point = (*p1).try_into().unwrap();
+        let p2: Point = (*p2).try_into().unwrap();
         match c {
             ConstraintType::Coincident => (p1.pos - p2.pos).norm_squared(),
             ConstraintType::Horizontal => (p1.pos.y - p2.pos.y).powi(2),
@@ -242,7 +207,13 @@ impl BiConstraint {
         }
     }
 
-    fn error_pl(p: &Point, l: &Line, c: ConstraintType) -> f64 {
+    fn error_pl<P, L>(p: &P, l: &L, c: ConstraintType) -> f64
+    where
+        P: TryInto<Point, Error: Debug> + Clone + Copy,
+        L: TryInto<Line, Error: Debug> + Clone + Copy,
+    {
+        let p: Point = (*p).try_into().unwrap();
+        let l: Line = (*l).try_into().unwrap();
         let ortho_a = p.pos - project(&p.pos, &l.direction);
         let mut ortho_r = (p.pos - l.offset) - project(&(p.pos - l.offset), &l.direction);
         if ortho_r.dot(&ortho_a) < 0.0 {
@@ -255,7 +226,13 @@ impl BiConstraint {
         }
     }
 
-    fn error_pc(p: &Point, ci: &Circle, c: ConstraintType) -> f64 {
+    fn error_pc<P, C>(p: &P, ci: &C, c: ConstraintType) -> f64
+    where
+        P: TryInto<Point, Error: Debug> + Clone + Copy,
+        C: TryInto<Circle, Error: Debug> + Clone + Copy,
+    {
+        let p: Point = (*p).try_into().unwrap();
+        let ci: Circle = (*ci).try_into().unwrap();
         match c {
             ConstraintType::Coincident => ((p.pos - ci.pos).norm() - ci.radius).powi(2),
             ConstraintType::Horizontal => (p.pos.y - ci.pos.y).powi(2),
@@ -265,7 +242,12 @@ impl BiConstraint {
         }
     }
 
-    fn error_ll(l1: &Line, l2: &Line, c: ConstraintType) -> f64 {
+    fn error_ll<T>(l1: &T, l2: &T, c: ConstraintType) -> f64
+    where
+        T: TryInto<Line, Error: Debug> + Clone + Copy,
+    {
+        let l1: Line = (*l1).try_into().unwrap();
+        let l2: Line = (*l2).try_into().unwrap();
         match c {
             ConstraintType::Parallel => (l1.direction.angle(&l2.direction)).powi(2),
             ConstraintType::Perpendicular => {
@@ -286,7 +268,13 @@ impl BiConstraint {
         }
     }
 
-    fn error_lc(l: &Line, ci: &Circle, c: ConstraintType) -> f64 {
+    fn error_lc<L, C>(l: &L, ci: &C, c: ConstraintType) -> f64
+    where
+        L: TryInto<Line, Error: Debug> + Clone + Copy,
+        C: TryInto<Circle, Error: Debug> + Clone + Copy,
+    {
+        let l: Line = (*l).try_into().unwrap();
+        let ci: Circle = (*ci).try_into().unwrap();
         let diff = ci.pos - l.offset;
         let ortho = diff - project(&diff, &l.direction);
         match c {
@@ -297,7 +285,12 @@ impl BiConstraint {
         }
     }
 
-    fn error_cc(c1: &Circle, c2: &Circle, c: ConstraintType) -> f64 {
+    fn error_cc<T>(c1: &T, c2: &T, c: ConstraintType) -> f64
+    where
+        T: TryInto<Circle, Error: Debug> + Clone + Copy,
+    {
+        let c1: Circle = (*c1).try_into().unwrap();
+        let c2: Circle = (*c2).try_into().unwrap();
         match c {
             ConstraintType::Coincident => (c1.pos - c2.pos).norm_squared(),
             ConstraintType::Horizontal => (c1.pos.y - c2.pos.y).powi(2),
@@ -315,14 +308,14 @@ impl BiConstraint {
         step_size: f64,
     ) {
         match e1 {
-            FundamentalEntity::Point(p) => Self::apply_grad_error_p(p, e2, *c, step_size),
-            FundamentalEntity::Line(l) => Self::apply_grad_error_l(l, e2, *c, step_size),
-            FundamentalEntity::Circle(ci) => Self::apply_grad_error_c(ci, e2, *c, step_size),
+            FundamentalEntity::Point { pos } => Self::apply_grad_error_p(pos, e2, *c, step_size),
+            FundamentalEntity::Line { offset, direction } => Self::apply_grad_error_l(offset, direction, e2, *c, step_size),
+            FundamentalEntity::Circle { pos, radius } => Self::apply_grad_error_c(pos, radius, e2, *c, step_size),
         }
     }
 
     fn apply_grad_error_p(
-        p1: &mut Point,
+        p1_pos: &mut Vector2<f64>,
         e: &FundamentalEntity,
         c: ConstraintType,
         step_size: f64,
@@ -330,32 +323,32 @@ impl BiConstraint {
         let h = 1e-6;
         let x_errors = [
             Self::error(
-                &FundamentalEntity::Point(Point {
-                    pos: p1.pos + Vector2::new(-h / 2.0, 0.0),
-                }),
+                &FundamentalEntity::Point {
+                    pos: *p1_pos + Vector2::new(-h / 2.0, 0.0),
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Point(Point {
-                    pos: p1.pos + Vector2::new(h / 2.0, 0.0),
-                }),
+                &FundamentalEntity::Point {
+                    pos: *p1_pos + Vector2::new(h / 2.0, 0.0),
+                },
                 e,
                 &c,
             ),
         ];
         let y_errors = [
             Self::error(
-                &FundamentalEntity::Point(Point {
-                    pos: p1.pos + Vector2::new(0.0, -h / 2.0),
-                }),
+                &FundamentalEntity::Point {
+                    pos: *p1_pos + Vector2::new(0.0, -h / 2.0),
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Point(Point {
-                    pos: p1.pos + Vector2::new(0.0, h / 2.0),
-                }),
+                &FundamentalEntity::Point {
+                    pos: *p1_pos + Vector2::new(0.0, h / 2.0),
+                },
                 e,
                 &c,
             ),
@@ -364,79 +357,79 @@ impl BiConstraint {
         let x_derivative = (x_errors[1] - x_errors[0]) / h;
         let y_derivative = (y_errors[1] - y_errors[0]) / h;
         let step = Vector2::new(x_derivative, y_derivative);
-        p1.pos -= step * step_size;
+        *p1_pos -= step * step_size;
     }
 
-    fn apply_grad_error_l(l: &mut Line, e: &FundamentalEntity, c: ConstraintType, step_size: f64) {
+    fn apply_grad_error_l(l_offset: &mut Vector2<f64>, l_direction: &mut Vector2<f64>, e: &FundamentalEntity, c: ConstraintType, step_size: f64) {
         let h = 1e-4;
         let o_x_errors = [
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset + Vector2::new(-h / 2.0, 0.0),
-                    direction: l.direction,
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset + Vector2::new(-h / 2.0, 0.0),
+                    direction: *l_direction,
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset + Vector2::new(h / 2.0, 0.0),
-                    direction: l.direction,
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset + Vector2::new(h / 2.0, 0.0),
+                    direction: *l_direction,
+                },
                 e,
                 &c,
             ),
         ];
         let o_y_errors = [
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset + Vector2::new(0.0, -h / 2.0),
-                    direction: l.direction,
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset + Vector2::new(0.0, -h / 2.0),
+                    direction: *l_direction,
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset + Vector2::new(0.0, h / 2.0),
-                    direction: l.direction,
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset + Vector2::new(0.0, h / 2.0),
+                    direction: *l_direction,
+                },
                 e,
                 &c,
             ),
         ];
         let d_x_errors = [
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset,
-                    direction: l.direction + Vector2::new(-h / 2.0, 0.0),
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset,
+                    direction: *l_direction + Vector2::new(-h / 2.0, 0.0),
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset,
-                    direction: l.direction + Vector2::new(h / 2.0, 0.0),
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset,
+                    direction: *l_direction + Vector2::new(h / 2.0, 0.0),
+                },
                 e,
                 &c,
             ),
         ];
         let d_y_errors = [
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset,
-                    direction: l.direction + Vector2::new(0.0, -h / 2.0),
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset,
+                    direction: *l_direction + Vector2::new(0.0, -h / 2.0),
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line(Line {
-                    offset: l.offset,
-                    direction: l.direction + Vector2::new(0.0, h / 2.0),
-                }),
+                &FundamentalEntity::Line {
+                    offset: *l_offset,
+                    direction: *l_direction + Vector2::new(0.0, h / 2.0),
+                },
                 e,
                 &c,
             ),
@@ -448,12 +441,13 @@ impl BiConstraint {
         let d_x_derivative = (d_x_errors[1] - d_x_errors[0]) / h;
         let d_y_derivative = (d_y_errors[1] - d_y_errors[0]) / h;
         let direction_step = Vector2::new(d_x_derivative, d_y_derivative);
-        l.offset -= offset_step * step_size;
-        l.direction -= direction_step * step_size;
+        *l_offset -= offset_step * step_size;
+        *l_direction -= direction_step * step_size;
     }
 
     fn apply_grad_error_c(
-        c1: &mut Circle,
+        c1_pos: &mut Vector2<f64>,
+        c1_radius: &mut f64,
         e: &FundamentalEntity,
         c: ConstraintType,
         step_size: f64,
@@ -461,54 +455,54 @@ impl BiConstraint {
         let h = 1e-6;
         let x_errors = [
             Self::error(
-                &FundamentalEntity::Circle(Circle {
-                    pos: c1.pos + Vector2::new(-h / 2.0, 0.0),
-                    radius: c1.radius,
-                }),
+                &FundamentalEntity::Circle {
+                    pos: *c1_pos + Vector2::new(-h / 2.0, 0.0),
+                    radius: *c1_radius,
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Circle(Circle {
-                    pos: c1.pos + Vector2::new(h / 2.0, 0.0),
-                    radius: c1.radius,
-                }),
+                &FundamentalEntity::Circle {
+                    pos: *c1_pos + Vector2::new(h / 2.0, 0.0),
+                    radius: *c1_radius,
+                },
                 e,
                 &c,
             ),
         ];
         let y_errors = [
             Self::error(
-                &FundamentalEntity::Circle(Circle {
-                    pos: c1.pos + Vector2::new(0.0, -h / 2.0),
-                    radius: c1.radius,
-                }),
+                &FundamentalEntity::Circle {
+                    pos: *c1_pos + Vector2::new(0.0, -h / 2.0),
+                    radius: *c1_radius,
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Circle(Circle {
-                    pos: c1.pos + Vector2::new(0.0, h / 2.0),
-                    radius: c1.radius,
-                }),
+                &FundamentalEntity::Circle {
+                    pos: *c1_pos + Vector2::new(0.0, h / 2.0),
+                    radius: *c1_radius,
+                },
                 e,
                 &c,
             ),
         ];
         let r_errors = [
             Self::error(
-                &FundamentalEntity::Circle(Circle {
-                    pos: c1.pos,
-                    radius: c1.radius - h / 2.0,
-                }),
+                &FundamentalEntity::Circle {
+                    pos: *c1_pos,
+                    radius: *c1_radius - h / 2.0,
+                },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Circle(Circle {
-                    pos: c1.pos,
-                    radius: c1.radius + h / 2.0,
-                }),
+                &FundamentalEntity::Circle {
+                    pos: *c1_pos,
+                    radius: *c1_radius + h / 2.0,
+                },
                 e,
                 &c,
             ),
@@ -518,8 +512,8 @@ impl BiConstraint {
         let y_derivative = (y_errors[1] - y_errors[0]) / h;
         let r_derivative = (r_errors[1] - r_errors[0]) / h;
         let step = Vector2::new(x_derivative, y_derivative);
-        c1.pos -= step * step_size;
-        c1.radius -= r_derivative * step_size;
+        *c1_pos -= step * step_size;
+        *c1_radius -= r_derivative * step_size;
     }
 }
 
@@ -561,18 +555,20 @@ impl GuidedEntity {
             GuidedEntity::Circle { id: _ } => true,
             GuidedEntity::CappedLine { start, end, line } => {
                 if let (
-                    Some(FundamentalEntity::Point(start)),
-                    Some(FundamentalEntity::Point(end)),
-                    Some(FundamentalEntity::Line(_)),
+                    Some(FundamentalEntity::Point { pos: start_pos }),
+                    Some(FundamentalEntity::Point { pos: end_pos }),
+                    Some(FundamentalEntity::Line { .. }),
                 ) = (
                     entity_reg.get(start),
                     entity_reg.get(end),
                     entity_reg.get(line),
                 ) {
-                    let angle = (end.pos - start.pos).angle(&Vector2::x());
+                    let start_point = Point { pos: *start_pos };
+                    let end_point = Point { pos: *end_pos };
+                    let angle = (end_point.pos - start_point.pos).angle(&Vector2::x());
                     let rot = Rotation2::new(-angle);
-                    let start_pos = rot * start.pos;
-                    let end_pos = rot * end.pos;
+                    let start_pos = rot * start_point.pos;
+                    let end_pos = rot * end_point.pos;
                     let mouse_pos = rot * mouse_pos;
 
                     mouse_pos.x >= start_pos.x && mouse_pos.x <= end_pos.x
@@ -588,21 +584,25 @@ impl GuidedEntity {
                 circle,
             } => {
                 if let (
-                    Some(FundamentalEntity::Point(start)),
-                    Some(FundamentalEntity::Point(middle)),
-                    Some(FundamentalEntity::Point(end)),
-                    Some(FundamentalEntity::Circle(circle)),
+                    Some(FundamentalEntity::Point { pos: start_pos }),
+                    Some(FundamentalEntity::Point { pos: middle_pos }),
+                    Some(FundamentalEntity::Point { pos: end_pos }),
+                    Some(FundamentalEntity::Circle { pos: circle_pos, radius: circle_radius }),
                 ) = (
                     entity_reg.get(start),
                     entity_reg.get(middle),
                     entity_reg.get(end),
                     entity_reg.get(circle),
                 ) {
+                    let start_point = Point { pos: *start_pos };
+                    let middle_point = Point { pos: *middle_pos };
+                    let end_point = Point { pos: *end_pos };
+                    let circle_entity = Circle { pos: *circle_pos, radius: *circle_radius };
                     let tolerance = 5.0 * PI / 180.0;
-                    let start_angle = vector_angle(start.pos - circle.pos);
-                    let mut end_angle = vector_angle(end.pos - circle.pos);
-                    let middle_angle = vector_angle(middle.pos - circle.pos);
-                    let mouse_angle = vector_angle(mouse_pos - circle.pos);
+                    let start_angle = vector_angle(start_point.pos - circle_entity.pos);
+                    let mut end_angle = vector_angle(end_point.pos - circle_entity.pos);
+                    let middle_angle = vector_angle(middle_point.pos - circle_entity.pos);
+                    let mouse_angle = vector_angle(mouse_pos - circle_entity.pos);
 
                     if middle_angle < start_angle && end_angle > start_angle {
                         end_angle -= 2.0 * PI;

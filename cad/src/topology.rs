@@ -1,5 +1,5 @@
 use crate::{
-    entity::{EntityId, FundamentalEntity, GuidedEntity},
+    entity::{CappedLine, EntityId, FundamentalEntity, GuidedEntity},
     registry::Registry,
 };
 
