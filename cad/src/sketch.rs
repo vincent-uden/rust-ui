@@ -146,19 +146,21 @@ impl Sketch {
             _ => return false,
         };
 
-        let dx = end_pos.x - start_pos.x;
-        let dy = end_pos.y - start_pos.y;
-        let denom = dx * ray.y - dy * ray.x;
+        let line_start = start_pos;
+        let line_ray = end_pos - start_pos;
 
+        let denom = ray.x * line_ray.y - ray.y * line_ray.x;
         if denom.abs() < 1e-12 {
-            // Parallel or coincident, no intersection
+            // Can't intersect with a horizontal line
             return false;
         }
 
-        let t = ((start_pos.x - point.x) * ray.y - (start_pos.y - point.y) * ray.x) / denom;
-        let s = ((start_pos.x - point.x) * dy - (start_pos.y - point.y) * dx) / denom;
+        let t =
+            ((line_start.x - point.x) * line_ray.y - (line_start.y - point.y) * line_ray.x) / denom;
+        let s = ((line_start.x - point.x) * ray.y - (line_start.y - point.y) * ray.x) / denom;
+        println!("{} {}", t, s);
 
-        t >= 0.0 && (0.0..=1.0).contains(&s)
+        t > 0.0
     }
 
     /// Determines if `point` is inside `l` (assuming `l` is a properly constructed
