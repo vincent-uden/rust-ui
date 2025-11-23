@@ -4,3 +4,5 @@ perf.data
 perf.data.old
 
 **/__pycache__/
+
+test_sketches/

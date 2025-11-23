@@ -1,7 +1,7 @@
 use core::fmt;
 use core::hash::Hash;
 use std::collections::HashMap;
-use std::collections::hash_map::{Iter, IterMut, Values, ValuesMut};
+use std::collections::hash_map::{Iter, IterMut, Keys, Values, ValuesMut};
 use std::ops::{Index, IndexMut};
 
 use serde::{Deserialize, Serialize};
@@ -49,6 +49,11 @@ impl<K: RegId + Eq + Hash + Copy + fmt::Debug + Default + Clone, V: Clone> Regis
     #[inline(always)]
     pub fn clear(&mut self) {
         self.map.clear();
+    }
+
+    #[inline(always)]
+    pub fn keys(&self) -> Keys<'_, K, V> {
+        self.map.keys()
     }
 
     #[inline(always)]

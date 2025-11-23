@@ -257,6 +257,7 @@ impl Sketch {
 #[cfg(test)]
 mod tests {
     use nalgebra::Vector2;
+    use tracing::debug;
 
     use crate::entity::{Circle, ConstraintType, Line, Point};
 
@@ -366,16 +367,18 @@ mod tests {
             sketch.sgd_step();
         }
 
-        let top_corner = if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e3] {
+        let top_corner = if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e3]
+        {
             Point { pos: *pos }
         } else {
             panic!("Expected Point");
         };
-        let right_corner = if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e2] {
-            Point { pos: *pos }
-        } else {
-            panic!("Expected Point");
-        };
+        let right_corner =
+            if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e2] {
+                Point { pos: *pos }
+            } else {
+                panic!("Expected Point");
+            };
         let diff = (top_corner.pos - right_corner.pos).norm();
         assert!((diff - 5.0) < 1e-6);
 
@@ -393,12 +396,10 @@ mod tests {
             .insert(FundamentalEntity::Point {
                 pos: Vector2::new(3.0, 1.0),
             });
-        let e2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: Vector2::new(1.0, 1.2),
-                direction: Vector2::new(-1.0, -1.0),
-            });
+        let e2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: Vector2::new(1.0, 1.2),
+            direction: Vector2::new(-1.0, -1.0),
+        });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -428,12 +429,10 @@ mod tests {
                 radius: 1.0,
             });
         sketch.dump("Circle Line Tangent Intial");
-        let e2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: Vector2::new(1.0, 1.0),
-                direction: Vector2::new(1.0, -1.0),
-            });
+        let e2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: Vector2::new(1.0, 1.0),
+            direction: Vector2::new(1.0, -1.0),
+        });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -490,18 +489,14 @@ mod tests {
             .insert(FundamentalEntity::Point {
                 pos: Vector2::new(0.0, -1.0),
             });
-        let l1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: Vector2::new(0.0, 0.0),
-                direction: Vector2::new(1.0, 0.2),
-            });
-        let l2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: Vector2::new(1.0, 1.0),
-                direction: Vector2::new(0.2, 1.0),
-            });
+        let l1 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: Vector2::new(0.0, 0.0),
+            direction: Vector2::new(1.0, 0.2),
+        });
+        let l2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: Vector2::new(1.0, 1.0),
+            direction: Vector2::new(0.2, 1.0),
+        });
         sketch.bi_constraints.push(BiConstraint {
             e1: origin,
             e2: x,
@@ -565,18 +560,14 @@ mod tests {
                 pos: Vector2::new(-0.01453125, -0.3746484375),
                 radius: 1.1365623545023815,
             });
-        let l1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: Vector2::new(1.56115234375, 0.7165625),
-                direction: Vector2::new(-2.3505859375, 0.7005468749999999),
-            });
-        let l2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: Vector2::new(-1.03939453125, -2.0318359375),
-                direction: Vector2::new(2.04685546875, 0.4622460937499999),
-            });
+        let l1 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: Vector2::new(1.56115234375, 0.7165625),
+            direction: Vector2::new(-2.3505859375, 0.7005468749999999),
+        });
+        let l2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: Vector2::new(-1.03939453125, -2.0318359375),
+            direction: Vector2::new(2.04685546875, 0.4622460937499999),
+        });
 
         sketch.bi_constraints.push(BiConstraint {
             e1: c,
@@ -599,5 +590,23 @@ mod tests {
             sketch.error() < 1e-6,
             "The error should be smaller than 1e-6"
         );
+    }
+
+    #[test]
+    fn point_is_inside_polygon_of_lines() {
+        let mut sketch = Sketch::new("Pentagon".to_string());
+        let radius = 3.0;
+        let corners: Vec<_> = (0..6)
+            .map(|i| {
+                let angle = (i as f64 * 360.0 / 5.0);
+                Vector2::new(radius * angle.cos(), radius * angle.sin())
+            })
+            .collect();
+        sketch.insert_capped_lines(&corners);
+        let l = Loop {
+            ids: sketch.guided_entities.keys().cloned().collect(),
+        };
+        assert_eq!(l.ids.len(), 5);
+        assert!(sketch.is_inside(&l, Vector2::new(0.5, 0.5)));
     }
 }
