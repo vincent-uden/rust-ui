@@ -1,3 +1,8 @@
+use std::error::Error;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+
 use nalgebra::Vector2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -28,6 +33,12 @@ impl Sketch {
             bi_constraints: Vec::new(),
             step_size: 1e-2,
         }
+    }
+
+    pub fn from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
+        let mut contents = String::new();
+        File::open(path)?.read_to_string(&mut contents)?;
+        serde_json::from_str(&contents).map_err(|e| Box::from(e))
     }
 
     pub fn error(&self) -> f64 {

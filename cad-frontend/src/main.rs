@@ -7,7 +7,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use cad::{Plane, sketch::Sketch};
+use clap::Parser;
 use glfw::Context as _;
+use glm::{DVec2, DVec3, Vec2};
 use rust_ui::{
     geometry::Vector,
     init_open_gl,
@@ -24,6 +27,7 @@ use rust_ui::{
     style::TAILWIND_COLORS,
 };
 use sysinfo::{ProcessesToUpdate, System};
+use tracing::error;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -39,11 +43,18 @@ mod ui;
 pub const TARGET_FPS: u64 = 60;
 pub const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
+#[derive(Debug, Parser)]
+struct Args {
+    sketch: Option<PathBuf>,
+}
+
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
         .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))
         .init();
+
+    let args = Args::parse();
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800, false, false);
 
@@ -66,7 +77,25 @@ fn main() {
     let line_r = LineRenderer::new(line_shader);
     let sprite_r = SpriteRenderer::new(sprite_shader, sprite_atlas);
 
-    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, App::default());
+    let app_state = App::default();
+    if let Some(path) = args.sketch {
+        let mut state = app_state.mutable_state.borrow_mut();
+        state.scene.sketches.clear();
+        state.scene.add_sketch(Plane {
+            x: DVec3::x(),
+            y: DVec3::y(),
+        });
+        match Sketch::from_path(&path) {
+            Ok(sketch) => {
+                state.scene.sketches[0].sketch = sketch;
+            }
+            Err(e) => {
+                error!(e);
+            }
+        }
+    }
+
+    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, app_state);
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
