@@ -28,7 +28,8 @@
 - [ ] Constraint rendering
     - [ ] Non-parametrized constraints
     - [ ] Dimensions
-- [ ] Wires/Loops (series of lines (shapes???))
+- [/] Wires/Loops (series of lines (shapes???))
+    - [ ] Write tests in `sketch.rs` for `is_inside`
     - [ ] Split line into line-point-line
     - [ ] Split circle into arc-point-arc
 - [ ] Loops (closed wire)
