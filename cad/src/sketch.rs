@@ -169,9 +169,8 @@ impl Sketch {
         let t =
             ((line_start.x - point.x) * line_ray.y - (line_start.y - point.y) * line_ray.x) / denom;
         let s = ((line_start.x - point.x) * ray.y - (line_start.y - point.y) * ray.x) / denom;
-        println!("{} {}", t, s);
 
-        t > 0.0
+        t > 0.0 && s > 0.0 && s < 1.0
     }
 
     /// Determines if `point` is inside `l` (assuming `l` is a properly constructed
@@ -611,7 +610,7 @@ mod tests {
         let radius = 3.0;
         let corners: Vec<_> = (0..6)
             .map(|i| {
-                let angle = (i as f64 * 360.0 / 5.0);
+                let angle = (i as f64 * 360.0 / 5.0).to_radians();
                 Vector2::new(radius * angle.cos(), radius * angle.sin())
             })
             .collect();
