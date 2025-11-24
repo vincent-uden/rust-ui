@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     entity::{CappedLine, EntityId, FundamentalEntity, GuidedEntity},
     registry::Registry,
@@ -7,7 +9,7 @@ use crate::{
 /// [GuidedEntity::CappedLine] and [GuidedEntity::ArcThreePoint] or a single
 /// [GuidedEntity::Circle]. Loops are stored in mathematically positive
 /// orientation.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Loop {
     pub ids: Vec<EntityId>,
 }

@@ -665,6 +665,21 @@ impl GuidedEntity {
     }
 }
 
+impl CappedLine {
+    /// Returns *(p, v)* belonging to a parameterization *r = p + tv*. *t=0* returns the start point of
+    /// the line. *t=1* returns the end of the line.
+    pub fn parametrize(
+        &self,
+        f_reg: &Registry<EntityId, FundamentalEntity>,
+    ) -> (Vector2<f64>, Vector2<f64>) {
+        let start_point: Point = (*f_reg.get(&self.start).unwrap()).try_into().unwrap();
+        let end_point: Point = (*f_reg.get(&self.end).unwrap()).try_into().unwrap();
+        let start_pos = start_point.pos;
+        let end_pos = end_point.pos;
+        (start_pos, end_pos - start_pos)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use nalgebra::Vector2;

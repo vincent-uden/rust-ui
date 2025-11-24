@@ -21,6 +21,7 @@ pub struct Sketch {
     pub fundamental_entities: Registry<EntityId, FundamentalEntity>,
     pub guided_entities: Registry<EntityId, GuidedEntity>,
     pub bi_constraints: Vec<BiConstraint>,
+    pub loops: Vec<Loop>,
     step_size: f64,
 }
 
@@ -31,6 +32,7 @@ impl Sketch {
             fundamental_entities: Registry::new(),
             guided_entities: Registry::new(),
             bi_constraints: Vec::new(),
+            loops: Vec::new(),
             step_size: 1e-2,
         }
     }
@@ -100,7 +102,12 @@ impl Sketch {
 
     /// Inserts `n - 1` lines were `n` is the length of `points`. Each line but the first shares its
     /// starting point with the end point of the preceeding line.
-    pub fn insert_capped_lines(&mut self, points: &[Vector2<f64>]) {
+    pub fn insert_capped_lines(&mut self, points: &[Vector2<f64>]) -> Vec<EntityId> {
+        // TODO: Check for intersections with existing entities
+        // If intersecting:
+        // - split the line and the other entity in two
+        // - apply colinear constraints and so on
+        let mut out = vec![];
         let mut start_id = self
             .fundamental_entities
             .insert(FundamentalEntity::Point { pos: points[0] });
@@ -114,16 +121,21 @@ impl Sketch {
                 offset: start,
                 direction: (end - start),
             });
-            self.guided_entities.insert(GuidedEntity::CappedLine {
+            out.push(self.guided_entities.insert(GuidedEntity::CappedLine {
                 start: start_id,
                 end: end_id,
                 line: line_id,
-            });
+            }));
             start_id = end_id;
         }
+        out
     }
 
     pub fn insert_circle(&mut self, center: Vector2<f64>, radius: f64) {
+        // TODO: Check for intersections with existing entities
+        // If intersecting:
+        // - split the line and the other entity in two
+        // - apply colinear constraints and so on
         let circle_id = self.fundamental_entities.insert(FundamentalEntity::Circle {
             pos: center,
             radius,
@@ -148,17 +160,7 @@ impl Sketch {
         ray: Vector2<f64>,
         line: &CappedLine,
     ) -> bool {
-        let start_pos = match self.fundamental_entities.get(&line.start) {
-            Some(FundamentalEntity::Point { pos }) => *pos,
-            _ => return false,
-        };
-        let end_pos = match self.fundamental_entities.get(&line.end) {
-            Some(FundamentalEntity::Point { pos }) => *pos,
-            _ => return false,
-        };
-
-        let line_start = start_pos;
-        let line_ray = end_pos - start_pos;
+        let (line_start, line_ray) = line.parametrize(&self.fundamental_entities);
 
         let denom = ray.x * line_ray.y - ray.y * line_ray.x;
         if denom.abs() < 1e-12 {
@@ -261,6 +263,16 @@ impl Sketch {
         }
 
         intersections % 2 == 1
+    }
+
+    pub fn does_capped_line_intersect_capped_line(&self, l1: CappedLine, l2: CappedLine) -> bool {
+        let (p1, v1) = l1.parametrize(&self.fundamental_entities);
+        let (p2, v2) = l2.parametrize(&self.fundamental_entities);
+
+        let s = (p2.y + p2.x / v1.x - (p1.y + p1.x / v1.x)) / (v2.y - v2.x / v1.x);
+        let t = (p2.x + s * v2.x - p1.x) / v1.x;
+
+        s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0
     }
 }
 
@@ -620,5 +632,23 @@ mod tests {
         };
         assert_eq!(l.ids.len(), 5);
         assert!(sketch.is_inside(&l, Vector2::new(0.5, 0.5)));
+    }
+
+    #[test]
+    fn capped_lines_should_intersect() {
+        let mut sketch = Sketch::new("Crossed Capped Lines".to_string());
+        let l1_id =
+            sketch.insert_capped_lines(&[Vector2::new(1.0, 1.0), Vector2::new(-1.0, -1.0)])[0];
+        let l2_id =
+            sketch.insert_capped_lines(&[Vector2::new(-1.0, 1.0), Vector2::new(1.0, -1.0)])[0];
+
+        let l1 = (*sketch.guided_entities.get(&l1_id).unwrap())
+            .try_into()
+            .unwrap();
+        let l2 = (*sketch.guided_entities.get(&l2_id).unwrap())
+            .try_into()
+            .unwrap();
+
+        assert!(sketch.does_capped_line_intersect_capped_line(l1, l2))
     }
 }
