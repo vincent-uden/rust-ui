@@ -970,6 +970,8 @@ pub mod tests {
     struct DummyState {}
 
     impl AppState for DummyState {
+        type SpriteKey = String;
+
         fn generate_layout(
             &mut self,
             _: crate::geometry::Vector<f32>,

@@ -3,13 +3,9 @@
 ## Roadmap
 - [x] Dynamic panes
 - [ ] Editing sketches
-  - [x] Fix Text rendering grainy renders
-  - [x] Make sure Point mode is enabled
-  - [x] Line mode
-  - [x] Circle mode
-  - [x] Show pending shapes
+- [ ] 3D Operations
 
-## Towards editing sketches
+### Towards editing sketches
 - [x] Sprite renderer
     - [x] Sprite atlas for icons
 - [x] Moving the camera to face the sketch
@@ -29,13 +25,14 @@
     - [ ] Non-parametrized constraints
     - [ ] Dimensions
 - [/] Wires/Loops (series of lines (shapes???))
-    - [ ] Write tests in `sketch.rs` for `is_inside`
+    - [x] Write tests in `sketch.rs` for `is_inside`
+    - [ ] Create loops when appropriate, for example when placing lines
     - [ ] Split line into line-point-line
     - [ ] Split circle into arc-point-arc
 - [ ] Loops (closed wire)
     - [ ] Is the mouse INSIDE or OUTSIDE a given loop?
 
-### Inside/outside loops
+#### Inside/outside loops
 I can already get the mouse position in the plane. *How would I go about determining if that point is insdie or outside a general (possibly non-convex) polygon?* For a convex polygon I could just determine if I am to the left or right of every side, store them in a consistent clockwise or anti-clockwise order and check if I'm to the inner side of all lines.
 
 *Is that possible for a non-convex polygon as well?* No. Imagine a U-shape. If the point is inside the right arm of the "U" it is outside the left arm and would be classified incorrectly.
@@ -46,7 +43,10 @@ What about line-arc combinations. I guess those must also be split into convex s
 
 [Containment test for polygons containing circular arcs](https://ieeexplore.ieee.org/document/1011280) contains the exact algorithm needed.
 
-## Towards extrude
+#### Creating loops
+The creation of loops should be handled in the `cad` crate, not in the frontend. It is a common CAD operation to draw a bunch of lines and ask about what sort of interior shapes that have been created.
+
+### Towards extrude
 - [ ] Extrude polygon
     - [ ] Extrude mode (in base)
     - [ ] Determine which wire 
