@@ -269,10 +269,15 @@ impl Sketch {
         let (p1, v1) = l1.parametrize(&self.fundamental_entities);
         let (p2, v2) = l2.parametrize(&self.fundamental_entities);
 
-        let s = (p2.y + p2.x / v1.x - (p1.y + p1.x / v1.x)) / (v2.y - v2.x / v1.x);
-        let t = (p2.x + s * v2.x - p1.x) / v1.x;
+        let denom = v1.x * v2.y - v1.y * v2.x;
+        if denom.abs() < 1e-12 {
+            return false;
+        }
 
-        s >= 0.0 && s <= 1.0 && t >= 0.0 && t <= 1.0
+        let t = ((p2.x - p1.x) * v2.y - (p2.y - p1.y) * v2.x) / denom;
+        let s = ((p2.x - p1.x) * v1.y - (p2.y - p1.y) * v1.x) / denom;
+
+        t >= 0.0 && t <= 1.0 && s >= 0.0 && s <= 1.0
     }
 }
 
