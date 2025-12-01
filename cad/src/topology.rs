@@ -159,8 +159,21 @@ impl TopoEntity {
             },
         }
     }
+}
 
-    pub fn try_to_edge(self) -> Result<Edge, Box<dyn Error>> {
+impl<T> From<T> for TopoEntity
+where
+    T: Into<Edge>,
+{
+    fn from(value: T) -> Self {
+        Self::Edge { edge: value.into() }
+    }
+}
+
+impl TryInto<Edge> for TopoEntity {
+    type Error = String;
+
+    fn try_into(self) -> Result<Edge, Self::Error> {
         match self {
             TopoEntity::Edge { edge } => Ok(edge),
             _ => Err("TopoEntity is not an edge".into()),
@@ -205,6 +218,32 @@ impl CappedLine {
     }
 }
 
+impl TryFrom<TopoEntity> for CappedLine {
+    type Error = String;
+
+    fn try_from(value: TopoEntity) -> Result<Self, Self::Error> {
+        match value {
+            TopoEntity::Edge { edge } => {
+                CappedLine::try_from(edge).map_err(|e| format!("{:?} is not a CappedLine", e))
+            }
+            _ => Err("Not an edge".into()),
+        }
+    }
+}
+
+impl TryFrom<TopoEntity> for ArcThreePoint {
+    type Error = String;
+
+    fn try_from(value: TopoEntity) -> Result<Self, Self::Error> {
+        match value {
+            TopoEntity::Edge { edge } => {
+                ArcThreePoint::try_from(edge).map_err(|e| format!("{:?} is not a ArcThreePoint", e))
+            }
+            _ => Err("Not an edge".into()),
+        }
+    }
+}
+
 /// Represents a sequence of [GuidedEntity]s, specifically
 /// [GuidedEntity::CappedLine] and [GuidedEntity::ArcThreePoint] or a single
 /// [GuidedEntity::Circle]. Loops are stored in mathematically positive
@@ -213,16 +252,16 @@ impl CappedLine {
 /// Can be open or closed.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Wire {
-    pub ids: Vec<GeoId>,
+    pub ids: Vec<TopoId>,
 }
 
 impl Wire {
-    pub fn try_into(self, reg: &Registry<GeoId, TopoEntity>) -> Result<Loop, Box<dyn Error>> {
+    pub fn try_into(self, reg: &Registry<TopoId, TopoEntity>) -> Result<Loop, Box<dyn Error>> {
         if self.ids.is_empty() {
             return Err("Wire must contain at least one entity".into());
         }
-        let first_guided = reg[*self.ids.first().unwrap()].try_to_edge()?;
-        let last_guided = reg[*self.ids.last().unwrap()].try_to_edge()?;
+        let first_guided: Edge = reg[*self.ids.first().unwrap()].try_into()?;
+        let last_guided: Edge = reg[*self.ids.last().unwrap()].try_into()?;
         let first = first_guided.start_point()?;
         let last = last_guided.end_point()?;
 
@@ -239,5 +278,5 @@ impl Wire {
 /// A closed [Wire]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Loop {
-    pub ids: Vec<GeoId>,
+    pub ids: Vec<TopoId>,
 }

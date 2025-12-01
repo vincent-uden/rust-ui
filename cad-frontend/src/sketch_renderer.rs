@@ -77,15 +77,15 @@ impl SketchRenderer {
         let projection = state.projection();
         let model = state.model();
         let view = state.view();
-        for (id, eid) in sketch.guided_entities.iter() {
+        for (id, eid) in sketch.topo_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
                     start,
                     end,
                     line: _,
                 } => {
-                    let start: Point = sketch.fundamental_entities[*start].try_into().unwrap();
-                    let end: Point = sketch.fundamental_entities[*end].try_into().unwrap();
+                    let start: Point = sketch.geo_entities[*start].try_into().unwrap();
+                    let end: Point = sketch.geo_entities[*end].try_into().unwrap();
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
 
@@ -106,7 +106,7 @@ impl SketchRenderer {
                     );
                 }
                 GuidedEntity::Point { id: pid } => {
-                    let point: Point = sketch.fundamental_entities[*pid].try_into().unwrap();
+                    let point: Point = sketch.geo_entities[*pid].try_into().unwrap();
                     let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
                     let p_3d = p.x * x_axis + p.y * y_axis;
                     self.point_r.draw_3d(
@@ -123,7 +123,7 @@ impl SketchRenderer {
                     );
                 }
                 GuidedEntity::Circle { id: cid } => {
-                    let circle: Circle = sketch.fundamental_entities[*cid].try_into().unwrap();
+                    let circle: Circle = sketch.geo_entities[*cid].try_into().unwrap();
                     let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
                     let center_3d = center.x * x_axis + center.y * y_axis;
                     self.circle_r.draw_3d_oriented(
@@ -257,15 +257,15 @@ impl SketchPicker {
         self.picker.enable_writing();
         // Maybe allow for selection of axes in the future. For example it is useful when
         // constructing planes
-        for (GeoId(id), eid) in si.sketch.guided_entities.iter() {
+        for (GeoId(id), eid) in si.sketch.topo_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
                     start,
                     end,
                     line: _,
                 } => {
-                    let start: Point = si.sketch.fundamental_entities[*start].try_into().unwrap();
-                    let end: Point = si.sketch.fundamental_entities[*end].try_into().unwrap();
+                    let start: Point = si.sketch.geo_entities[*start].try_into().unwrap();
+                    let end: Point = si.sketch.geo_entities[*end].try_into().unwrap();
                     let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
                     let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
                     let projection = state.projection();
@@ -288,7 +288,7 @@ impl SketchPicker {
                     );
                 }
                 GuidedEntity::Point { id: pid } => {
-                    let point: Point = si.sketch.fundamental_entities[*pid].try_into().unwrap();
+                    let point: Point = si.sketch.geo_entities[*pid].try_into().unwrap();
                     let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
                     let projection = state.projection();
                     let model = state.model();
@@ -307,7 +307,7 @@ impl SketchPicker {
                     );
                 }
                 GuidedEntity::Circle { id: cid } => {
-                    let circle: Circle = si.sketch.fundamental_entities[*cid].try_into().unwrap();
+                    let circle: Circle = si.sketch.geo_entities[*cid].try_into().unwrap();
                     let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
                     let projection = state.projection();
                     let model = state.model();

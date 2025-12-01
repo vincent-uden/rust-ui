@@ -587,67 +587,53 @@ impl Default for App {
         };
 
         let mut sketch = cad::sketch::Sketch::new("Test sketch".into());
-        let p1 = sketch
-            .fundamental_entities
-            .insert(GeometricEntity::Point {
-                pos: glm::vec2(0.0, 0.0),
-            });
-        let p2 = sketch
-            .fundamental_entities
-            .insert(GeometricEntity::Point {
-                pos: glm::vec2(1.0, 0.0),
-            });
-        let p3 = sketch
-            .fundamental_entities
-            .insert(GeometricEntity::Point {
-                pos: glm::vec2(0.0, 1.0),
-            });
+        let p1 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: glm::vec2(0.0, 0.0),
+        });
+        let p2 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: glm::vec2(1.0, 0.0),
+        });
+        let p3 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: glm::vec2(0.0, 1.0),
+        });
         // Doesnt matter for rendering atm
-        let l1 = sketch.fundamental_entities.insert(GeometricEntity::Line {
+        let l1 = sketch.geo_entities.insert(GeometricEntity::Line {
             offset: glm::vec2(0.0, 0.0),
             direction: glm::vec2(0.0, 0.0),
         });
-        let l2 = sketch.fundamental_entities.insert(GeometricEntity::Line {
+        let l2 = sketch.geo_entities.insert(GeometricEntity::Line {
             offset: glm::vec2(0.0, 0.0),
             direction: glm::vec2(0.0, 0.0),
         });
-        let l3 = sketch.fundamental_entities.insert(GeometricEntity::Line {
+        let l3 = sketch.geo_entities.insert(GeometricEntity::Line {
             offset: glm::vec2(0.0, 0.0),
             direction: glm::vec2(0.0, 0.0),
         });
-        sketch.guided_entities.insert(GuidedEntity::CappedLine {
+        sketch.topo_entities.insert(GuidedEntity::CappedLine {
             start: p1,
             end: p2,
             line: l1,
         });
-        sketch.guided_entities.insert(GuidedEntity::CappedLine {
+        sketch.topo_entities.insert(GuidedEntity::CappedLine {
             start: p1,
             end: p3,
             line: l2,
         });
-        sketch.guided_entities.insert(GuidedEntity::CappedLine {
+        sketch.topo_entities.insert(GuidedEntity::CappedLine {
             start: p2,
             end: p3,
             line: l3,
         });
-        sketch
-            .guided_entities
-            .insert(GuidedEntity::Point { id: p1 });
-        sketch
-            .guided_entities
-            .insert(GuidedEntity::Point { id: p2 });
-        sketch
-            .guided_entities
-            .insert(GuidedEntity::Point { id: p3 });
+        sketch.topo_entities.insert(GuidedEntity::Point { id: p1 });
+        sketch.topo_entities.insert(GuidedEntity::Point { id: p2 });
+        sketch.topo_entities.insert(GuidedEntity::Point { id: p3 });
 
-        let circle = sketch
-            .fundamental_entities
-            .insert(GeometricEntity::Circle {
-                pos: glm::vec2(0.5, 0.5),
-                radius: 0.3,
-            });
+        let circle = sketch.geo_entities.insert(GeometricEntity::Circle {
+            pos: glm::vec2(0.5, 0.5),
+            radius: 0.3,
+        });
         sketch
-            .guided_entities
+            .topo_entities
             .insert(GuidedEntity::Circle { id: circle });
 
         let scene = Scene {
