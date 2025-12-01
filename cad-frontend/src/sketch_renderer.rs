@@ -1,6 +1,6 @@
 use cad::{
     SketchInfo,
-    entity::{Circle, EntityId, GuidedEntity, Point},
+    entity::{Circle, GeoId, GuidedEntity, Point},
     sketch::Sketch,
 };
 use rust_ui::{
@@ -72,7 +72,7 @@ impl SketchRenderer {
         state: &mut ViewportData,
         x_axis: glm::Vec3,
         y_axis: glm::Vec3,
-        hovered: Option<EntityId>,
+        hovered: Option<GeoId>,
     ) {
         let projection = state.projection();
         let model = state.model();
@@ -257,7 +257,7 @@ impl SketchPicker {
         self.picker.enable_writing();
         // Maybe allow for selection of axes in the future. For example it is useful when
         // constructing planes
-        for (EntityId(id), eid) in si.sketch.guided_entities.iter() {
+        for (GeoId(id), eid) in si.sketch.guided_entities.iter() {
             match eid {
                 GuidedEntity::CappedLine {
                     start,
@@ -336,7 +336,7 @@ impl SketchPicker {
         self.picker.disable_writing();
     }
 
-    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<(EntityId, u16)> {
+    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<(GeoId, u16)> {
         let opengl_y = viewport_height as i32 - mouse_pos.y;
         let info = self.picker.read_pixel(mouse_pos.x, opengl_y);
         let entity_id = info.r as u16 | ((info.g as u16) << 8);
@@ -344,7 +344,7 @@ impl SketchPicker {
         if entity_id == 0 {
             None
         } else {
-            Some((EntityId(entity_id), sketch_id))
+            Some((GeoId(entity_id), sketch_id))
         }
     }
 }

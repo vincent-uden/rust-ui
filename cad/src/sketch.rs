@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::entity::{
-    ArcThreePoint, BiConstraint, CappedLine, Circle, EntityId, FundamentalEntity, GuidedEntity,
-    Line, Point,
+    ArcThreePoint, BiConstraint, CappedLine, Circle, GeoId, GeometricEntity, GuidedEntity, Line,
+    Point,
 };
 use crate::registry::Registry;
 use crate::topology::{Loop, Wire};
@@ -18,8 +18,8 @@ use crate::topology::{Loop, Wire};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Sketch {
     name: String,
-    pub fundamental_entities: Registry<EntityId, FundamentalEntity>,
-    pub guided_entities: Registry<EntityId, GuidedEntity>,
+    pub fundamental_entities: Registry<GeoId, GeometricEntity>,
+    pub guided_entities: Registry<GeoId, GuidedEntity>,
     pub bi_constraints: Vec<BiConstraint>,
     pub wires: Vec<Wire>,
     step_size: f64,
@@ -69,11 +69,11 @@ impl Sketch {
         }
     }
 
-    fn query_point(&self, query_pos: &Vector2<f64>, radius: f64) -> Option<EntityId> {
+    fn query_point(&self, query_pos: &Vector2<f64>, radius: f64) -> Option<GeoId> {
         let mut closest_id = None;
         let mut closest_dist = f64::INFINITY;
         for (id, e) in self.fundamental_entities.iter() {
-            if let FundamentalEntity::Point { .. } = e {
+            if let GeometricEntity::Point { .. } = e {
                 let dist = e.distance_to_position(query_pos);
                 if dist <= radius && dist < closest_dist {
                     closest_id = Some(*id);
@@ -84,25 +84,25 @@ impl Sketch {
         closest_id
     }
 
-    pub fn query_or_insert_point(&mut self, query_pos: &Vector2<f64>, radius: f64) -> EntityId {
+    pub fn query_or_insert_point(&mut self, query_pos: &Vector2<f64>, radius: f64) -> GeoId {
         if let Some(id) = self.query_point(query_pos, radius) {
             id
         } else {
             self.fundamental_entities
-                .insert(FundamentalEntity::Point { pos: *query_pos })
+                .insert(GeometricEntity::Point { pos: *query_pos })
         }
     }
 
-    pub fn insert_point(&mut self, pos: Vector2<f64>) -> EntityId {
+    pub fn insert_point(&mut self, pos: Vector2<f64>) -> GeoId {
         let id = self
             .fundamental_entities
-            .insert(FundamentalEntity::Point { pos });
+            .insert(GeometricEntity::Point { pos });
         self.guided_entities.insert(GuidedEntity::Point { id })
     }
 
     /// Inserts `n - 1` lines were `n` is the length of `points`. Each line but the first shares its
     /// starting point with the end point of the preceeding line.
-    pub fn insert_capped_lines(&mut self, points: &[Vector2<f64>]) -> Vec<EntityId> {
+    pub fn insert_capped_lines(&mut self, points: &[Vector2<f64>]) -> Vec<GeoId> {
         // TODO: Check for intersections with existing entities
         // If intersecting:
         // - split the line and the other entity in two
@@ -110,14 +110,14 @@ impl Sketch {
         let mut out = vec![];
         let mut start_id = self
             .fundamental_entities
-            .insert(FundamentalEntity::Point { pos: points[0] });
+            .insert(GeometricEntity::Point { pos: points[0] });
         for w in points.windows(2) {
             let start = w[0];
             let end = w[1];
             let end_id = self
                 .fundamental_entities
-                .insert(FundamentalEntity::Point { pos: end });
-            let line_id = self.fundamental_entities.insert(FundamentalEntity::Line {
+                .insert(GeometricEntity::Point { pos: end });
+            let line_id = self.fundamental_entities.insert(GeometricEntity::Line {
                 offset: start,
                 direction: (end - start),
             });
@@ -145,7 +145,7 @@ impl Sketch {
         // If intersecting:
         // - split the line and the other entity in two
         // - apply colinear constraints and so on
-        let circle_id = self.fundamental_entities.insert(FundamentalEntity::Circle {
+        let circle_id = self.fundamental_entities.insert(GeometricEntity::Circle {
             pos: center,
             radius,
         });
@@ -227,7 +227,7 @@ impl Sketch {
                                 &CappedLine {
                                     start,
                                     end,
-                                    line: EntityId::default(),
+                                    line: GeoId::default(),
                                 },
                             ) {
                                 intersections += 1;
@@ -304,7 +304,7 @@ impl Sketch {
     }
 
     /// Returns tuples of lines that are intersected and the point of intersection
-    fn intersecting_capped_lines(&self, line: CappedLine) -> Vec<(EntityId, CappedLine, Point)> {
+    fn intersecting_capped_lines(&self, line: CappedLine) -> Vec<(GeoId, CappedLine, Point)> {
         self.guided_entities
             .iter()
             .filter_map(|(k, v)| {
@@ -327,7 +327,7 @@ impl Sketch {
     /// segment whereas the second half will be a new line.
     fn split_capped_line(
         &mut self,
-        existing_id: EntityId,
+        existing_id: GeoId,
         split_point: Point,
     ) -> (CappedLine, CappedLine) {
         let existing = self.guided_entities.get_mut(&existing_id).unwrap();
@@ -343,10 +343,10 @@ impl Sketch {
             .unwrap();
 
         let start = existing_line.start;
-        let middle = self.fundamental_entities.insert(FundamentalEntity::Point {
+        let middle = self.fundamental_entities.insert(GeometricEntity::Point {
             pos: split_point.pos,
         });
-        let second_line = self.fundamental_entities.insert(FundamentalEntity::Line {
+        let second_line = self.fundamental_entities.insert(GeometricEntity::Line {
             offset: start_point.pos,
             direction: (end_point.pos - start_point.pos),
         });
@@ -392,16 +392,12 @@ mod tests {
     #[test]
     fn basic_error_setup() {
         let mut sketch = Sketch::new("Basic Error Setup".to_string());
-        let e1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(0.0, 0.0),
-            });
-        let e2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(1.0, 1.0),
-            });
+        let e1 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let e2 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 1.0),
+        });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -414,16 +410,12 @@ mod tests {
     #[test]
     fn basic_grad_error_setup() {
         let mut sketch = Sketch::new("Basic Grad Error Setup".to_string());
-        let e1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(0.0, 0.0),
-            });
-        let e2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(1.0, 1.0),
-            });
+        let e1 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let e2 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 1.0),
+        });
         sketch.bi_constraints.push(BiConstraint {
             e1,
             e2,
@@ -445,21 +437,15 @@ mod tests {
     #[test]
     fn pythagorean_triplet() {
         let mut sketch = Sketch::new("Pythagorean Triplet".to_string());
-        let e1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(0.0, 0.0),
-            });
-        let e2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(1.0, 0.1),
-            });
-        let e3 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(0.1, 1.0),
-            });
+        let e1 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let e2 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 0.1),
+        });
+        let e3 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.1, 1.0),
+        });
 
         sketch.bi_constraints.push(BiConstraint {
             e1,
@@ -486,18 +472,17 @@ mod tests {
             sketch.sgd_step();
         }
 
-        let top_corner = if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e3]
+        let top_corner = if let GeometricEntity::Point { pos } = &sketch.fundamental_entities[e3] {
+            Point { pos: *pos }
+        } else {
+            panic!("Expected Point");
+        };
+        let right_corner = if let GeometricEntity::Point { pos } = &sketch.fundamental_entities[e2]
         {
             Point { pos: *pos }
         } else {
             panic!("Expected Point");
         };
-        let right_corner =
-            if let FundamentalEntity::Point { pos } = &sketch.fundamental_entities[e2] {
-                Point { pos: *pos }
-            } else {
-                panic!("Expected Point");
-            };
         let diff = (top_corner.pos - right_corner.pos).norm();
         assert!((diff - 5.0) < 1e-6);
 
@@ -510,12 +495,10 @@ mod tests {
     #[test]
     fn point_line_coincident() {
         let mut sketch = Sketch::new("Point Line Coincident".to_string());
-        let e1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(3.0, 1.0),
-            });
-        let e2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+        let e1 = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(3.0, 1.0),
+        });
+        let e2 = sketch.fundamental_entities.insert(GeometricEntity::Line {
             offset: Vector2::new(1.0, 1.2),
             direction: Vector2::new(-1.0, -1.0),
         });
@@ -541,14 +524,12 @@ mod tests {
     #[test]
     fn circle_line_tangent() {
         let mut sketch = Sketch::new("Circle Line Tangent".to_string());
-        let e1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Circle {
-                pos: Vector2::new(0.0, -1.0),
-                radius: 1.0,
-            });
+        let e1 = sketch.fundamental_entities.insert(GeometricEntity::Circle {
+            pos: Vector2::new(0.0, -1.0),
+            radius: 1.0,
+        });
         sketch.dump("Circle Line Tangent Intial");
-        let e2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+        let e2 = sketch.fundamental_entities.insert(GeometricEntity::Line {
             offset: Vector2::new(1.0, 1.0),
             direction: Vector2::new(1.0, -1.0),
         });
@@ -570,9 +551,9 @@ mod tests {
         );
 
         match sketch.fundamental_entities[e1] {
-            FundamentalEntity::Point { .. } => panic!("e1 should be a circle"),
-            FundamentalEntity::Line { .. } => panic!("e1 should be a circle"),
-            FundamentalEntity::Circle { pos, radius } => {
+            GeometricEntity::Point { .. } => panic!("e1 should be a circle"),
+            GeometricEntity::Line { .. } => panic!("e1 should be a circle"),
+            GeometricEntity::Circle { pos, radius } => {
                 let c = Circle { pos, radius };
                 println!("{:?}", c);
                 assert!(c.radius > 1e-2, "The radius should be larger than 1e-2")
@@ -580,12 +561,12 @@ mod tests {
         }
 
         match sketch.fundamental_entities[e2] {
-            FundamentalEntity::Point { .. } => panic!("e2 should be a line"),
-            FundamentalEntity::Line { offset, direction } => {
+            GeometricEntity::Point { .. } => panic!("e2 should be a line"),
+            GeometricEntity::Line { offset, direction } => {
                 let l = Line { offset, direction };
                 println!("{:?}", l);
             }
-            FundamentalEntity::Circle { .. } => panic!("e2 should be a line"),
+            GeometricEntity::Circle { .. } => panic!("e2 should be a line"),
         }
     }
 
@@ -593,26 +574,20 @@ mod tests {
     fn rotating_line_test() {
         // The line should rotate and be offset to align with the points called x and y
         let mut sketch = Sketch::new("Rotating Line Sketch".to_string());
-        let origin = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(0.0, 0.0),
-            });
-        let x = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(1.0, 0.0),
-            });
-        let y = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: Vector2::new(0.0, -1.0),
-            });
-        let l1 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+        let origin = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let x = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 0.0),
+        });
+        let y = sketch.fundamental_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, -1.0),
+        });
+        let l1 = sketch.fundamental_entities.insert(GeometricEntity::Line {
             offset: Vector2::new(0.0, 0.0),
             direction: Vector2::new(1.0, 0.2),
         });
-        let l2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+        let l2 = sketch.fundamental_entities.insert(GeometricEntity::Line {
             offset: Vector2::new(1.0, 1.0),
             direction: Vector2::new(0.2, 1.0),
         });
@@ -673,17 +648,15 @@ mod tests {
     #[test]
     fn circle_tangent_with_two_lines() {
         let mut sketch = Sketch::new("Circle Tangent With Two Lines Sketch".to_string());
-        let c = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Circle {
-                pos: Vector2::new(-0.01453125, -0.3746484375),
-                radius: 1.1365623545023815,
-            });
-        let l1 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+        let c = sketch.fundamental_entities.insert(GeometricEntity::Circle {
+            pos: Vector2::new(-0.01453125, -0.3746484375),
+            radius: 1.1365623545023815,
+        });
+        let l1 = sketch.fundamental_entities.insert(GeometricEntity::Line {
             offset: Vector2::new(1.56115234375, 0.7165625),
             direction: Vector2::new(-2.3505859375, 0.7005468749999999),
         });
-        let l2 = sketch.fundamental_entities.insert(FundamentalEntity::Line {
+        let l2 = sketch.fundamental_entities.insert(GeometricEntity::Line {
             offset: Vector2::new(-1.03939453125, -2.0318359375),
             direction: Vector2::new(2.04685546875, 0.4622460937499999),
         });

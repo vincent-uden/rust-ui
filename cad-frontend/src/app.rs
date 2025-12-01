@@ -3,7 +3,7 @@ use std::{cell::RefCell, f64::consts::PI, time::Instant};
 
 use cad::{
     Plane, Scene, SketchInfo,
-    entity::{FundamentalEntity, GuidedEntity},
+    entity::{GeometricEntity, GuidedEntity},
     registry::Registry,
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
@@ -589,38 +589,32 @@ impl Default for App {
         let mut sketch = cad::sketch::Sketch::new("Test sketch".into());
         let p1 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point {
+            .insert(GeometricEntity::Point {
                 pos: glm::vec2(0.0, 0.0),
             });
         let p2 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point {
+            .insert(GeometricEntity::Point {
                 pos: glm::vec2(1.0, 0.0),
             });
         let p3 = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Point {
+            .insert(GeometricEntity::Point {
                 pos: glm::vec2(0.0, 1.0),
             });
         // Doesnt matter for rendering atm
-        let l1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: glm::vec2(0.0, 0.0),
-                direction: glm::vec2(0.0, 0.0),
-            });
-        let l2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: glm::vec2(0.0, 0.0),
-                direction: glm::vec2(0.0, 0.0),
-            });
-        let l3 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: glm::vec2(0.0, 0.0),
-                direction: glm::vec2(0.0, 0.0),
-            });
+        let l1 = sketch.fundamental_entities.insert(GeometricEntity::Line {
+            offset: glm::vec2(0.0, 0.0),
+            direction: glm::vec2(0.0, 0.0),
+        });
+        let l2 = sketch.fundamental_entities.insert(GeometricEntity::Line {
+            offset: glm::vec2(0.0, 0.0),
+            direction: glm::vec2(0.0, 0.0),
+        });
+        let l3 = sketch.fundamental_entities.insert(GeometricEntity::Line {
+            offset: glm::vec2(0.0, 0.0),
+            direction: glm::vec2(0.0, 0.0),
+        });
         sketch.guided_entities.insert(GuidedEntity::CappedLine {
             start: p1,
             end: p2,
@@ -648,7 +642,7 @@ impl Default for App {
 
         let circle = sketch
             .fundamental_entities
-            .insert(FundamentalEntity::Circle {
+            .insert(GeometricEntity::Circle {
                 pos: glm::vec2(0.5, 0.5),
                 radius: 0.3,
             });
