@@ -13,7 +13,7 @@ use crate::entity::{
     Line, Point,
 };
 use crate::registry::Registry;
-use crate::topology::Loop;
+use crate::topology::{Loop, Wire};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Sketch {
@@ -21,7 +21,7 @@ pub struct Sketch {
     pub fundamental_entities: Registry<EntityId, FundamentalEntity>,
     pub guided_entities: Registry<EntityId, GuidedEntity>,
     pub bi_constraints: Vec<BiConstraint>,
-    pub loops: Vec<Loop>,
+    pub wires: Vec<Wire>,
     step_size: f64,
 }
 
@@ -32,7 +32,7 @@ impl Sketch {
             fundamental_entities: Registry::new(),
             guided_entities: Registry::new(),
             bi_constraints: Vec::new(),
-            loops: Vec::new(),
+            wires: Vec::new(),
             step_size: 1e-2,
         }
     }
@@ -121,36 +121,17 @@ impl Sketch {
                 offset: start,
                 direction: (end - start),
             });
-
-            let new_line = GuidedEntity::CappedLine {
+            let mut new_line = CappedLine {
                 start: start_id,
                 end: end_id,
                 line: line_id,
             };
 
-            for v in self.guided_entities.values() {
-                match v {
-                    existing @ GuidedEntity::CappedLine {
-                        start: _,
-                        end: _,
-                        line: _,
-                    } => {
-                        if self.does_capped_line_intersect_capped_line(
-                            new_line.try_into().expect("New line must be a capped line"),
-                            (*existing)
-                                .try_into()
-                                .expect("Existing line must be a capped line"),
-                        ) {
-                            // TODO:
-                            //   - Split both lines into two
-                            //   - Create loops?
-                        }
-                    }
-                    _ => { /* TODO: Circle and Arc intersections */ }
-                }
+            for (id, _, split_point) in self.intersecting_capped_lines(new_line) {
+                let (fst, snd) = self.split_capped_line(id, split_point);
             }
 
-            out.push(self.guided_entities.insert(new_line));
+            out.push(self.guided_entities.insert(new_line.into()));
             start_id = end_id;
         }
         out
@@ -290,19 +271,100 @@ impl Sketch {
         intersections % 2 == 1
     }
 
-    pub fn does_capped_line_intersect_capped_line(&self, l1: CappedLine, l2: CappedLine) -> bool {
+    fn capped_line_intersection(&self, l1: CappedLine, l2: CappedLine) -> Option<Point> {
         let (p1, v1) = l1.parametrize(&self.fundamental_entities);
         let (p2, v2) = l2.parametrize(&self.fundamental_entities);
 
         let denom = v1.x * v2.y - v1.y * v2.x;
         if denom.abs() < 1e-12 {
-            return false;
+            return None;
         }
 
         let t = ((p2.x - p1.x) * v2.y - (p2.y - p1.y) * v2.x) / denom;
         let s = ((p2.x - p1.x) * v1.y - (p2.y - p1.y) * v1.x) / denom;
 
-        t >= 0.0 && t <= 1.0 && s >= 0.0 && s <= 1.0
+        if t >= 0.0 && t <= 1.0 && s >= 0.0 && s <= 1.0 {
+            Some(Point { pos: p1 + v1 * t })
+        } else {
+            None
+        }
+    }
+
+    pub fn does_capped_line_intersect_capped_line(&self, l1: CappedLine, l2: CappedLine) -> bool {
+        self.capped_line_intersection(l1, l2).is_some()
+    }
+
+    fn loops(&self) -> impl Iterator<Item = Loop> {
+        self.wires
+            .iter()
+            .filter_map(|x| x.clone().try_into(&self.guided_entities).ok())
+    }
+
+    /// Returns tuples of lines that are intersected and the point of intersection
+    fn intersecting_capped_lines(&self, line: CappedLine) -> Vec<(EntityId, CappedLine, Point)> {
+        self.guided_entities
+            .iter()
+            .filter_map(|(k, v)| {
+                match v {
+                    GuidedEntity::CappedLine { .. } => {
+                        let as_line = (*v)
+                            .try_into()
+                            .expect("Existing line must be a capped line");
+                        self.capped_line_intersection(line, as_line)
+                            .map(|point| (*k, as_line, point))
+                    }
+                    // TODO: Circle and Arc intersections
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    /// To avoid invalidating [EntityId]s to `existing`, existing will be truncated to be the starting
+    /// segment whereas the second half will be a new line.
+    fn split_capped_line(
+        &mut self,
+        existing_id: EntityId,
+        split_point: Point,
+    ) -> (CappedLine, CappedLine) {
+        let existing = self.guided_entities.get_mut(&existing_id).unwrap();
+        let mut existing_line: CappedLine = existing
+            .clone()
+            .try_into()
+            .expect("existing must be a CappedLine");
+        let start_point: Point = (*self.fundamental_entities.get(&existing_line.start).unwrap())
+            .try_into()
+            .unwrap();
+        let end_point: Point = (*self.fundamental_entities.get(&existing_line.end).unwrap())
+            .try_into()
+            .unwrap();
+
+        let start = existing_line.start;
+        let middle = self.fundamental_entities.insert(FundamentalEntity::Point {
+            pos: split_point.pos,
+        });
+        let second_line = self.fundamental_entities.insert(FundamentalEntity::Line {
+            offset: start_point.pos,
+            direction: (end_point.pos - start_point.pos),
+        });
+        let end = existing_line.end;
+        *existing = GuidedEntity::CappedLine {
+            start,
+            end: middle,
+            line: existing_line.line,
+        };
+
+        let snd = self.guided_entities.insert(GuidedEntity::CappedLine {
+            start: middle,
+            end,
+            line: second_line,
+        });
+
+        existing_line.end = middle;
+        let new_line: CappedLine = (*self.guided_entities.get(&snd).unwrap())
+            .try_into()
+            .unwrap();
+        (existing_line, new_line)
     }
 }
 

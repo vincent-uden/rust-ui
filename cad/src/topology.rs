@@ -20,8 +20,8 @@ pub struct Wire {
 
 impl Wire {
     pub fn try_into(self, reg: &Registry<EntityId, GuidedEntity>) -> Result<Loop, Box<dyn Error>> {
-        if self.ids.len() < 2 {
-            return Err("Wire must be at least 2 entities long".into());
+        if self.ids.is_empty() {
+            return Err("Wire must contain at least one entity".into());
         }
         let first_guided = reg
             .get(self.ids.first().unwrap())
