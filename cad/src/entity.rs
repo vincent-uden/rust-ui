@@ -1,5 +1,5 @@
-use std::f64::consts::PI;
 use std::fmt::Debug;
+use std::{error::Error, f64::consts::PI};
 
 use enum_variant_type::EnumVariantType;
 use nalgebra::{Rotation2, Vector2};
@@ -662,6 +662,26 @@ impl GuidedEntity {
                 circle,
             } => *start == other || *middle == other || *end == other || *circle == other,
         }
+    }
+
+    pub fn start_point(self) -> Result<EntityId, Box<dyn Error>> {
+        if let Ok(line) = CappedLine::try_from(self) {
+            return Ok(line.start);
+        }
+        if let Ok(arc) = ArcThreePoint::try_from(self) {
+            return Ok(arc.start);
+        }
+        Err("Points, lines and circles don't have any start points".into())
+    }
+
+    pub fn end_point(self) -> Result<EntityId, Box<dyn Error>> {
+        if let Ok(line) = CappedLine::try_from(self) {
+            return Ok(line.end);
+        }
+        if let Ok(arc) = ArcThreePoint::try_from(self) {
+            return Ok(arc.end);
+        }
+        Err("Points, lines and circles don't have any end points".into())
     }
 }
 

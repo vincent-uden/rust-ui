@@ -121,11 +121,36 @@ impl Sketch {
                 offset: start,
                 direction: (end - start),
             });
-            out.push(self.guided_entities.insert(GuidedEntity::CappedLine {
+
+            let new_line = GuidedEntity::CappedLine {
                 start: start_id,
                 end: end_id,
                 line: line_id,
-            }));
+            };
+
+            for v in self.guided_entities.values() {
+                match v {
+                    existing @ GuidedEntity::CappedLine {
+                        start: _,
+                        end: _,
+                        line: _,
+                    } => {
+                        if self.does_capped_line_intersect_capped_line(
+                            new_line.try_into().expect("New line must be a capped line"),
+                            (*existing)
+                                .try_into()
+                                .expect("Existing line must be a capped line"),
+                        ) {
+                            // TODO:
+                            //   - Split both lines into two
+                            //   - Create loops?
+                        }
+                    }
+                    _ => { /* TODO: Circle and Arc intersections */ }
+                }
+            }
+
+            out.push(self.guided_entities.insert(new_line));
             start_id = end_id;
         }
         out
