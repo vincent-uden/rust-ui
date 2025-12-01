@@ -127,9 +127,12 @@ impl Sketch {
                 line: line_id,
             };
 
+            let mut split_point_ids = vec![];
             for (id, _, split_point) in self.intersecting_capped_lines(new_line) {
                 let (fst, snd) = self.split_capped_line(id, split_point);
+                split_point_ids.push(fst.end);
             }
+            // TODO: Split the new line in (splint_point_ids.len() + 1) segments
 
             out.push(self.guided_entities.insert(new_line.into()));
             start_id = end_id;
