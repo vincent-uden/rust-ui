@@ -52,6 +52,8 @@ pub enum Edge {
     CappedLine {
         start: GeoId,
         end: GeoId,
+        // TODO: Remove this? Over-constrained system and is probably not needed
+        // The points themselves will be constrained to fall onto line
         line: GeoId,
     },
     #[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]

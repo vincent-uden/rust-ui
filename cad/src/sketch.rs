@@ -12,6 +12,8 @@ use crate::entity::{BiConstraint, Circle, GeoId, GeometricEntity, Point};
 use crate::registry::Registry;
 use crate::topology::{self, ArcThreePoint, CappedLine, Edge, Loop, TopoEntity, TopoId, Wire};
 
+const EQ_TOL: f64 = 1e-10;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Sketch {
     name: String,
@@ -123,6 +125,7 @@ impl Sketch {
                 let (fst, _) = self.split_capped_line(id, split_point);
                 split_point_ids.push(fst.end);
             }
+            println!("Splits {:?}", split_point_ids);
             // TODO: Split the new line in (splint_point_ids.len() + 1) segments
 
             out.push(self.topo_entities.insert(new_line.into()));
@@ -278,7 +281,7 @@ impl Sketch {
         let t = ((p2.x - p1.x) * v2.y - (p2.y - p1.y) * v2.x) / denom;
         let s = ((p2.x - p1.x) * v1.y - (p2.y - p1.y) * v1.x) / denom;
 
-        if t >= 0.0 && t <= 1.0 && s >= 0.0 && s <= 1.0 {
+        if t >= EQ_TOL && t <= (1.0 - EQ_TOL) && s >= EQ_TOL && s <= (1.0 - EQ_TOL) {
             Some(Point { pos: p1 + v1 * t })
         } else {
             None
@@ -678,7 +681,6 @@ mod tests {
 
     #[test]
     fn point_is_inside_polygon_of_lines() {
-        // TODO: Fails now for some reason
         let mut sketch = Sketch::new("Pentagon".to_string());
         let radius = 3.0;
         let corners: Vec<_> = (0..6)
@@ -697,11 +699,38 @@ mod tests {
 
     #[test]
     fn capped_lines_should_intersect() {
+        // Capped lines have to be manually constructed since the method splits any existing lines
+        // for loop construction purposes.
         let mut sketch = Sketch::new("Crossed Capped Lines".to_string());
-        let l1_id =
-            sketch.insert_capped_lines(&[Vector2::new(1.0, 1.0), Vector2::new(-1.0, -1.0)])[0];
-        let l2_id =
-            sketch.insert_capped_lines(&[Vector2::new(-1.0, 1.0), Vector2::new(1.0, -1.0)])[0];
+        let l1_points = [Vector2::new(1.0, 1.0), Vector2::new(-1.0, -1.0)];
+        let l2_points = [Vector2::new(-1.0, 1.0), Vector2::new(1.0, -1.0)];
+
+        let l1_p0 = sketch.insert_point(l1_points[0]);
+        let l1_p1 = sketch.insert_point(l1_points[1]);
+        let l2_p0 = sketch.insert_point(l2_points[0]);
+        let l2_p1 = sketch.insert_point(l2_points[1]);
+
+        let l1_start: topology::Point = sketch.topo_entities[l1_p0].try_into().unwrap();
+        let l1_end: topology::Point = sketch.topo_entities[l1_p1].try_into().unwrap();
+        let l2_start: topology::Point = sketch.topo_entities[l2_p0].try_into().unwrap();
+        let l2_end: topology::Point = sketch.topo_entities[l2_p1].try_into().unwrap();
+
+        let l1_id = sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: l1_start.id,
+                end: l1_end.id,
+                line: GeoId::default(),
+            }
+            .into(),
+        );
+        let l2_id = sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: l2_start.id,
+                end: l2_end.id,
+                line: GeoId::default(),
+            }
+            .into(),
+        );
 
         let l1 = (*sketch.topo_entities.get(&l1_id).unwrap())
             .try_into()
