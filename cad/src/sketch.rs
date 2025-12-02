@@ -6,9 +6,9 @@ use std::path::Path;
 use nalgebra::Vector2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{debug, error};
 
-use crate::entity::{BiConstraint, Circle, GeoId, GeometricEntity, Point};
+use crate::entity::{self, BiConstraint, Circle, GeoId, GeometricEntity, Point};
 use crate::registry::Registry;
 use crate::topology::{self, ArcThreePoint, CappedLine, Edge, Loop, TopoEntity, TopoId, Wire};
 
@@ -104,6 +104,7 @@ impl Sketch {
         let mut start_id = self
             .geo_entities
             .insert(GeometricEntity::Point { pos: points[0] });
+        debug!("Points: {:?}", points);
         for w in points.windows(2) {
             let start = w[0];
             let end = w[1];
@@ -114,21 +115,46 @@ impl Sketch {
                 offset: start,
                 direction: (end - start),
             });
-            let new_line = CappedLine {
+            let pending_line = CappedLine {
                 start: start_id,
                 end: end_id,
                 line: line_id,
             };
 
-            let mut split_point_ids = vec![];
-            for (id, _, split_point) in self.intersecting_capped_lines(new_line) {
+            let mut split_point_ids = vec![start_id];
+            for (id, _, split_point) in self.intersecting_capped_lines(pending_line) {
                 let (fst, _) = self.split_capped_line(id, split_point);
                 split_point_ids.push(fst.end);
             }
-            println!("Splits {:?}", split_point_ids);
-            // TODO: Split the new line in (splint_point_ids.len() + 1) segments
 
-            out.push(self.topo_entities.insert(new_line.into()));
+            debug!("Splits {:?}", split_point_ids);
+            // TODO: Sometimes the constructed has too few splits even though there are the correct
+            // amount of split points
+
+            if split_point_ids.len() == 1 {
+                // The simple case where we don't intersect any existing lines
+                out.push(self.topo_entities.insert(pending_line.into()));
+            } else {
+                // The original line is no longer needed since we'll create one for each split segment
+                self.geo_entities.remove(&line_id);
+                split_point_ids.push(end_id);
+                for w in split_point_ids.windows(2) {
+                    let start: entity::Point = self.geo_entities[w[0]].try_into().unwrap();
+                    let end: entity::Point = self.geo_entities[w[1]].try_into().unwrap();
+
+                    let paritial_line_id = self.geo_entities.insert(GeometricEntity::Line {
+                        offset: start.pos,
+                        direction: (end.pos - start.pos),
+                    });
+
+                    let partial_line = CappedLine {
+                        start: w[0],
+                        end: w[1],
+                        line: paritial_line_id,
+                    };
+                    self.topo_entities.insert(partial_line.into());
+                }
+            }
             start_id = end_id;
         }
         out
@@ -324,6 +350,7 @@ impl Sketch {
         existing_id: TopoId,
         split_point: Point,
     ) -> (CappedLine, CappedLine) {
+        // TODO: coincident constraint on point and co-linear on snd_line
         let existing = self.topo_entities.get_mut(&existing_id).unwrap();
         let mut existing_line: CappedLine = existing
             .clone()
