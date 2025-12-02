@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use cad::entity::{BiConstraint, GuidedEntity};
+use cad::{entity::BiConstraint, topology::TopoEntity};
 use rust_ui::{geometry::Vector, render::renderer::NodeContext};
 use taffy::{NodeId, Style, TaffyTree};
 
@@ -29,7 +29,7 @@ pub enum InteractionState {
 /// Represents a pending state for user input
 #[derive(Debug, Clone, Copy, Default)]
 pub enum Pending {
-    Entity(GuidedEntity),
+    Entity(TopoEntity),
     Constraint(BiConstraint),
     #[default]
     None,

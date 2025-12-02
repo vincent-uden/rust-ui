@@ -3,8 +3,9 @@ use std::{cell::RefCell, f64::consts::PI, time::Instant};
 
 use cad::{
     Plane, Scene, SketchInfo,
-    entity::{GeometricEntity, GuidedEntity},
+    entity::GeometricEntity,
     registry::Registry,
+    topology::{Edge, TopoEntity},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
@@ -609,24 +610,33 @@ impl Default for App {
             offset: glm::vec2(0.0, 0.0),
             direction: glm::vec2(0.0, 0.0),
         });
-        sketch.topo_entities.insert(GuidedEntity::CappedLine {
-            start: p1,
-            end: p2,
-            line: l1,
-        });
-        sketch.topo_entities.insert(GuidedEntity::CappedLine {
-            start: p1,
-            end: p3,
-            line: l2,
-        });
-        sketch.topo_entities.insert(GuidedEntity::CappedLine {
-            start: p2,
-            end: p3,
-            line: l3,
-        });
-        sketch.topo_entities.insert(GuidedEntity::Point { id: p1 });
-        sketch.topo_entities.insert(GuidedEntity::Point { id: p2 });
-        sketch.topo_entities.insert(GuidedEntity::Point { id: p3 });
+        sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: p1,
+                end: p2,
+                line: l1,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: p1,
+                end: p3,
+                line: l2,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: p2,
+                end: p3,
+                line: l3,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(TopoEntity::Point { id: p1 });
+        sketch.topo_entities.insert(TopoEntity::Point { id: p2 });
+        sketch.topo_entities.insert(TopoEntity::Point { id: p3 });
 
         let circle = sketch.geo_entities.insert(GeometricEntity::Circle {
             pos: glm::vec2(0.5, 0.5),
@@ -634,7 +644,7 @@ impl Default for App {
         });
         sketch
             .topo_entities
-            .insert(GuidedEntity::Circle { id: circle });
+            .insert(TopoEntity::Circle { id: circle });
 
         let scene = Scene {
             path: None,

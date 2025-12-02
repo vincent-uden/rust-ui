@@ -1,7 +1,8 @@
 use cad::{
     SketchInfo,
-    entity::{Circle, GeoId, GuidedEntity, Point},
+    entity::{Circle, GeoId, Point},
     sketch::Sketch,
+    topology::TopoId,
 };
 use rust_ui::{
     geometry::Vector,
@@ -72,40 +73,14 @@ impl SketchRenderer {
         state: &mut ViewportData,
         x_axis: glm::Vec3,
         y_axis: glm::Vec3,
-        hovered: Option<GeoId>,
+        hovered: Option<TopoId>,
     ) {
         let projection = state.projection();
         let model = state.model();
         let view = state.view();
         for (id, eid) in sketch.topo_entities.iter() {
             match eid {
-                GuidedEntity::CappedLine {
-                    start,
-                    end,
-                    line: _,
-                } => {
-                    let start: Point = sketch.geo_entities[*start].try_into().unwrap();
-                    let end: Point = sketch.geo_entities[*end].try_into().unwrap();
-                    let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
-                    let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
-
-                    let s_3d = s.x * x_axis + s.y * y_axis;
-                    let e_3d = e.x * x_axis + e.y * y_axis;
-                    self.line_r.draw_3d(
-                        s_3d,
-                        e_3d,
-                        if *id == hovered.unwrap_or_default() {
-                            HOVER_COLOR
-                        } else {
-                            Color::new(1.0, 1.0, 1.0, 1.0)
-                        },
-                        2.0,
-                        &projection,
-                        &model,
-                        &view,
-                    );
-                }
-                GuidedEntity::Point { id: pid } => {
+                cad::topology::TopoEntity::Point { id: pid } => {
                     let point: Point = sketch.geo_entities[*pid].try_into().unwrap();
                     let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
                     let p_3d = p.x * x_axis + p.y * y_axis;
@@ -122,7 +97,7 @@ impl SketchRenderer {
                         &view,
                     );
                 }
-                GuidedEntity::Circle { id: cid } => {
+                cad::topology::TopoEntity::Circle { id: cid } => {
                     let circle: Circle = sketch.geo_entities[*cid].try_into().unwrap();
                     let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
                     let center_3d = center.x * x_axis + center.y * y_axis;
@@ -142,6 +117,35 @@ impl SketchRenderer {
                         y_axis,
                     );
                 }
+                cad::topology::TopoEntity::Edge { edge } => match edge {
+                    cad::topology::Edge::CappedLine {
+                        start,
+                        end,
+                        line: _,
+                    } => {
+                        let start: Point = sketch.geo_entities[*start].try_into().unwrap();
+                        let end: Point = sketch.geo_entities[*end].try_into().unwrap();
+                        let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
+                        let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
+
+                        let s_3d = s.x * x_axis + s.y * y_axis;
+                        let e_3d = e.x * x_axis + e.y * y_axis;
+                        self.line_r.draw_3d(
+                            s_3d,
+                            e_3d,
+                            if *id == hovered.unwrap_or_default() {
+                                HOVER_COLOR
+                            } else {
+                                Color::new(1.0, 1.0, 1.0, 1.0)
+                            },
+                            2.0,
+                            &projection,
+                            &model,
+                            &view,
+                        );
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
         }
@@ -257,37 +261,9 @@ impl SketchPicker {
         self.picker.enable_writing();
         // Maybe allow for selection of axes in the future. For example it is useful when
         // constructing planes
-        for (GeoId(id), eid) in si.sketch.topo_entities.iter() {
+        for (TopoId(id), eid) in si.sketch.topo_entities.iter() {
             match eid {
-                GuidedEntity::CappedLine {
-                    start,
-                    end,
-                    line: _,
-                } => {
-                    let start: Point = si.sketch.geo_entities[*start].try_into().unwrap();
-                    let end: Point = si.sketch.geo_entities[*end].try_into().unwrap();
-                    let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
-                    let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
-                    let projection = state.projection();
-                    let model = state.model();
-                    let view = state.view();
-
-                    let s_3d = s.x * x_axis + s.y * y_axis;
-                    let e_3d = e.x * x_axis + e.y * y_axis;
-                    self.line_r.shader.use_shader();
-                    self.line_r.shader.set_uniform("entityId", &(*id as u32));
-                    self.line_r.shader.set_uniform("sketchId", &(si.id as u32));
-                    self.line_r.draw_3d(
-                        s_3d,
-                        e_3d,
-                        Color::new(1.0, 1.0, 1.0, 1.0),
-                        2.0,
-                        &projection,
-                        &model,
-                        &view,
-                    );
-                }
-                GuidedEntity::Point { id: pid } => {
+                cad::topology::TopoEntity::Point { id: pid } => {
                     let point: Point = si.sketch.geo_entities[*pid].try_into().unwrap();
                     let p = Vector::new(point.pos.x as f32, point.pos.y as f32);
                     let projection = state.projection();
@@ -306,7 +282,7 @@ impl SketchPicker {
                         &view,
                     );
                 }
-                GuidedEntity::Circle { id: cid } => {
+                cad::topology::TopoEntity::Circle { id: cid } => {
                     let circle: Circle = si.sketch.geo_entities[*cid].try_into().unwrap();
                     let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
                     let projection = state.projection();
@@ -330,13 +306,40 @@ impl SketchPicker {
                         y_axis,
                     );
                 }
+                cad::topology::TopoEntity::Edge { edge } => match edge {
+                    cad::topology::Edge::CappedLine { start, end, line } => {
+                        let start: Point = si.sketch.geo_entities[*start].try_into().unwrap();
+                        let end: Point = si.sketch.geo_entities[*end].try_into().unwrap();
+                        let s = Vector::new(start.pos.x as f32, start.pos.y as f32);
+                        let e = Vector::new(end.pos.x as f32, end.pos.y as f32);
+                        let projection = state.projection();
+                        let model = state.model();
+                        let view = state.view();
+
+                        let s_3d = s.x * x_axis + s.y * y_axis;
+                        let e_3d = e.x * x_axis + e.y * y_axis;
+                        self.line_r.shader.use_shader();
+                        self.line_r.shader.set_uniform("entityId", &(*id as u32));
+                        self.line_r.shader.set_uniform("sketchId", &(si.id as u32));
+                        self.line_r.draw_3d(
+                            s_3d,
+                            e_3d,
+                            Color::new(1.0, 1.0, 1.0, 1.0),
+                            2.0,
+                            &projection,
+                            &model,
+                            &view,
+                        );
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
         }
         self.picker.disable_writing();
     }
 
-    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<(GeoId, u16)> {
+    pub fn hovered(&self, mouse_pos: Vector<i32>, viewport_height: f32) -> Option<(TopoId, u16)> {
         let opengl_y = viewport_height as i32 - mouse_pos.y;
         let info = self.picker.read_pixel(mouse_pos.x, opengl_y);
         let entity_id = info.r as u16 | ((info.g as u16) << 8);
@@ -344,7 +347,7 @@ impl SketchPicker {
         if entity_id == 0 {
             None
         } else {
-            Some((GeoId(entity_id), sketch_id))
+            Some((TopoId(entity_id), sketch_id))
         }
     }
 }

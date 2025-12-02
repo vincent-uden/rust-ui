@@ -1,6 +1,6 @@
 use std::{cell::RefCell, f32::consts::PI, sync::Arc, time::Instant};
 
-use cad::{entity::GuidedEntity, registry::RegId};
+use cad::registry::RegId;
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
     geometry::{Rect, Vector},
