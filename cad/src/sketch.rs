@@ -10,7 +10,9 @@ use tracing::{debug, error};
 
 use crate::entity::{self, BiConstraint, Circle, GeoId, GeometricEntity, Point};
 use crate::registry::Registry;
-use crate::topology::{self, ArcThreePoint, CappedLine, Edge, Loop, TopoEntity, TopoId, Wire};
+use crate::topology::{
+    self, ArcThreePoint, CappedLine, Edge, Loop, ParametrizedIntersection, TopoEntity, TopoId, Wire,
+};
 
 const EQ_TOL: f64 = 1e-10;
 
@@ -295,7 +297,11 @@ impl Sketch {
         intersections % 2 == 1
     }
 
-    fn capped_line_intersection(&self, l1: CappedLine, l2: CappedLine) -> Option<Point> {
+    fn capped_line_intersection(
+        &self,
+        l1: CappedLine,
+        l2: CappedLine,
+    ) -> Option<ParametrizedIntersection> {
         let (p1, v1) = l1.parametrize(&self.geo_entities);
         let (p2, v2) = l2.parametrize(&self.geo_entities);
 
@@ -308,7 +314,11 @@ impl Sketch {
         let s = ((p2.x - p1.x) * v1.y - (p2.y - p1.y) * v1.x) / denom;
 
         if t >= EQ_TOL && t <= (1.0 - EQ_TOL) && s >= EQ_TOL && s <= (1.0 - EQ_TOL) {
-            Some(Point { pos: p1 + v1 * t })
+            Some(ParametrizedIntersection {
+                point: Point { pos: p1 + v1 * t },
+                t,
+                s,
+            })
         } else {
             None
         }
@@ -326,7 +336,8 @@ impl Sketch {
 
     /// Returns tuples of lines that are intersected and the point of intersection
     fn intersecting_capped_lines(&self, line: CappedLine) -> Vec<(TopoId, CappedLine, Point)> {
-        self.topo_entities
+        let mut intersections: Vec<_> = self
+            .topo_entities
             .iter()
             .filter_map(|(k, v)| match v {
                 TopoEntity::Edge {
@@ -336,10 +347,15 @@ impl Sketch {
                         .try_into()
                         .expect("Existing line must be a capped line");
                     self.capped_line_intersection(line, as_line)
-                        .map(|point| (*k, as_line, point))
+                        .map(|intersection| (*k, as_line, intersection))
                 }
                 _ => None,
             })
+            .collect();
+        intersections.sort_by(|(_, _, i_a), (_, _, i_b)| i_a.t.total_cmp(&i_b.t));
+        intersections
+            .into_iter()
+            .map(|(k, l, i)| (k, l, i.point))
             .collect()
     }
 

@@ -282,3 +282,14 @@ impl Wire {
 pub struct Loop {
     pub ids: Vec<TopoId>,
 }
+
+/// An intersection of two parametrized edges
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ParametrizedIntersection {
+    /// The geometrical point in space
+    pub point: entity::Point,
+    /// Coordinate of the intersection along the first curve
+    pub t: f64,
+    /// Coordinate of the intersection along the second curve
+    pub s: f64,
+}
