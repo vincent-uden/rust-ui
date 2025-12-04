@@ -9,6 +9,18 @@ use crate::{
     registry::{RegId, Registry},
 };
 
+pub type TopoRegistry = Registry<TopoId, TopoEntity>;
+impl TopoRegistry {
+    pub fn iter_edges(&self) -> impl Iterator<Item = (&TopoId, &Edge)> {
+        self.iter()
+            .filter_map(|(k, v)| match v {
+                TopoEntity::Edge { edge } => Some((k, edge)),
+                _ => None,
+            })
+            .into_iter()
+    }
+}
+
 #[derive(
     Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize,
 )]

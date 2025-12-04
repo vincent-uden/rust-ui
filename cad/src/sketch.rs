@@ -106,7 +106,6 @@ impl Sketch {
         let mut start_id = self
             .geo_entities
             .insert(GeometricEntity::Point { pos: points[0] });
-        debug!("Points: {:?}", points);
         for w in points.windows(2) {
             let start = w[0];
             let end = w[1];
@@ -128,11 +127,6 @@ impl Sketch {
                 let (fst, _) = self.split_capped_line(id, split_point);
                 split_point_ids.push(fst.end);
             }
-
-            debug!("Splits {:?}", split_point_ids);
-            // TODO: Sometimes the constructed has too few splits even though there are the correct
-            // amount of split points
-
             if split_point_ids.len() == 1 {
                 // The simple case where we don't intersect any existing lines
                 out.push(self.topo_entities.insert(pending_line.into()));
@@ -143,12 +137,10 @@ impl Sketch {
                 for w in split_point_ids.windows(2) {
                     let start: entity::Point = self.geo_entities[w[0]].try_into().unwrap();
                     let end: entity::Point = self.geo_entities[w[1]].try_into().unwrap();
-
                     let paritial_line_id = self.geo_entities.insert(GeometricEntity::Line {
                         offset: start.pos,
                         direction: (end.pos - start.pos),
                     });
-
                     let partial_line = CappedLine {
                         start: w[0],
                         end: w[1],
@@ -328,7 +320,166 @@ impl Sketch {
         self.capped_line_intersection(l1, l2).is_some()
     }
 
-    fn loops(&self) -> impl Iterator<Item = Loop> {
+    /// Finds all closed loops (faces) in the sketch using planar face extraction.
+    ///
+    /// The algorithm:
+    /// 1. Builds an adjacency map from vertices to connected edges
+    /// 2. Sorts edges at each vertex by angle (counterclockwise)
+    /// 3. Traces faces by following the "next counterclockwise" edge at each vertex
+    /// 4. Filters out the outer infinite face (identified by clockwise winding / negative area)
+    ///
+    /// Currently only supports CappedLine edges (arcs are skipped).
+    pub fn find_loops(&self) -> Vec<Loop> {
+        use crate::topology::CappedLine;
+        use std::collections::{HashMap, HashSet};
+
+        // Step 1: Build adjacency map (vertex -> list of (edge_id, other_vertex))
+        let mut adjacency: HashMap<GeoId, Vec<(TopoId, GeoId)>> = HashMap::new();
+
+        for (topo_id, edge) in self.topo_entities.iter_edges() {
+            // Skip arcs for now, only handle CappedLines
+            let capped_line: CappedLine = match (*edge).try_into() {
+                Ok(line) => line,
+                Err(_) => continue,
+            };
+
+            let start = capped_line.start;
+            let end = capped_line.end;
+
+            adjacency.entry(start).or_default().push((*topo_id, end));
+            adjacency.entry(end).or_default().push((*topo_id, start));
+        }
+
+        // Step 2: Sort edges at each vertex by angle (counterclockwise)
+        for (vertex, edges) in adjacency.iter_mut() {
+            let vertex_pos = self.get_point_pos(*vertex);
+            edges.sort_by(|(_, other_a), (_, other_b)| {
+                let pos_a = self.get_point_pos(*other_a);
+                let pos_b = self.get_point_pos(*other_b);
+                let angle_a = (pos_a - vertex_pos).y.atan2((pos_a - vertex_pos).x);
+                let angle_b = (pos_b - vertex_pos).y.atan2((pos_b - vertex_pos).x);
+                angle_a.partial_cmp(&angle_b).unwrap()
+            });
+        }
+
+        // Step 3: Build lookup structures
+        // half_edge_to_topo: (from, to) -> TopoId of the edge
+        // next_half_edge: (from, to) -> (next_from, next_to) for CCW face traversal
+        let mut half_edge_to_topo: HashMap<(GeoId, GeoId), TopoId> = HashMap::new();
+        let mut next_half_edge: HashMap<(GeoId, GeoId), (GeoId, GeoId)> = HashMap::new();
+
+        // Populate half_edge_to_topo
+        for (topo_id, edge) in self.topo_entities.iter_edges() {
+            let capped_line: CappedLine = match (*edge).try_into() {
+                Ok(line) => line,
+                Err(_) => continue,
+            };
+            half_edge_to_topo.insert((capped_line.start, capped_line.end), *topo_id);
+            half_edge_to_topo.insert((capped_line.end, capped_line.start), *topo_id);
+        }
+
+        // Build next-half-edge lookup
+        for (vertex, edges) in &adjacency {
+            let n = edges.len();
+            for i in 0..n {
+                let (_edge_id, other) = edges[i];
+                // The half-edge coming INTO this vertex is (other -> vertex)
+                // The next half-edge leaving this vertex in CCW order is the PREVIOUS one in the sorted list
+                // (because we want to turn left/counterclockwise)
+                let prev_idx = (i + n - 1) % n;
+                let (_next_edge_id, next_other) = edges[prev_idx];
+
+                next_half_edge.insert((other, *vertex), (*vertex, next_other));
+            }
+        }
+
+        // Step 4: Trace all faces
+        let mut used_half_edges: HashSet<(GeoId, GeoId)> = HashSet::new();
+        let mut found_loops: Vec<(Vec<TopoId>, f64)> = Vec::new(); // (edge_ids, signed_area)
+
+        for (vertex, edges) in &adjacency {
+            for (_edge_id, other) in edges {
+                let start_half_edge = (*vertex, *other);
+
+                if used_half_edges.contains(&start_half_edge) {
+                    continue;
+                }
+
+                let mut face_edges: Vec<TopoId> = Vec::new();
+                let mut face_vertices: Vec<GeoId> = Vec::new();
+                let mut current = start_half_edge;
+
+                loop {
+                    if used_half_edges.contains(&current) && current != start_half_edge {
+                        // Safety check: avoid infinite loops
+                        break;
+                    }
+                    used_half_edges.insert(current);
+
+                    let (from, _to) = current;
+                    face_vertices.push(from);
+
+                    // Record the edge for this half-edge
+                    if let Some(topo_id) = half_edge_to_topo.get(&current) {
+                        face_edges.push(*topo_id);
+                    }
+
+                    // Find the next half-edge
+                    if let Some(&next) = next_half_edge.get(&current) {
+                        current = next;
+                    } else {
+                        // Dead end (shouldn't happen in a proper planar graph)
+                        break;
+                    }
+
+                    if current == start_half_edge {
+                        break;
+                    }
+                }
+
+                if face_edges.len() >= 3 && current == start_half_edge {
+                    // Compute signed area using shoelace formula
+                    let signed_area = self.compute_signed_area(&face_vertices);
+                    found_loops.push((face_edges, signed_area));
+                }
+            }
+        }
+
+        // Step 5: Filter out the outer face (negative signed area = clockwise winding)
+        // The outer/infinite face will have negative area (clockwise) when inner faces are CCW
+        found_loops
+            .into_iter()
+            .filter(|(_, area)| *area > 0.0)
+            .map(|(ids, _)| Loop { ids })
+            .collect()
+    }
+
+    /// Returns the position of a point given its GeoId
+    fn get_point_pos(&self, id: GeoId) -> Vector2<f64> {
+        match self.geo_entities.get(&id) {
+            Some(GeometricEntity::Point { pos }) => *pos,
+            _ => Vector2::new(0.0, 0.0), // Fallback, shouldn't happen
+        }
+    }
+
+    /// Computes the signed area of a polygon using the shoelace formula.
+    /// Positive area = counterclockwise winding, negative = clockwise.
+    fn compute_signed_area(&self, vertices: &[GeoId]) -> f64 {
+        let n = vertices.len();
+        if n < 3 {
+            return 0.0;
+        }
+
+        let mut area = 0.0;
+        for i in 0..n {
+            let p1 = self.get_point_pos(vertices[i]);
+            let p2 = self.get_point_pos(vertices[(i + 1) % n]);
+            area += p1.x * p2.y - p2.x * p1.y;
+        }
+        area / 2.0
+    }
+
+    pub fn loops(&self) -> impl Iterator<Item = Loop> {
         self.wires
             .iter()
             .filter_map(|x| x.clone().try_into(&self.topo_entities).ok())
@@ -783,5 +934,351 @@ mod tests {
             .unwrap();
 
         assert!(sketch.does_capped_line_intersect_capped_line(l1, l2))
+    }
+
+    #[test]
+    fn find_loops_triangle() {
+        let mut sketch = Sketch::new("Find Loops Triangle".to_string());
+
+        // Manually create a closed triangle by sharing the start/end point
+        let p0 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let p1 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 0.0),
+        });
+        let p2 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.5, 1.0),
+        });
+
+        // Create edges
+        let l0 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(0.0, 0.0),
+            direction: Vector2::new(1.0, 0.0),
+        });
+        let l1 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(1.0, 0.0),
+            direction: Vector2::new(-0.5, 1.0),
+        });
+        let l2 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(0.5, 1.0),
+            direction: Vector2::new(-0.5, -1.0),
+        });
+
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p0,
+                end: p1,
+                line: l0,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p1,
+                end: p2,
+                line: l1,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p2,
+                end: p0,
+                line: l2,
+            }
+            .into(),
+        );
+
+        let loops = sketch.find_loops();
+        assert_eq!(loops.len(), 1, "Should find exactly one loop (triangle)");
+        assert_eq!(loops[0].ids.len(), 3, "Triangle should have 3 edges");
+    }
+
+    #[test]
+    fn find_loops_square() {
+        let mut sketch = Sketch::new("Find Loops Square".to_string());
+
+        // Create points
+        let p0 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let p1 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 0.0),
+        });
+        let p2 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 1.0),
+        });
+        let p3 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 1.0),
+        });
+
+        // Create line geometry (not strictly needed for find_loops but required by CappedLine)
+        let l0 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(0.0, 0.0),
+            direction: Vector2::new(1.0, 0.0),
+        });
+        let l1 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(1.0, 0.0),
+            direction: Vector2::new(0.0, 1.0),
+        });
+        let l2 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(1.0, 1.0),
+            direction: Vector2::new(-1.0, 0.0),
+        });
+        let l3 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: Vector2::new(0.0, 1.0),
+            direction: Vector2::new(0.0, -1.0),
+        });
+
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p0,
+                end: p1,
+                line: l0,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p1,
+                end: p2,
+                line: l1,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p2,
+                end: p3,
+                line: l2,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p3,
+                end: p0,
+                line: l3,
+            }
+            .into(),
+        );
+
+        let loops = sketch.find_loops();
+        assert_eq!(loops.len(), 1, "Should find exactly one loop (square)");
+        assert_eq!(loops[0].ids.len(), 4, "Square should have 4 edges");
+    }
+
+    #[test]
+    fn find_loops_figure_eight() {
+        // A figure-8 shape: two triangles sharing a center vertex
+        let mut sketch = Sketch::new("Find Loops Figure Eight".to_string());
+
+        // Create points - center is shared
+        let center = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let top = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 1.0),
+        });
+        let bottom = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, -1.0),
+        });
+        let left = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(-1.0, 0.0),
+        });
+        let right = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 0.0),
+        });
+
+        // Dummy line IDs (not used in find_loops)
+        let dummy = GeoId::default();
+
+        // Upper triangle: center -> right -> top -> center
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: center,
+                end: right,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: right,
+                end: top,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: top,
+                end: center,
+                line: dummy,
+            }
+            .into(),
+        );
+
+        // Lower triangle: center -> bottom -> left -> center
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: center,
+                end: bottom,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: bottom,
+                end: left,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: left,
+                end: center,
+                line: dummy,
+            }
+            .into(),
+        );
+
+        let loops = sketch.find_loops();
+        assert_eq!(
+            loops.len(),
+            2,
+            "Should find exactly two loops in figure-8, found {}",
+            loops.len()
+        );
+        for l in &loops {
+            assert_eq!(l.ids.len(), 3, "Each loop in figure-8 should have 3 edges");
+        }
+    }
+
+    #[test]
+    fn find_loops_two_adjacent_squares() {
+        // Two squares sharing an edge:
+        // +---+---+
+        // |   |   |
+        // +---+---+
+        let mut sketch = Sketch::new("Find Loops Two Adjacent Squares".to_string());
+
+        // Create points - middle edge points are shared
+        let p00 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let p10 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 0.0),
+        });
+        let p20 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(2.0, 0.0),
+        });
+        let p01 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 1.0),
+        });
+        let p11 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 1.0),
+        });
+        let p21 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(2.0, 1.0),
+        });
+
+        let dummy = GeoId::default();
+
+        // Left square edges
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p00,
+                end: p10,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p10,
+                end: p11,
+                line: dummy,
+            }
+            .into(),
+        ); // Shared edge
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p11,
+                end: p01,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p01,
+                end: p00,
+                line: dummy,
+            }
+            .into(),
+        );
+
+        // Right square edges (shares edge p10-p11)
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p10,
+                end: p20,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p20,
+                end: p21,
+                line: dummy,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p21,
+                end: p11,
+                line: dummy,
+            }
+            .into(),
+        );
+
+        let loops = sketch.find_loops();
+        assert_eq!(
+            loops.len(),
+            2,
+            "Should find exactly two loops (two squares), found {}",
+            loops.len()
+        );
+    }
+
+    #[test]
+    fn find_loops_no_closed_shape() {
+        // Just a single line segment - no closed loops
+        let mut sketch = Sketch::new("Find Loops No Closed Shape".to_string());
+
+        let p0 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(0.0, 0.0),
+        });
+        let p1 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: Vector2::new(1.0, 1.0),
+        });
+        let dummy = GeoId::default();
+        sketch.topo_entities.insert(
+            crate::topology::Edge::CappedLine {
+                start: p0,
+                end: p1,
+                line: dummy,
+            }
+            .into(),
+        );
+
+        let loops = sketch.find_loops();
+        assert_eq!(loops.len(), 0, "Should find no loops for open geometry");
     }
 }

@@ -14,7 +14,7 @@ use rust_ui::{
     render::{
         Color,
         line::LineRenderer,
-        renderer::{AppState, RenderLayout},
+        renderer::{AppState, RenderLayout, visual_log},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -702,6 +702,13 @@ impl AppState for App {
     type SpriteKey = String;
 
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
+        {
+            let loops: Vec<_> = self.mutable_state.borrow().scene.sketches[0]
+                .sketch
+                .loops()
+                .collect();
+            visual_log("loops", format!("{:?}", loops));
+        }
         let mut out = vec![];
         out.extend(self.base_layer(window_size));
         if self.perf_overlay.visible {
