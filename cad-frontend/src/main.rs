@@ -90,7 +90,7 @@ fn main() {
                 state.scene.sketches[0].sketch = sketch;
             }
             Err(e) => {
-                error!(e);
+                error!("Failed to load sketch with error \"{}\"", e);
             }
         }
     }

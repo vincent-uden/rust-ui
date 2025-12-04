@@ -22,7 +22,7 @@ pub struct Sketch {
     pub geo_entities: Registry<GeoId, GeometricEntity>,
     pub topo_entities: Registry<TopoId, TopoEntity>,
     pub bi_constraints: Vec<BiConstraint>,
-    pub wires: Vec<Wire>,
+    pub loops: Vec<Loop>,
     step_size: f64,
 }
 
@@ -33,7 +33,7 @@ impl Sketch {
             geo_entities: Registry::new(),
             topo_entities: Registry::new(),
             bi_constraints: Vec::new(),
-            wires: Vec::new(),
+            loops: Vec::new(),
             step_size: 1e-2,
         }
     }
@@ -151,6 +151,7 @@ impl Sketch {
             }
             start_id = end_id;
         }
+        self.loops = self.find_loops();
         out
     }
 
@@ -479,10 +480,8 @@ impl Sketch {
         area / 2.0
     }
 
-    pub fn loops(&self) -> impl Iterator<Item = Loop> {
-        self.wires
-            .iter()
-            .filter_map(|x| x.clone().try_into(&self.topo_entities).ok())
+    pub fn loops(&self) -> impl Iterator<Item = &Loop> {
+        self.loops.iter()
     }
 
     /// Returns tuples of lines that are intersected and the point of intersection
@@ -873,6 +872,7 @@ mod tests {
         );
     }
 
+    /// This test does not interact with the loop-discovering capabilities of sketches. It is just to test the inside algorihm
     #[test]
     fn point_is_inside_polygon_of_lines() {
         let mut sketch = Sketch::new("Pentagon".to_string());

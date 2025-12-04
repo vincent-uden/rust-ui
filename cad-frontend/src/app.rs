@@ -5,7 +5,7 @@ use cad::{
     Plane, Scene, SketchInfo,
     entity::GeometricEntity,
     registry::Registry,
-    topology::{Edge, TopoEntity},
+    topology::{Edge, Loop, TopoEntity},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
@@ -703,9 +703,10 @@ impl AppState for App {
 
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
         {
-            let loops: Vec<_> = self.mutable_state.borrow().scene.sketches[0]
+            let loops: Vec<Loop> = self.mutable_state.borrow().scene.sketches[0]
                 .sketch
                 .loops()
+                .map(|x| x.clone())
                 .collect();
             visual_log("loops", format!("{:?}", loops));
         }
