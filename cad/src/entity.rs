@@ -10,23 +10,22 @@ use crate::registry::{RegId, Registry};
 #[derive(
     Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize,
 )]
-pub struct EntityId(pub u16);
-
-impl RegId for EntityId {
+pub struct GeoId(pub u16);
+impl RegId for GeoId {
     /// We start at 1 to allow for the usage of 0 as a "null" id
     fn new() -> Self {
         Self(1)
     }
 
     fn increment(self) -> Self {
-        let EntityId(id) = self;
+        let GeoId(id) = self;
         Self(id + 1)
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, EnumVariantType)]
 #[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]
-pub enum FundamentalEntity {
+pub enum GeometricEntity {
     Point {
         pos: Vector2<f64>,
     },
@@ -40,7 +39,7 @@ pub enum FundamentalEntity {
     },
 }
 
-fn vector_angle(a: Vector2<f64>) -> f64 {
+pub fn vector_angle(a: Vector2<f64>) -> f64 {
     let angle = f64::atan2(a.y, a.x);
     if angle < 0.0 {
         angle + 2.0 * std::f64::consts::PI
@@ -49,16 +48,16 @@ fn vector_angle(a: Vector2<f64>) -> f64 {
     }
 }
 
-impl FundamentalEntity {
+impl GeometricEntity {
     pub fn distance_to_position(&self, target: &Vector2<f64>) -> f64 {
         match self {
-            FundamentalEntity::Point { pos } => (pos - target).norm(),
-            FundamentalEntity::Line { offset, direction } => {
+            GeometricEntity::Point { pos } => (pos - target).norm(),
+            GeometricEntity::Line { offset, direction } => {
                 let ortho_a = target - project(target, direction);
                 let ortho_r = offset - project(offset, direction);
                 (ortho_r - ortho_a).norm()
             }
-            FundamentalEntity::Circle { pos, radius } => ((target - pos).norm() - radius).abs(),
+            GeometricEntity::Circle { pos, radius } => ((target - pos).norm() - radius).abs(),
         }
     }
 
@@ -82,7 +81,7 @@ impl FundamentalEntity {
 
         let radius = ((center.x - p1.x).powi(2) + (center.y - p1.y).powi(2)).sqrt();
 
-        Some(FundamentalEntity::Circle {
+        Some(GeometricEntity::Circle {
             pos: center,
             radius,
         })
@@ -108,37 +107,37 @@ pub enum ConstraintType {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub struct BiConstraint {
-    pub e1: EntityId,
-    pub e2: EntityId,
+    pub e1: GeoId,
+    pub e2: GeoId,
     pub c: ConstraintType,
 }
 
 impl BiConstraint {
-    pub fn new(e1: EntityId, e2: EntityId, c: ConstraintType) -> Self {
+    pub fn new(e1: GeoId, e2: GeoId, c: ConstraintType) -> Self {
         Self { e1, e2, c }
     }
 
-    pub fn possible(e1: &FundamentalEntity, e2: &FundamentalEntity, c: &ConstraintType) -> bool {
+    pub fn possible(e1: &GeometricEntity, e2: &GeometricEntity, c: &ConstraintType) -> bool {
         match (e1, e2) {
-            (FundamentalEntity::Point { .. }, FundamentalEntity::Point { .. }) => matches!(
+            (GeometricEntity::Point { .. }, GeometricEntity::Point { .. }) => matches!(
                 c,
                 ConstraintType::Coincident
                     | ConstraintType::Distance { .. }
                     | ConstraintType::Vertical
                     | ConstraintType::Horizontal
             ),
-            (FundamentalEntity::Point { .. }, FundamentalEntity::Line { .. }) => matches!(
+            (GeometricEntity::Point { .. }, GeometricEntity::Line { .. }) => matches!(
                 c,
                 ConstraintType::Coincident | ConstraintType::Distance { .. }
             ),
-            (FundamentalEntity::Point { .. }, FundamentalEntity::Circle { .. }) => matches!(
+            (GeometricEntity::Point { .. }, GeometricEntity::Circle { .. }) => matches!(
                 c,
                 ConstraintType::Coincident
                     | ConstraintType::Distance { .. }
                     | ConstraintType::Vertical
                     | ConstraintType::Horizontal
             ),
-            (FundamentalEntity::Line { .. }, FundamentalEntity::Line { .. }) => matches!(
+            (GeometricEntity::Line { .. }, GeometricEntity::Line { .. }) => matches!(
                 c,
                 ConstraintType::Parallel
                     | ConstraintType::Perpendicular
@@ -146,13 +145,13 @@ impl BiConstraint {
                     | ConstraintType::Distance { .. }
                     | ConstraintType::Angle { .. }
             ),
-            (FundamentalEntity::Circle { .. }, FundamentalEntity::Line { .. }) => matches!(
+            (GeometricEntity::Circle { .. }, GeometricEntity::Line { .. }) => matches!(
                 c,
                 ConstraintType::Coincident
                     | ConstraintType::Tangent
                     | ConstraintType::Distance { .. }
             ),
-            (FundamentalEntity::Circle { .. }, FundamentalEntity::Circle { .. }) => matches!(
+            (GeometricEntity::Circle { .. }, GeometricEntity::Circle { .. }) => matches!(
                 c,
                 ConstraintType::Coincident
                     | ConstraintType::Distance { .. }
@@ -164,25 +163,25 @@ impl BiConstraint {
         }
     }
 
-    pub fn error(e1: &FundamentalEntity, e2: &FundamentalEntity, c: &ConstraintType) -> f64 {
+    pub fn error(e1: &GeometricEntity, e2: &GeometricEntity, c: &ConstraintType) -> f64 {
         if Self::possible(e1, e2, c) {
             match (e1, e2) {
-                (FundamentalEntity::Point { .. }, FundamentalEntity::Point { .. }) => {
+                (GeometricEntity::Point { .. }, GeometricEntity::Point { .. }) => {
                     Self::error_pp(e1, e2, *c)
                 }
-                (FundamentalEntity::Point { .. }, FundamentalEntity::Line { .. }) => {
+                (GeometricEntity::Point { .. }, GeometricEntity::Line { .. }) => {
                     Self::error_pl(e1, e2, *c)
                 }
-                (FundamentalEntity::Point { .. }, FundamentalEntity::Circle { .. }) => {
+                (GeometricEntity::Point { .. }, GeometricEntity::Circle { .. }) => {
                     Self::error_pc(e1, e2, *c)
                 }
-                (FundamentalEntity::Line { .. }, FundamentalEntity::Line { .. }) => {
+                (GeometricEntity::Line { .. }, GeometricEntity::Line { .. }) => {
                     Self::error_ll(e1, e2, *c)
                 }
-                (FundamentalEntity::Line { .. }, FundamentalEntity::Circle { .. }) => {
+                (GeometricEntity::Line { .. }, GeometricEntity::Circle { .. }) => {
                     Self::error_lc(e1, e2, *c)
                 }
-                (FundamentalEntity::Circle { .. }, FundamentalEntity::Circle { .. }) => {
+                (GeometricEntity::Circle { .. }, GeometricEntity::Circle { .. }) => {
                     Self::error_cc(e1, e2, *c)
                 }
                 _ => Self::error(e2, e1, c),
@@ -302,17 +301,17 @@ impl BiConstraint {
     }
 
     pub fn apply_grad_error(
-        e1: &mut FundamentalEntity,
-        e2: &FundamentalEntity,
+        e1: &mut GeometricEntity,
+        e2: &GeometricEntity,
         c: &ConstraintType,
         step_size: f64,
     ) {
         match e1 {
-            FundamentalEntity::Point { pos } => Self::apply_grad_error_p(pos, e2, *c, step_size),
-            FundamentalEntity::Line { offset, direction } => {
+            GeometricEntity::Point { pos } => Self::apply_grad_error_p(pos, e2, *c, step_size),
+            GeometricEntity::Line { offset, direction } => {
                 Self::apply_grad_error_l(offset, direction, e2, *c, step_size)
             }
-            FundamentalEntity::Circle { pos, radius } => {
+            GeometricEntity::Circle { pos, radius } => {
                 Self::apply_grad_error_c(pos, radius, e2, *c, step_size)
             }
         }
@@ -320,21 +319,21 @@ impl BiConstraint {
 
     fn apply_grad_error_p(
         p1_pos: &mut Vector2<f64>,
-        e: &FundamentalEntity,
+        e: &GeometricEntity,
         c: ConstraintType,
         step_size: f64,
     ) {
         let h = 1e-6;
         let x_errors = [
             Self::error(
-                &FundamentalEntity::Point {
+                &GeometricEntity::Point {
                     pos: *p1_pos + Vector2::new(-h / 2.0, 0.0),
                 },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Point {
+                &GeometricEntity::Point {
                     pos: *p1_pos + Vector2::new(h / 2.0, 0.0),
                 },
                 e,
@@ -343,14 +342,14 @@ impl BiConstraint {
         ];
         let y_errors = [
             Self::error(
-                &FundamentalEntity::Point {
+                &GeometricEntity::Point {
                     pos: *p1_pos + Vector2::new(0.0, -h / 2.0),
                 },
                 e,
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Point {
+                &GeometricEntity::Point {
                     pos: *p1_pos + Vector2::new(0.0, h / 2.0),
                 },
                 e,
@@ -367,14 +366,14 @@ impl BiConstraint {
     fn apply_grad_error_l(
         l_offset: &mut Vector2<f64>,
         l_direction: &mut Vector2<f64>,
-        e: &FundamentalEntity,
+        e: &GeometricEntity,
         c: ConstraintType,
         step_size: f64,
     ) {
         let h = 1e-4;
         let o_x_errors = [
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset + Vector2::new(-h / 2.0, 0.0),
                     direction: *l_direction,
                 },
@@ -382,7 +381,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset + Vector2::new(h / 2.0, 0.0),
                     direction: *l_direction,
                 },
@@ -392,7 +391,7 @@ impl BiConstraint {
         ];
         let o_y_errors = [
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset + Vector2::new(0.0, -h / 2.0),
                     direction: *l_direction,
                 },
@@ -400,7 +399,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset + Vector2::new(0.0, h / 2.0),
                     direction: *l_direction,
                 },
@@ -410,7 +409,7 @@ impl BiConstraint {
         ];
         let d_x_errors = [
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset,
                     direction: *l_direction + Vector2::new(-h / 2.0, 0.0),
                 },
@@ -418,7 +417,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset,
                     direction: *l_direction + Vector2::new(h / 2.0, 0.0),
                 },
@@ -428,7 +427,7 @@ impl BiConstraint {
         ];
         let d_y_errors = [
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset,
                     direction: *l_direction + Vector2::new(0.0, -h / 2.0),
                 },
@@ -436,7 +435,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Line {
+                &GeometricEntity::Line {
                     offset: *l_offset,
                     direction: *l_direction + Vector2::new(0.0, h / 2.0),
                 },
@@ -458,14 +457,14 @@ impl BiConstraint {
     fn apply_grad_error_c(
         c1_pos: &mut Vector2<f64>,
         c1_radius: &mut f64,
-        e: &FundamentalEntity,
+        e: &GeometricEntity,
         c: ConstraintType,
         step_size: f64,
     ) {
         let h = 1e-6;
         let x_errors = [
             Self::error(
-                &FundamentalEntity::Circle {
+                &GeometricEntity::Circle {
                     pos: *c1_pos + Vector2::new(-h / 2.0, 0.0),
                     radius: *c1_radius,
                 },
@@ -473,7 +472,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Circle {
+                &GeometricEntity::Circle {
                     pos: *c1_pos + Vector2::new(h / 2.0, 0.0),
                     radius: *c1_radius,
                 },
@@ -483,7 +482,7 @@ impl BiConstraint {
         ];
         let y_errors = [
             Self::error(
-                &FundamentalEntity::Circle {
+                &GeometricEntity::Circle {
                     pos: *c1_pos + Vector2::new(0.0, -h / 2.0),
                     radius: *c1_radius,
                 },
@@ -491,7 +490,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Circle {
+                &GeometricEntity::Circle {
                     pos: *c1_pos + Vector2::new(0.0, h / 2.0),
                     radius: *c1_radius,
                 },
@@ -501,7 +500,7 @@ impl BiConstraint {
         ];
         let r_errors = [
             Self::error(
-                &FundamentalEntity::Circle {
+                &GeometricEntity::Circle {
                     pos: *c1_pos,
                     radius: *c1_radius - h / 2.0,
                 },
@@ -509,7 +508,7 @@ impl BiConstraint {
                 &c,
             ),
             Self::error(
-                &FundamentalEntity::Circle {
+                &GeometricEntity::Circle {
                     pos: *c1_pos,
                     radius: *c1_radius + h / 2.0,
                 },
@@ -527,179 +526,6 @@ impl BiConstraint {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, EnumVariantType)]
-pub enum GuidedEntity {
-    #[evt(skip)]
-    Point { id: EntityId },
-    /// An infinte line such as the Cartesian axes
-    #[evt(skip)]
-    Line { id: EntityId },
-    #[evt(skip)]
-    Circle { id: EntityId },
-    /// A finite line between two points
-    #[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]
-    CappedLine {
-        start: EntityId,
-        end: EntityId,
-        line: EntityId,
-    },
-    #[evt(derive(Debug, Deserialize, Serialize, Clone, Copy))]
-    ArcThreePoint {
-        start: EntityId,
-        middle: EntityId,
-        end: EntityId,
-        circle: EntityId,
-    },
-}
-
-impl GuidedEntity {
-    /// `mouse_pos` is in sketch space
-    pub fn filter_selection_attempt(
-        &self,
-        entity_reg: &Registry<EntityId, FundamentalEntity>,
-        mouse_pos: Vector2<f64>,
-    ) -> bool {
-        match self {
-            GuidedEntity::Point { id: _ } => true,
-            GuidedEntity::Line { id: _ } => true,
-            GuidedEntity::Circle { id: _ } => true,
-            GuidedEntity::CappedLine { start, end, line } => {
-                if let (
-                    Some(FundamentalEntity::Point { pos: start_pos }),
-                    Some(FundamentalEntity::Point { pos: end_pos }),
-                    Some(FundamentalEntity::Line { .. }),
-                ) = (
-                    entity_reg.get(start),
-                    entity_reg.get(end),
-                    entity_reg.get(line),
-                ) {
-                    let start_point = Point { pos: *start_pos };
-                    let end_point = Point { pos: *end_pos };
-                    let angle = (end_point.pos - start_point.pos).angle(&Vector2::x());
-                    let rot = Rotation2::new(-angle);
-                    let start_pos = rot * start_point.pos;
-                    let end_pos = rot * end_point.pos;
-                    let mouse_pos = rot * mouse_pos;
-
-                    mouse_pos.x >= start_pos.x && mouse_pos.x <= end_pos.x
-                        || mouse_pos.x <= start_pos.x && mouse_pos.x >= end_pos.x
-                } else {
-                    false
-                }
-            }
-            GuidedEntity::ArcThreePoint {
-                start,
-                middle,
-                end,
-                circle,
-            } => {
-                if let (
-                    Some(FundamentalEntity::Point { pos: start_pos }),
-                    Some(FundamentalEntity::Point { pos: middle_pos }),
-                    Some(FundamentalEntity::Point { pos: end_pos }),
-                    Some(FundamentalEntity::Circle {
-                        pos: circle_pos,
-                        radius: circle_radius,
-                    }),
-                ) = (
-                    entity_reg.get(start),
-                    entity_reg.get(middle),
-                    entity_reg.get(end),
-                    entity_reg.get(circle),
-                ) {
-                    let start_point = Point { pos: *start_pos };
-                    let middle_point = Point { pos: *middle_pos };
-                    let end_point = Point { pos: *end_pos };
-                    let circle_entity = Circle {
-                        pos: *circle_pos,
-                        radius: *circle_radius,
-                    };
-                    let tolerance = 5.0 * PI / 180.0;
-                    let start_angle = vector_angle(start_point.pos - circle_entity.pos);
-                    let mut end_angle = vector_angle(end_point.pos - circle_entity.pos);
-                    let middle_angle = vector_angle(middle_point.pos - circle_entity.pos);
-                    let mouse_angle = vector_angle(mouse_pos - circle_entity.pos);
-
-                    if middle_angle < start_angle && end_angle > start_angle {
-                        end_angle -= 2.0 * PI;
-                    }
-                    if middle_angle > start_angle && end_angle < start_angle {
-                        end_angle += 2.0 * PI;
-                    }
-                    if middle_angle < end_angle && start_angle > end_angle {
-                        end_angle += 2.0 * PI;
-                    }
-                    if middle_angle > end_angle && start_angle < end_angle {
-                        end_angle -= 2.0 * PI;
-                    }
-
-                    let min_angle = start_angle.min(end_angle) - tolerance;
-                    let max_angle = start_angle.max(end_angle) + tolerance;
-                    mouse_angle >= min_angle && mouse_angle <= max_angle
-                        || (mouse_angle + 2.0 * PI >= min_angle
-                            && mouse_angle + 2.0 * PI <= max_angle)
-                        || (mouse_angle - 2.0 * PI >= min_angle
-                            && mouse_angle - 2.0 * PI <= max_angle)
-                } else {
-                    false
-                }
-            }
-        }
-    }
-
-    pub fn refers_to(&self, other: EntityId) -> bool {
-        match self {
-            GuidedEntity::Point { id } => *id == other,
-            GuidedEntity::Line { id } => *id == other,
-            GuidedEntity::Circle { id } => *id == other,
-            GuidedEntity::CappedLine { start, end, line } => {
-                *start == other || *end == other || *line == other
-            }
-            GuidedEntity::ArcThreePoint {
-                start,
-                middle,
-                end,
-                circle,
-            } => *start == other || *middle == other || *end == other || *circle == other,
-        }
-    }
-
-    pub fn start_point(self) -> Result<EntityId, Box<dyn Error>> {
-        if let Ok(line) = CappedLine::try_from(self) {
-            return Ok(line.start);
-        }
-        if let Ok(arc) = ArcThreePoint::try_from(self) {
-            return Ok(arc.start);
-        }
-        Err("Points, lines and circles don't have any start points".into())
-    }
-
-    pub fn end_point(self) -> Result<EntityId, Box<dyn Error>> {
-        if let Ok(line) = CappedLine::try_from(self) {
-            return Ok(line.end);
-        }
-        if let Ok(arc) = ArcThreePoint::try_from(self) {
-            return Ok(arc.end);
-        }
-        Err("Points, lines and circles don't have any end points".into())
-    }
-}
-
-impl CappedLine {
-    /// Returns *(p, v)* belonging to a parameterization *r = p + tv*. *t=0* returns the start point of
-    /// the line. *t=1* returns the end of the line.
-    pub fn parametrize(
-        &self,
-        f_reg: &Registry<EntityId, FundamentalEntity>,
-    ) -> (Vector2<f64>, Vector2<f64>) {
-        let start_point: Point = (*f_reg.get(&self.start).unwrap()).try_into().unwrap();
-        let end_point: Point = (*f_reg.get(&self.end).unwrap()).try_into().unwrap();
-        let start_pos = start_point.pos;
-        let end_pos = end_point.pos;
-        (start_pos, end_pos - start_pos)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use nalgebra::Vector2;
@@ -708,14 +534,14 @@ mod tests {
 
     #[test]
     fn contraint_possibility_matrix() {
-        let point = FundamentalEntity::Point {
+        let point = GeometricEntity::Point {
             pos: Vector2::<f64>::zeros(),
         };
-        let circle = FundamentalEntity::Circle {
+        let circle = GeometricEntity::Circle {
             pos: Vector2::<f64>::zeros(),
             radius: 0.0,
         };
-        let line = FundamentalEntity::Line {
+        let line = GeometricEntity::Line {
             offset: Vector2::<f64>::zeros(),
             direction: Vector2::<f64>::zeros(),
         };

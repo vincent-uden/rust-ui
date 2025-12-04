@@ -196,3 +196,4 @@ pub const COLOR_SECONDARY: Color = NORD15; // Aurora purple
 pub const COLOR_SUCCESS: Color = NORD14; // Aurora green
 pub const COLOR_DANGER: Color = NORD11; // Aurora red
 pub const COLOR_BLACK: Color = NORD0; // Polar night darkest
+pub const COLOR_FACE_HOVER: Color = NORD13; // Aurora yellow - for face highlighting

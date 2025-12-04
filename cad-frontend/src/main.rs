@@ -51,7 +51,7 @@ struct Args {
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(io::stdout)
-        .with_env_filter(EnvFilter::new("cad_frontend,rust_ui"))
+        .with_env_filter(EnvFilter::new("cad_frontend,rust_ui,cad"))
         .init();
 
     let args = Args::parse();
@@ -90,7 +90,7 @@ fn main() {
                 state.scene.sketches[0].sketch = sketch;
             }
             Err(e) => {
-                error!(e);
+                error!("Failed to load sketch with error \"{}\"", e);
             }
         }
     }

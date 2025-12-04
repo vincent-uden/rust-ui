@@ -3,8 +3,9 @@ use std::{cell::RefCell, f64::consts::PI, time::Instant};
 
 use cad::{
     Plane, Scene, SketchInfo,
-    entity::{FundamentalEntity, GuidedEntity},
+    entity::GeometricEntity,
     registry::Registry,
+    topology::{Edge, Loop, TopoEntity, TopoId},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
@@ -13,7 +14,7 @@ use rust_ui::{
     render::{
         Color,
         line::LineRenderer,
-        renderer::{AppState, RenderLayout},
+        renderer::{AppState, RenderLayout, visual_log},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -69,6 +70,17 @@ pub(crate) struct AppMutableState {
 }
 
 const BDRY_TOLERANCE: f32 = 5.0;
+
+/// Returns the TopoIds of edges belonging to the loop that contains the given point,
+/// or None if the point is not inside any loop.
+fn find_face_at_point(sketch: &cad::sketch::Sketch, point: glm::DVec2) -> Option<Vec<TopoId>> {
+    for l in sketch.loops() {
+        if sketch.is_inside(l, point.into()) {
+            return Some(l.ids.clone());
+        }
+    }
+    None
+}
 
 pub struct App {
     pub perf_overlay: PerformanceOverlay<Self>,
@@ -400,23 +412,18 @@ impl App {
                     self.sketch_renderer.draw_axes(data);
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
+                            // Compute mouse position in sketch coordinates for face detection
                             let mouse_in_area = self.mouse_pos - area.bbox.x0;
-                            let area_height = area.bbox.height();
-                            let mut entity_id = None;
-                            if let Some((eid, sid)) = self
-                                .sketch_picker
-                                .hovered(mouse_in_area.into(), area_height)
-                            {
-                                if sid == si.id {
-                                    entity_id = Some(eid);
-                                }
-                            }
+                            let face_edges = data
+                                .screen_to_sketch_coords(mouse_in_area, &si.plane)
+                                .and_then(|sketch_pos| find_face_at_point(&si.sketch, sketch_pos));
+
                             self.sketch_renderer.draw(
                                 &si.sketch,
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
-                                entity_id,
+                                face_edges.as_deref(),
                             );
                         }
                         let active_sketch =
@@ -587,74 +594,63 @@ impl Default for App {
         };
 
         let mut sketch = cad::sketch::Sketch::new("Test sketch".into());
-        let p1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: glm::vec2(0.0, 0.0),
-            });
-        let p2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: glm::vec2(1.0, 0.0),
-            });
-        let p3 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Point {
-                pos: glm::vec2(0.0, 1.0),
-            });
+        let p1 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: glm::vec2(0.0, 0.0),
+        });
+        let p2 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: glm::vec2(1.0, 0.0),
+        });
+        let p3 = sketch.geo_entities.insert(GeometricEntity::Point {
+            pos: glm::vec2(0.0, 1.0),
+        });
         // Doesnt matter for rendering atm
-        let l1 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: glm::vec2(0.0, 0.0),
-                direction: glm::vec2(0.0, 0.0),
-            });
-        let l2 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: glm::vec2(0.0, 0.0),
-                direction: glm::vec2(0.0, 0.0),
-            });
-        let l3 = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Line {
-                offset: glm::vec2(0.0, 0.0),
-                direction: glm::vec2(0.0, 0.0),
-            });
-        sketch.guided_entities.insert(GuidedEntity::CappedLine {
-            start: p1,
-            end: p2,
-            line: l1,
+        let l1 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: glm::vec2(0.0, 0.0),
+            direction: glm::vec2(0.0, 0.0),
         });
-        sketch.guided_entities.insert(GuidedEntity::CappedLine {
-            start: p1,
-            end: p3,
-            line: l2,
+        let l2 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: glm::vec2(0.0, 0.0),
+            direction: glm::vec2(0.0, 0.0),
         });
-        sketch.guided_entities.insert(GuidedEntity::CappedLine {
-            start: p2,
-            end: p3,
-            line: l3,
+        let l3 = sketch.geo_entities.insert(GeometricEntity::Line {
+            offset: glm::vec2(0.0, 0.0),
+            direction: glm::vec2(0.0, 0.0),
         });
-        sketch
-            .guided_entities
-            .insert(GuidedEntity::Point { id: p1 });
-        sketch
-            .guided_entities
-            .insert(GuidedEntity::Point { id: p2 });
-        sketch
-            .guided_entities
-            .insert(GuidedEntity::Point { id: p3 });
+        sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: p1,
+                end: p2,
+                line: l1,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: p1,
+                end: p3,
+                line: l2,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(
+            Edge::CappedLine {
+                start: p2,
+                end: p3,
+                line: l3,
+            }
+            .into(),
+        );
+        sketch.topo_entities.insert(TopoEntity::Point { id: p1 });
+        sketch.topo_entities.insert(TopoEntity::Point { id: p2 });
+        sketch.topo_entities.insert(TopoEntity::Point { id: p3 });
 
-        let circle = sketch
-            .fundamental_entities
-            .insert(FundamentalEntity::Circle {
-                pos: glm::vec2(0.5, 0.5),
-                radius: 0.3,
-            });
+        let circle = sketch.geo_entities.insert(GeometricEntity::Circle {
+            pos: glm::vec2(0.5, 0.5),
+            radius: 0.3,
+        });
         sketch
-            .guided_entities
-            .insert(GuidedEntity::Circle { id: circle });
+            .topo_entities
+            .insert(TopoEntity::Circle { id: circle });
 
         let scene = Scene {
             path: None,
@@ -712,6 +708,14 @@ impl AppState for App {
     type SpriteKey = String;
 
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
+        {
+            let loops: Vec<Loop> = self.mutable_state.borrow().scene.sketches[0]
+                .sketch
+                .loops()
+                .map(|x| x.clone())
+                .collect();
+            visual_log("loops", format!("{:?}", loops));
+        }
         let mut out = vec![];
         out.extend(self.base_layer(window_size));
         if self.perf_overlay.visible {
