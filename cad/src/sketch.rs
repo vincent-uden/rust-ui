@@ -109,9 +109,7 @@ impl Sketch {
         for w in points.windows(2) {
             let start = w[0];
             let end = w[1];
-            let end_id = self
-                .geo_entities
-                .insert(GeometricEntity::Point { pos: end });
+            let end_id = self.query_or_insert_point(&end, 1e-5);
             let line_id = self.geo_entities.insert(GeometricEntity::Line {
                 offset: start,
                 direction: (end - start),
@@ -872,7 +870,8 @@ mod tests {
         );
     }
 
-    /// This test does not interact with the loop-discovering capabilities of sketches. It is just to test the inside algorihm
+    /// This test does not interact with the loop-discovering capabilities of sketches. It is just
+    /// to test the inside algorihm
     #[test]
     fn point_is_inside_polygon_of_lines() {
         let mut sketch = Sketch::new("Pentagon".to_string());

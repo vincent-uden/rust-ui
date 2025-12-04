@@ -7,7 +7,7 @@ use cad::{
 use rust_ui::{
     geometry::Vector,
     render::{
-        COLOR_DANGER, COLOR_SUCCESS, Color, NORD1, circle::CircleRenderer, line::LineRenderer,
+        COLOR_FACE_HOVER, COLOR_SUCCESS, Color, circle::CircleRenderer, line::LineRenderer,
         point::PointRenderer,
     },
     shader::{Shader, ShaderName},
@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub const PENDING_COLOR: Color = COLOR_SUCCESS;
-pub const HOVER_COLOR: Color = COLOR_DANGER;
+pub const FACE_HOVER_COLOR: Color = COLOR_FACE_HOVER;
 
 pub struct SketchRenderer {
     line_r: LineRenderer,
@@ -67,13 +67,17 @@ impl SketchRenderer {
     /// `x_axis` and `y_axis` define the plane the sketch lies in and its local coordinate system.
     /// They must both be normalized. Otherwise entities in the sketch would not be the same size
     /// as entities elsewhere.
+    ///
+    /// `face_edges` is an optional slice of TopoIds representing edges of a face/loop that the
+    /// mouse is currently inside. When provided, these edges will be highlighted with
+    /// `FACE_HOVER_COLOR`.
     pub fn draw(
         &mut self,
         sketch: &Sketch,
         state: &mut ViewportData,
         x_axis: glm::Vec3,
         y_axis: glm::Vec3,
-        hovered: Option<TopoId>,
+        face_edges: Option<&[TopoId]>,
     ) {
         let projection = state.projection();
         let model = state.model();
@@ -86,11 +90,7 @@ impl SketchRenderer {
                     let p_3d = p.x * x_axis + p.y * y_axis;
                     self.point_r.draw_3d(
                         p_3d,
-                        if *id == hovered.unwrap_or_default() {
-                            HOVER_COLOR
-                        } else {
-                            Color::new(1.0, 1.0, 1.0, 1.0)
-                        },
+                        Color::new(1.0, 1.0, 1.0, 1.0),
                         4.0,
                         &projection,
                         &model,
@@ -101,14 +101,15 @@ impl SketchRenderer {
                     let circle: Circle = sketch.geo_entities[*cid].try_into().unwrap();
                     let center = Vector::new(circle.pos.x as f32, circle.pos.y as f32);
                     let center_3d = center.x * x_axis + center.y * y_axis;
+                    let color = if face_edges.map_or(false, |edges| edges.contains(id)) {
+                        FACE_HOVER_COLOR
+                    } else {
+                        Color::new(1.0, 1.0, 1.0, 1.0)
+                    };
                     self.circle_r.draw_3d_oriented(
                         center_3d,
                         circle.radius as f32,
-                        if *id == hovered.unwrap_or_default() {
-                            HOVER_COLOR
-                        } else {
-                            Color::new(1.0, 1.0, 1.0, 1.0)
-                        },
+                        color,
                         2.0,
                         &projection,
                         &model,
@@ -130,14 +131,15 @@ impl SketchRenderer {
 
                         let s_3d = s.x * x_axis + s.y * y_axis;
                         let e_3d = e.x * x_axis + e.y * y_axis;
+                        let color = if face_edges.map_or(false, |edges| edges.contains(id)) {
+                            FACE_HOVER_COLOR
+                        } else {
+                            Color::new(1.0, 1.0, 1.0, 1.0)
+                        };
                         self.line_r.draw_3d(
                             s_3d,
                             e_3d,
-                            if *id == hovered.unwrap_or_default() {
-                                HOVER_COLOR
-                            } else {
-                                Color::new(1.0, 1.0, 1.0, 1.0)
-                            },
+                            color,
                             2.0,
                             &projection,
                             &model,

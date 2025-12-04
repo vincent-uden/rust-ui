@@ -5,7 +5,7 @@ use cad::{
     Plane, Scene, SketchInfo,
     entity::GeometricEntity,
     registry::Registry,
-    topology::{Edge, Loop, TopoEntity},
+    topology::{Edge, Loop, TopoEntity, TopoId},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
@@ -70,6 +70,17 @@ pub(crate) struct AppMutableState {
 }
 
 const BDRY_TOLERANCE: f32 = 5.0;
+
+/// Returns the TopoIds of edges belonging to the loop that contains the given point,
+/// or None if the point is not inside any loop.
+fn find_face_at_point(sketch: &cad::sketch::Sketch, point: glm::DVec2) -> Option<Vec<TopoId>> {
+    for l in sketch.loops() {
+        if sketch.is_inside(l, point.into()) {
+            return Some(l.ids.clone());
+        }
+    }
+    None
+}
 
 pub struct App {
     pub perf_overlay: PerformanceOverlay<Self>,
@@ -401,23 +412,18 @@ impl App {
                     self.sketch_renderer.draw_axes(data);
                     for si in &self.mutable_state.borrow().scene.sketches {
                         if si.visible {
+                            // Compute mouse position in sketch coordinates for face detection
                             let mouse_in_area = self.mouse_pos - area.bbox.x0;
-                            let area_height = area.bbox.height();
-                            let mut entity_id = None;
-                            if let Some((eid, sid)) = self
-                                .sketch_picker
-                                .hovered(mouse_in_area.into(), area_height)
-                            {
-                                if sid == si.id {
-                                    entity_id = Some(eid);
-                                }
-                            }
+                            let face_edges = data
+                                .screen_to_sketch_coords(mouse_in_area, &si.plane)
+                                .and_then(|sketch_pos| find_face_at_point(&si.sketch, sketch_pos));
+
                             self.sketch_renderer.draw(
                                 &si.sketch,
                                 data,
                                 si.plane.x.cast(),
                                 si.plane.y.cast(),
-                                entity_id,
+                                face_edges.as_deref(),
                             );
                         }
                         let active_sketch =
