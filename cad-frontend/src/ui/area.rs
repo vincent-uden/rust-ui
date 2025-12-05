@@ -226,7 +226,7 @@ impl Area {
                     },
                     on_mouse_exit: Some(Arc::new(move |state: &mut Renderer<App>| {
                         // Might not exist if we exit on the same frame an area is deleted
-                        if let Some(area) = state.app_state.area_map.get_mut(&id) {
+                        if let Some(area) = state.app_state.area_manager.area_map.get_mut(&id) {
                             area.expanded = None;
                             area.expand_hovered = None;
                             area.hovered = None;
@@ -335,7 +335,7 @@ impl Area {
                     bg_color: COLOR_BLACK,
                     bg_color_hover: NORD3,
                     on_left_mouse_down: Some(Arc::new(move |state: &mut Renderer<App>| {
-                        let area = &mut state.app_state.area_map[id];
+                        let area = &mut state.app_state.area_manager.area_map[id];
                         if let Some(_) = area.expanded {
                             area.expanded = None;
                         } else {
@@ -394,8 +394,8 @@ impl Area {
                             bg_color: COLOR_BLACK,
                             bg_color_hover: NORD3,
                             on_left_mouse_up: Some(Arc::new(move |state| {
-                                state.app_state.area_map[id].area_type = kind;
-                                let area = &mut state.app_state.area_map[id];
+                                state.app_state.area_manager.area_map[id].area_type = kind;
+                                let area = &mut state.app_state.area_manager.area_map[id];
                                 match kind {
                                     AreaType::Viewport => {
                                         area.area_data =

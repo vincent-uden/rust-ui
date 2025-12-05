@@ -4,12 +4,11 @@ use std::{cell::RefCell, f64::consts::PI, time::Instant};
 use cad::{
     Plane, Scene, SketchInfo,
     entity::GeometricEntity,
-    registry::Registry,
     topology::{Edge, Loop, TopoEntity, TopoId},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
-    geometry::{Rect, Vector},
+    geometry::Vector,
     perf_overlay::PerformanceOverlay,
     render::{
         Color,
@@ -17,7 +16,6 @@ use rust_ui::{
         renderer::{AppState, RenderLayout, visual_log},
     },
 };
-use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info};
 
 use crate::{
@@ -25,18 +23,13 @@ use crate::{
     modes::{AppMode, BindableMessage, Config, ModeStack},
     sketch_renderer::{SketchPicker, SketchRenderer},
     ui::{
-        area::{Area, AreaData, AreaId, AreaType},
-        boundary::{Boundary, BoundaryId, BoundaryOrientation},
+        area::{AreaData, AreaType},
+        area_manager::AreaManager,
+        boundary::{BoundaryId, BoundaryOrientation},
         settings::Settings,
         viewport::{self, ViewportData},
     },
 };
-
-#[derive(Serialize, Deserialize)]
-struct AreaSerializer {
-    pub area_map: Registry<AreaId, Area>,
-    pub bdry_map: Registry<BoundaryId, Boundary>,
-}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SketchModeData {
@@ -69,8 +62,6 @@ pub(crate) struct AppMutableState {
     pub circle_mode_data: CircleModeData,
 }
 
-const BDRY_TOLERANCE: f32 = 5.0;
-
 /// Returns the TopoIds of edges belonging to the loop that contains the given point,
 /// or None if the point is not inside any loop.
 fn find_face_at_point(sketch: &cad::sketch::Sketch, point: glm::DVec2) -> Option<Vec<TopoId>> {
@@ -89,8 +80,7 @@ pub struct App {
     pub debug_draw: bool, // Eventually turn this into a menu
     pub debug_picker: bool,
     pub original_window_size: Vector<f32>,
-    pub area_map: Registry<AreaId, Area>,
-    pub bdry_map: Registry<BoundaryId, Boundary>,
+    pub area_manager: AreaManager,
     pub settings: Settings,
     pub settings_open: bool,
     pub sketch_renderer: SketchRenderer,
@@ -108,219 +98,28 @@ impl App {
         // Return one RenderLayout per area. They will technically be on different layers, but that
         // doesn' matter as they'll all be scissored.
 
-        for area in self.area_map.values_mut() {
+        for area in self.area_manager.area_map.values_mut() {
             out.push(area.generate_layout(&self.mutable_state.borrow(), &self.mode_stack));
         }
-        for area in self.area_map.values_mut() {
+        for area in self.area_manager.area_map.values_mut() {
             out.push(area.area_kind_picker_layout());
         }
 
         out
     }
 
-    fn split_area(&mut self, pos: Vector<f32>, orientation: BoundaryOrientation) {
-        let next_aid = self.area_map.next_id();
-        let to_split_aid = self.find_area(pos).unwrap();
-        if let Some(to_split) = self.area_map.get_mut(&to_split_aid) {
-            // Despite the confusing name, this is correct. If the boundary is horizontal, the
-            // areas should be above and below each other, thus splitting the area in half
-            // vertically
-            let (old, new) = match orientation {
-                BoundaryOrientation::Horizontal => to_split.bbox.split_vertically(),
-                BoundaryOrientation::Vertical => to_split.bbox.split_horizontally(),
-            };
-            to_split.bbox = old;
-            let new_area = Area::new(next_aid, AreaType::Green, new);
-            self.area_map.insert(new_area);
-        }
-
-        let next_bid = self.bdry_map.next_id();
-        let mut bdry = Boundary::new(next_bid, orientation);
-        bdry.side1.push(to_split_aid);
-        bdry.side2.push(next_aid);
-
-        for id in self.further_down_bdry_tree(&to_split_aid) {
-            if let Some(existing_bdry) = self.bdry_map.get_mut(&id) {
-                if existing_bdry.orientation == bdry.orientation {
-                    existing_bdry.side1.retain(|id| *id != to_split_aid);
-                }
-                existing_bdry.side1.push(next_aid);
-            }
-        }
-        for id in self.further_up_bdry_tree(&to_split_aid) {
-            if let Some(existing_bdry) = self.bdry_map.get_mut(&id)
-                && existing_bdry.orientation != bdry.orientation
-            {
-                existing_bdry.side2.push(next_aid);
-            }
-        }
-        self.bdry_map.insert(bdry);
-    }
-
-    fn collapse_boundary(&mut self, pos: Vector<f32>) {
-        if let Some(hovered) = self.find_boundary(pos)
-            && self.bdry_map[hovered].can_collapse()
-        {
-            let bdry = self.bdry_map.remove(&hovered).unwrap();
-            let deleted_dims = self.area_map[bdry.side2[0]].bbox;
-            let remaining_area = &mut self.area_map[bdry.side1[0]];
-            match bdry.orientation {
-                BoundaryOrientation::Horizontal => {
-                    remaining_area.bbox.x1.y += deleted_dims.height();
-                }
-                BoundaryOrientation::Vertical => {
-                    remaining_area.bbox.x1.x += deleted_dims.width();
-                }
-            }
-            let to_delete = &self.area_map[bdry.side2[0]];
-            for bid in self.further_down_bdry_tree(&to_delete.id) {
-                let b = &mut self.bdry_map[bid];
-                if !b.side1.contains(&bdry.side1[0]) {
-                    b.side1.push(bdry.side1[0]);
-                }
-            }
-            for b in self.bdry_map.values_mut() {
-                b.side1.retain(|x| *x != to_delete.id);
-                b.side2.retain(|x| *x != to_delete.id);
-            }
-            self.area_map.remove(&bdry.side2[0]);
-        }
-    }
-
-    fn find_area(&self, pos: Vector<f32>) -> Option<AreaId> {
-        self.area_map
-            .iter()
-            .find(|(_, area)| area.bbox.contains(pos))
-            .map(|(id, _)| *id)
-    }
-
-    fn find_boundary(&self, pos: Vector<f32>) -> Option<BoundaryId> {
-        let mut out = None;
-        let mut closest_dist = f32::INFINITY;
-        for (id, bdry) in self.bdry_map.iter() {
-            let dist = self.distance_to_point(bdry, pos);
-            if dist < closest_dist {
-                out = Some(*id);
-                closest_dist = dist;
-            }
-        }
-        if closest_dist < BDRY_TOLERANCE {
-            out
-        } else {
-            None
-        }
-    }
-
-    fn further_down_bdry_tree(&self, id: &AreaId) -> Vec<BoundaryId> {
-        let mut out = vec![];
-        for (bid, bdry) in self.bdry_map.iter() {
-            if bdry.side1.contains(id) {
-                out.push(*bid);
-            }
-        }
-        out
-    }
-
-    fn further_up_bdry_tree(&self, id: &AreaId) -> Vec<BoundaryId> {
-        let mut out = vec![];
-        for (bid, bdry) in self.bdry_map.iter() {
-            if bdry.side2.contains(id) {
-                out.push(*bid);
-            }
-        }
-        out
-    }
-
-    fn distance_to_point(&self, bdry: &Boundary, pos: Vector<f32>) -> f32 {
-        let area = &self.area_map[bdry.side2[0]];
-        match bdry.orientation {
-            BoundaryOrientation::Horizontal => {
-                if pos.x > area.bbox.x0.x && pos.x < area.bbox.x0.x + self.extent(bdry) {
-                    return (area.bbox.x0.y - pos.y).abs();
-                }
-            }
-            BoundaryOrientation::Vertical => {
-                if pos.y > area.bbox.x0.y && pos.y < area.bbox.x0.y + self.extent(bdry) {
-                    return (area.bbox.x0.x - pos.x).abs();
-                }
-            }
-        }
-        f32::INFINITY
-    }
-
-    fn extent(&self, bdry: &Boundary) -> f32 {
-        match bdry.orientation {
-            BoundaryOrientation::Horizontal => {
-                let mut total1 = 0.0;
-                let mut total2 = 0.0;
-                for area_id in &bdry.side1 {
-                    let area = &self.area_map[*area_id];
-                    total1 += area.bbox.width();
-                }
-                for area_id in &bdry.side2 {
-                    let area = &self.area_map[*area_id];
-                    total2 += area.bbox.width();
-                }
-                total1.max(total2)
-            }
-            BoundaryOrientation::Vertical => {
-                let mut total1 = 0.0;
-                let mut total2 = 0.0;
-                for area_id in &bdry.side1 {
-                    let area = &self.area_map[*area_id];
-                    total1 += area.bbox.height();
-                }
-                for area_id in &bdry.side2 {
-                    let area = &self.area_map[*area_id];
-                    total2 += area.bbox.height();
-                }
-                total1.max(total2)
-            }
-        }
-    }
-
-    fn move_boundary(&mut self, end_pos: Vector<f32>, bid: BoundaryId) {
-        let bdry = &self.bdry_map[bid];
-        match bdry.orientation {
-            BoundaryOrientation::Horizontal => {
-                for aid in &bdry.side1 {
-                    self.area_map[*aid].bbox.x1.y = end_pos.y;
-                }
-                for aid in &bdry.side2 {
-                    self.area_map[*aid].bbox.x0.y = end_pos.y;
-                }
-            }
-            BoundaryOrientation::Vertical => {
-                for aid in &bdry.side1 {
-                    self.area_map[*aid].bbox.x1.x = end_pos.x;
-                }
-                for aid in &bdry.side2 {
-                    self.area_map[*aid].bbox.x0.x = end_pos.x;
-                }
-            }
-        }
-    }
-
     pub fn resize_areas(&mut self, new_window_size: Vector<f32>) {
-        let scale_x = new_window_size.x / self.original_window_size.x;
-        let scale_y = new_window_size.y / self.original_window_size.y;
-
-        for area in self.area_map.values_mut() {
-            area.bbox.x0.x *= scale_x;
-            area.bbox.x0.y *= scale_y;
-            area.bbox.x1.x *= scale_x;
-            area.bbox.x1.y *= scale_y;
-        }
-
+        self.area_manager
+            .resize_areas(self.original_window_size, new_window_size);
         self.original_window_size = new_window_size;
     }
 
     pub fn debug_draw(&mut self, line_renderer: &LineRenderer, window_size: Vector<f32>) {
-        for bdry in self.bdry_map.values() {
+        for bdry in self.area_manager.bdry_map.values() {
             for aid1 in &bdry.side1 {
-                let a1 = &self.area_map[*aid1];
+                let a1 = &self.area_manager.area_map[*aid1];
                 for aid2 in &bdry.side2 {
-                    let a2 = &self.area_map[*aid2];
+                    let a2 = &self.area_manager.area_map[*aid2];
                     line_renderer.draw(
                         a1.bbox.center(),
                         a2.bbox.center(),
@@ -334,21 +133,17 @@ impl App {
     }
 
     pub fn save_layout(&self) {
-        let out = AreaSerializer {
-            area_map: self.area_map.clone(),
-            bdry_map: self.bdry_map.clone(),
-        };
-        let json = serde_json::to_string_pretty(&out).expect("Failed to serialize layout");
+        let json =
+            serde_json::to_string_pretty(&self.area_manager).expect("Failed to serialize layout");
         std::fs::write("layout.json", json).expect("Failed to write layout file");
         info!("Layout saved to layout.json");
     }
 
     pub fn load_layout(&mut self) {
         match std::fs::read_to_string("layout.json") {
-            Ok(json) => match serde_json::from_str::<AreaSerializer>(&json) {
-                Ok(serializer) => {
-                    self.area_map = serializer.area_map;
-                    self.bdry_map = serializer.bdry_map;
+            Ok(json) => match serde_json::from_str::<AreaManager>(&json) {
+                Ok(loaded_manager) => {
+                    self.area_manager = loaded_manager;
                     info!("Layout loaded from layout.json");
                 }
                 Err(e) => {
@@ -363,7 +158,7 @@ impl App {
 
     pub fn update_areas(&mut self) {
         let _span = tracy_client::span!("Update areas");
-        for area in self.area_map.values_mut() {
+        for area in self.area_manager.area_map.values_mut() {
             area.update();
         }
     }
@@ -373,7 +168,7 @@ impl App {
     pub fn draw_special_areas(&mut self) {
         let _span = tracy_client::span!("Special areas");
         // Render pass
-        for area in self.area_map.values_mut() {
+        for area in self.area_manager.area_map.values_mut() {
             match area.area_type {
                 AreaType::Viewport => {
                     let data: &mut ViewportData = (&mut area.area_data).try_into().unwrap();
@@ -451,22 +246,6 @@ impl App {
         }
     }
 
-    fn create_default_layout(
-        original_size: Vector<f32>,
-    ) -> (Registry<AreaId, Area>, Registry<BoundaryId, Boundary>) {
-        let mut area_map = Registry::new();
-        let id = area_map.next_id();
-        area_map.insert(Area::new(
-            id,
-            AreaType::Red,
-            Rect {
-                x0: Vector::new(0.0, 0.0),
-                x1: original_size,
-            },
-        ));
-        (area_map, Registry::new())
-    }
-
     pub fn edit_sketch(&mut self, id: u16) {
         let mut state = self.mutable_state.borrow_mut();
         // Move camera
@@ -486,7 +265,7 @@ impl App {
             //
             // In the future:
             // - If there are multiple viewports, let the user click the one to rotate
-            for area in self.area_map.values_mut() {
+            for area in self.area_manager.area_map.values_mut() {
                 match &mut area.area_data {
                     AreaData::Viewport(data) => {
                         data.target_polar_angle = polar as f32;
@@ -516,13 +295,13 @@ impl App {
                             }
                             Action::Press => match button {
                                 glfw::MouseButton::Button1 => {
-                                    if mouse_hit_layer < (self.area_map.len() as i32) * 2 {
-                                        for (bid, bdry) in self.bdry_map.iter() {
-                                            if self.distance_to_point(bdry, self.mouse_pos)
-                                                < BDRY_TOLERANCE
-                                            {
-                                                self.dragging_boundary = Some(*bid);
-                                            }
+                                    if mouse_hit_layer
+                                        < (self.area_manager.area_map.len() as i32) * 2
+                                    {
+                                        if let Some(bid) =
+                                            self.area_manager.find_boundary(self.mouse_pos)
+                                        {
+                                            self.dragging_boundary = Some(bid);
                                         }
                                     }
                                 }
@@ -535,7 +314,7 @@ impl App {
                     }
                     if self.dragging_boundary.is_none() {
                         let mut state = self.mutable_state.borrow_mut();
-                        for (i, area) in self.area_map.values_mut().enumerate() {
+                        for (i, area) in self.area_manager.area_map.values_mut().enumerate() {
                             if ((i as i32) * 2) >= mouse_hit_layer {
                                 area.handle_mouse_button(
                                     &mut state,
@@ -550,7 +329,7 @@ impl App {
                 }
                 WindowEvent::Scroll(x, y) => {
                     let mut state = self.mutable_state.borrow_mut();
-                    for (i, area) in self.area_map.values_mut().enumerate() {
+                    for (i, area) in self.area_manager.area_map.values_mut().enumerate() {
                         if ((i as i32) * 2) >= mouse_hit_layer {
                             area.handle_mouse_scroll(&mut state, Vector::new(x as f32, y as f32));
                         }
@@ -575,21 +354,21 @@ impl Default for App {
         let original_size = Vector::new(1000.0, 800.0);
 
         // Try to load saved layout first
-        let (area_map, bdry_map) = match std::fs::read_to_string("layout.json") {
-            Ok(json) => match serde_json::from_str::<AreaSerializer>(&json) {
-                Ok(serializer) => {
+        let area_manager = match std::fs::read_to_string("layout.json") {
+            Ok(json) => match serde_json::from_str::<AreaManager>(&json) {
+                Ok(manager) => {
                     info!("Loaded layout from layout.json on startup");
-                    (serializer.area_map, serializer.bdry_map)
+                    manager
                 }
                 Err(e) => {
                     error!("Failed to deserialize layout on startup: {}", e);
-                    Self::create_default_layout(original_size)
+                    AreaManager::new(original_size)
                 }
             },
             Err(_) => {
                 // File doesn't exist, create default layout
                 error!("No saved layout found, creating default layout");
-                Self::create_default_layout(original_size)
+                AreaManager::new(original_size)
             }
         };
 
@@ -683,8 +462,7 @@ impl Default for App {
             dragging_boundary: None,
             mouse_pos: Vector::zero(),
             original_window_size: original_size,
-            area_map,
-            bdry_map,
+            area_manager,
             debug_draw: false,
             debug_picker: true,
             settings: Settings {},
@@ -746,7 +524,7 @@ impl AppState for App {
                                 self.settings_open = !self.settings_open;
                             }
                             BindableMessage::ToggleProjection => {
-                                for area in self.area_map.values_mut() {
+                                for area in self.area_manager.area_map.values_mut() {
                                     if let crate::ui::area::AreaData::Viewport(ref mut vp_data) =
                                         area.area_data
                                     {
@@ -787,19 +565,15 @@ impl AppState for App {
                                 self.perf_overlay.visible = !self.perf_overlay.visible;
                             }
                             BindableMessage::SplitAreaHorizontally => {
-                                drop(state); // Release borrow before calling self methods
-                                self.split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
-                                state = self.mutable_state.borrow_mut(); // Reborrow
+                                self.area_manager
+                                    .split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
                             }
                             BindableMessage::SplitAreaVertically => {
-                                drop(state);
-                                self.split_area(self.mouse_pos, BoundaryOrientation::Vertical);
-                                state = self.mutable_state.borrow_mut();
+                                self.area_manager
+                                    .split_area(self.mouse_pos, BoundaryOrientation::Vertical);
                             }
                             BindableMessage::CollapseBoundary => {
-                                drop(state);
-                                self.collapse_boundary(self.mouse_pos);
-                                state = self.mutable_state.borrow_mut();
+                                self.area_manager.collapse_boundary(self.mouse_pos);
                             }
                             BindableMessage::ActivatePointMode => {
                                 self.mode_stack.push(AppMode::Point);
@@ -836,7 +610,7 @@ impl AppState for App {
             }
         }
 
-        for area in self.area_map.values_mut() {
+        for area in self.area_manager.area_map.values_mut() {
             area.handle_key(&mut state, key, scancode, action, modifiers);
         }
     }
@@ -844,10 +618,10 @@ impl AppState for App {
     fn handle_mouse_position(&mut self, position: Vector<f32>, delta: Vector<f32>) {
         self.mouse_pos = position;
         if let Some(bid) = self.dragging_boundary {
-            self.move_boundary(self.mouse_pos, bid);
+            self.area_manager.move_boundary(self.mouse_pos, bid);
         }
         let mut state = self.mutable_state.borrow_mut();
-        for area in self.area_map.values_mut() {
+        for area in self.area_manager.area_map.values_mut() {
             area.handle_mouse_position(&mut state, &self.mode_stack, position, delta);
         }
     }
@@ -861,29 +635,4 @@ impl AppState for App {
     }
 
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    /// Produces a layout with 3 area next to each other
-    pub fn collapse_area_edge_case_reconnection() {
-        let mut app = App::default();
-        app.split_area(Vector::new(275.0, 385.0), BoundaryOrientation::Vertical);
-        app.split_area(Vector::new(718.0, 391.0), BoundaryOrientation::Vertical);
-        app.collapse_boundary(Vector::new(500.0, 442.0));
-
-        assert!(app.bdry_map.len() == 1, "There should be 1 boundary left");
-        let bdry = &app.bdry_map[BoundaryId(1)];
-        assert!(
-            bdry.side1 == vec![AreaId(0)],
-            "The root area should be on the left of the boundary"
-        );
-        assert!(
-            bdry.side2 == vec![AreaId(2)],
-            "The leaf area should be on the right of the boundary"
-        );
-    }
 }
