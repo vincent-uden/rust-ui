@@ -1,11 +1,9 @@
 use std::fmt::Debug;
-use std::{error::Error, f64::consts::PI};
-
 use enum_variant_type::EnumVariantType;
-use nalgebra::{Rotation2, Vector2};
+use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use crate::registry::{RegId, Registry};
+use crate::registry::RegId;
 
 #[derive(
     Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Deserialize, Serialize,

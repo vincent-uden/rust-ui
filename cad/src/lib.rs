@@ -6,8 +6,8 @@
 
 use std::{error::Error, path::PathBuf};
 
-use curvo::prelude::{NurbsCurve3D, SurfaceTessellation3D};
-use nalgebra::{Vector2, Vector3};
+use curvo::prelude::{NurbsCurve3D, NurbsSurface3D};
+use nalgebra::{Point3, Vector2};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -48,8 +48,8 @@ pub struct SketchInfo {
 
 impl SketchInfo {
     #[inline(always)]
-    pub fn sketch_space_to_scene_space(&self, v: Vector2<f64>) -> Vector3<f64> {
-        self.plane.x * v.x + self.plane.y * v.y
+    pub fn sketch_space_to_scene_space(&self, v: Vector2<f64>) -> Point3<f64> {
+        Point3::from(self.plane.x * v.x + self.plane.y * v.y)
     }
 }
 
@@ -72,11 +72,12 @@ impl Scene {
         });
     }
 
-    pub fn extrude(&mut self, sketch_id: u16, face: Face) -> Solid {
+    pub fn extrude(&mut self, sketch_id: u16, face: Face, distance: f64) -> Solid {
         todo!()
     }
 
-    pub fn loop_to_curve(
+    // TODO: This is wrong. I want a NurbsSurface, not a Curve
+    pub fn face_to_curve(
         &self,
         sketch_id: u16,
         face: Face,
@@ -93,11 +94,7 @@ impl Scene {
         for (i, topo_id) in face.ids.iter().enumerate() {
             match si.sketch.topo_entities[*topo_id] {
                 topology::TopoEntity::Edge { edge } => match edge {
-                    topology::Edge::CappedLine {
-                        start,
-                        end,
-                        line: _,
-                    } => {
+                    topology::Edge::CappedLine { start, end, .. } => {
                         points.push(si.sketch.geo_entities[start].try_into().unwrap());
                         if i == face.ids.len() - 1 {
                             points.push(si.sketch.geo_entities[end].try_into().unwrap());
@@ -111,12 +108,12 @@ impl Scene {
             }
         }
 
-        let curve = NurbsCurve3D::bezier(
-            &points
-                .into_iter()
-                .map(|p| si.sketch_space_to_scene_space(p.pos))
-                .collect(),
-        );
+        let points_3d: Vec<Point3<f64>> = points
+            .into_iter()
+            .map(|p| si.sketch_space_to_scene_space(p.pos))
+            .collect();
+        NurbsSurface3D::new(1, 1, u_knots, v_knots, control_points)
+        let curve = NurbsCurve3D::bezier(&points_3d);
         Ok(curve)
     }
 }

@@ -6,12 +6,12 @@ use std::path::Path;
 use nalgebra::Vector2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::entity::{self, BiConstraint, Circle, GeoId, GeometricEntity, Point};
 use crate::registry::Registry;
 use crate::topology::{
-    self, ArcThreePoint, CappedLine, Edge, Face, ParametrizedIntersection, TopoEntity, TopoId, Wire,
+    ArcThreePoint, CappedLine, Edge, Face, ParametrizedIntersection, TopoEntity, TopoId,
 };
 
 const EQ_TOL: f64 = 1e-10;
@@ -225,7 +225,7 @@ impl Sketch {
                             end,
                             circle,
                         } => {
-                            let arc = ArcThreePoint {
+                            let _arc = ArcThreePoint {
                                 start,
                                 middle,
                                 end,
