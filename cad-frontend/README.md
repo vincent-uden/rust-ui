@@ -26,11 +26,11 @@
     - [ ] Dimensions
 - [/] Wires/Loops (series of lines (shapes???))
     - [x] Write tests in `sketch.rs` for `is_inside`
-    - [ ] Create loops when appropriate, for example when placing lines
-    - [ ] Split line into line-point-line
+    - [/] Create loops when appropriate, for example when placing lines
+    - [/] Split line into line-point-line
     - [ ] Split circle into arc-point-arc
 - [ ] Loops (closed wire)
-    - [ ] Is the mouse INSIDE or OUTSIDE a given loop?
+    - [x] Is the mouse INSIDE or OUTSIDE a given loop?
 
 #### Inside/outside loops
 I can already get the mouse position in the plane. *How would I go about determining if that point is insdie or outside a general (possibly non-convex) polygon?* For a convex polygon I could just determine if I am to the left or right of every side, store them in a consistent clockwise or anti-clockwise order and check if I'm to the inner side of all lines.

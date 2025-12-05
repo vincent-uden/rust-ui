@@ -485,10 +485,17 @@ impl Default for Config {
         )];
         let line_bindings = Keybinds::new(line_keybinds);
 
+        let circle_keybinds = vec![Keybind::new(
+            KeyInput::from_str("Enter").unwrap(),
+            BindableMessage::Confirm,
+        )];
+        let circle_bindings = Keybinds::new(circle_keybinds);
+
         let mut bindings = HashMap::new();
         bindings.insert(AppMode::Base, base_bindings);
         bindings.insert(AppMode::Sketch, sketch_bindings);
         bindings.insert(AppMode::Line, line_bindings);
+        bindings.insert(AppMode::Circle, circle_bindings);
 
         let mut mouse = HashMap::new();
         mouse.insert(
