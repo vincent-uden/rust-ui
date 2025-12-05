@@ -39,6 +39,12 @@ pub enum GeometricEntity {
     },
 }
 
+impl Into<nalgebra::Point2<f64>> for Point {
+    fn into(self) -> nalgebra::Point2<f64> {
+        nalgebra::Point2::new(self.pos.x, self.pos.y)
+    }
+}
+
 pub fn vector_angle(a: Vector2<f64>) -> f64 {
     let angle = f64::atan2(a.y, a.x);
     if angle < 0.0 {

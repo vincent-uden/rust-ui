@@ -55,8 +55,3 @@ The creation of loops should be handled in the `cad` crate, not in the frontend.
 - [ ] 3D Boolean join
     - [ ] Intersection of 3D bodies
 - [ ] 3D Boolean cut
-
-## Is the CAD data model wrong?
-It isn't wrong per se. But it is unwieldy to work with. If I wasn't bounded by Rusts type system, how would I ideally represent my data? There are two ways to operate on the data, geometrically and topologically.
-
-One point of confusion is that `GuidedEntity`s are an in-between in the middle of topological and geometrical entities. On one hand they don't carry any geometrical information of their own. On the other hand they link to non-topological entities. Altough I guess some topological entity must do that eventually. At least points **must** link to a geometric entity.

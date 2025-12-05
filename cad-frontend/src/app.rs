@@ -4,7 +4,7 @@ use std::{cell::RefCell, f64::consts::PI, time::Instant};
 use cad::{
     Plane, Scene, SketchInfo,
     entity::GeometricEntity,
-    topology::{Edge, Loop, TopoEntity, TopoId},
+    topology::{Edge, Face, TopoEntity, TopoId},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use rust_ui::{
@@ -455,6 +455,7 @@ impl Default for App {
                     visible: true,
                 },
             ],
+            solids: vec![],
         };
 
         Self {
@@ -487,7 +488,7 @@ impl AppState for App {
 
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
         {
-            let loops: Vec<Loop> = self.mutable_state.borrow().scene.sketches[0]
+            let loops: Vec<Face> = self.mutable_state.borrow().scene.sketches[0]
                 .sketch
                 .loops()
                 .map(|x| x.clone())

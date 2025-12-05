@@ -11,7 +11,7 @@ use tracing::{debug, error};
 use crate::entity::{self, BiConstraint, Circle, GeoId, GeometricEntity, Point};
 use crate::registry::Registry;
 use crate::topology::{
-    self, ArcThreePoint, CappedLine, Edge, Loop, ParametrizedIntersection, TopoEntity, TopoId, Wire,
+    self, ArcThreePoint, CappedLine, Edge, Face, ParametrizedIntersection, TopoEntity, TopoId, Wire,
 };
 
 const EQ_TOL: f64 = 1e-10;
@@ -22,7 +22,7 @@ pub struct Sketch {
     pub geo_entities: Registry<GeoId, GeometricEntity>,
     pub topo_entities: Registry<TopoId, TopoEntity>,
     pub bi_constraints: Vec<BiConstraint>,
-    pub loops: Vec<Loop>,
+    pub loops: Vec<Face>,
     step_size: f64,
 }
 
@@ -200,7 +200,7 @@ impl Sketch {
     /// Determines if `point` is inside `l` (assuming `l` is a properly constructed
     /// [Loop]). Algorithm is implemented based on [Containment test for polygons
     /// containing circular arcs](https://ieeexplore.ieee.org/document/1011280).
-    pub fn is_inside(&self, l: &Loop, point: Vector2<f64>) -> bool {
+    pub fn is_inside(&self, l: &Face, point: Vector2<f64>) -> bool {
         let mut intersections = 0;
 
         let test_ray = Vector2::x();
@@ -328,7 +328,7 @@ impl Sketch {
     /// 4. Filters out the outer infinite face (identified by clockwise winding / negative area)
     ///
     /// Currently only supports CappedLine edges (arcs are skipped).
-    pub fn find_loops(&self) -> Vec<Loop> {
+    pub fn find_loops(&self) -> Vec<Face> {
         use crate::topology::CappedLine;
         use std::collections::{HashMap, HashSet};
 
@@ -449,7 +449,7 @@ impl Sketch {
         found_loops
             .into_iter()
             .filter(|(_, area)| *area > 0.0)
-            .map(|(ids, _)| Loop { ids })
+            .map(|(ids, _)| Face { ids })
             .collect()
     }
 
@@ -478,7 +478,7 @@ impl Sketch {
         area / 2.0
     }
 
-    pub fn loops(&self) -> impl Iterator<Item = &Loop> {
+    pub fn loops(&self) -> impl Iterator<Item = &Face> {
         self.loops.iter()
     }
 
@@ -883,7 +883,7 @@ mod tests {
             })
             .collect();
         sketch.insert_capped_lines(&corners);
-        let l = Loop {
+        let l = Face {
             ids: sketch.topo_entities.keys().cloned().collect(),
         };
         assert_eq!(l.ids.len(), 5);

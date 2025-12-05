@@ -270,7 +270,7 @@ pub struct Wire {
 }
 
 impl Wire {
-    pub fn try_into(self, reg: &Registry<TopoId, TopoEntity>) -> Result<Loop, Box<dyn Error>> {
+    pub fn try_into(self, reg: &Registry<TopoId, TopoEntity>) -> Result<Face, Box<dyn Error>> {
         if self.ids.is_empty() {
             return Err("Wire must contain at least one entity".into());
         }
@@ -280,7 +280,7 @@ impl Wire {
         let last = last_guided.end_point()?;
 
         if first == last {
-            Ok(Loop {
+            Ok(Face {
                 ids: self.ids.clone(),
             })
         } else {
@@ -291,7 +291,7 @@ impl Wire {
 
 /// A closed [Wire]
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Loop {
+pub struct Face {
     pub ids: Vec<TopoId>,
 }
 
@@ -304,4 +304,9 @@ pub struct ParametrizedIntersection {
     pub t: f64,
     /// Coordinate of the intersection along the second curve
     pub s: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Solid {
+    faces: Vec<(u16, Face)>,
 }

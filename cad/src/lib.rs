@@ -4,11 +4,16 @@
     clippy::uninlined_format_args
 )]
 
-use std::path::PathBuf;
+use std::{error::Error, path::PathBuf};
 
+use curvo::prelude::{NurbsCurve3D, SurfaceTessellation3D};
+use nalgebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
-use crate::sketch::Sketch;
+use crate::{
+    sketch::Sketch,
+    topology::{Face, Solid},
+};
 
 pub mod entity;
 pub mod registry;
@@ -41,10 +46,18 @@ pub struct SketchInfo {
     pub visible: bool,
 }
 
+impl SketchInfo {
+    #[inline(always)]
+    pub fn sketch_space_to_scene_space(&self, v: Vector2<f64>) -> Vector3<f64> {
+        self.plane.x * v.x + self.plane.y * v.y
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Scene {
     pub path: Option<PathBuf>,
     pub sketches: Vec<SketchInfo>,
+    pub solids: Solid,
 }
 
 impl Scene {
@@ -57,5 +70,53 @@ impl Scene {
             name,
             visible: true,
         });
+    }
+
+    pub fn extrude(&mut self, sketch_id: u16, face: Face) -> Solid {
+        todo!()
+    }
+
+    pub fn loop_to_curve(
+        &self,
+        sketch_id: u16,
+        face: Face,
+    ) -> Result<NurbsCurve3D<f64>, Box<dyn Error>> {
+        // Only handle capped lines for now. Arcs will be approximated by many points
+        // Get the corners in 3D space
+        // Construct curve
+        let si = self
+            .sketches
+            .iter()
+            .find(|si| si.id == sketch_id)
+            .ok_or(format!("Sketch of id {} not found", sketch_id))?;
+        let mut points: Vec<entity::Point> = vec![];
+        for (i, topo_id) in face.ids.iter().enumerate() {
+            match si.sketch.topo_entities[*topo_id] {
+                topology::TopoEntity::Edge { edge } => match edge {
+                    topology::Edge::CappedLine {
+                        start,
+                        end,
+                        line: _,
+                    } => {
+                        points.push(si.sketch.geo_entities[start].try_into().unwrap());
+                        if i == face.ids.len() - 1 {
+                            points.push(si.sketch.geo_entities[end].try_into().unwrap());
+                        }
+                    }
+                    topology::Edge::ArcThreePoint { .. } => {
+                        todo!("Arc edges cant be rasterized (yet)")
+                    }
+                },
+                _ => return Err("A face shouldn't contain ids for non-edge entities".into()),
+            }
+        }
+
+        let curve = NurbsCurve3D::bezier(
+            &points
+                .into_iter()
+                .map(|p| si.sketch_space_to_scene_space(p.pos))
+                .collect(),
+        );
+        Ok(curve)
     }
 }
