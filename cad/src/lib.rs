@@ -57,7 +57,7 @@ impl SketchInfo {
 pub struct Scene {
     pub path: Option<PathBuf>,
     pub sketches: Vec<SketchInfo>,
-    pub solids: Solid,
+    pub solids: Vec<Solid>,
 }
 
 impl Scene {
@@ -112,8 +112,9 @@ impl Scene {
             .into_iter()
             .map(|p| si.sketch_space_to_scene_space(p.pos))
             .collect();
-        NurbsSurface3D::new(1, 1, u_knots, v_knots, control_points)
-        let curve = NurbsCurve3D::bezier(&points_3d);
-        Ok(curve)
+        //NurbsSurface3D::new(1, 1, u_knots, v_knots, control_points);
+        //let curve = NurbsCurve3D::bezier(&points_3d);
+        //Ok(curve)
+        todo!()
     }
 }

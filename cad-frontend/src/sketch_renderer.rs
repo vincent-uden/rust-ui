@@ -4,6 +4,7 @@ use cad::{
     sketch::Sketch,
     topology::TopoId,
 };
+use modes::ModeStack;
 use rust_ui::{
     geometry::Vector,
     render::{
@@ -16,7 +17,7 @@ use rust_ui::{
 use crate::{
     app::{self, AppMutableState},
     entity_picker::EntityPicker,
-    modes::{AppMode, BindableMessage, ModeStack},
+    modes::{AppBindableMessage, AppMode},
     ui::viewport::ViewportData,
 };
 
@@ -136,15 +137,8 @@ impl SketchRenderer {
                         } else {
                             Color::new(1.0, 1.0, 1.0, 1.0)
                         };
-                        self.line_r.draw_3d(
-                            s_3d,
-                            e_3d,
-                            color,
-                            2.0,
-                            &projection,
-                            &model,
-                            &view,
-                        );
+                        self.line_r
+                            .draw_3d(s_3d, e_3d, color, 2.0, &projection, &model, &view);
                     }
                     _ => {}
                 },
@@ -158,7 +152,7 @@ impl SketchRenderer {
         sketch_info: &SketchInfo,
         vp_state: &mut ViewportData,
         app_state: &AppMutableState,
-        mode_stack: &ModeStack<AppMode, BindableMessage>,
+        mode_stack: &ModeStack<AppMode, AppBindableMessage>,
     ) {
         let projection = vp_state.projection();
         let model = vp_state.model();

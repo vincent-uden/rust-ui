@@ -1,5 +1,6 @@
 use std::{cell::RefCell, f32::consts::PI, sync::Arc, time::Instant};
 
+use ::modes::ModeStack;
 use cad::registry::RegId;
 use glfw::{Action, Key, Modifiers, Scancode};
 use rust_ui::{
@@ -14,7 +15,7 @@ use taffy::{AvailableSpace, Dimension, FlexDirection, Size, Style, TaffyTree, pr
 
 use crate::{
     app::{self, App, AppMutableState},
-    modes::{AppMode, BindableMessage, ModeStack},
+    modes::{AppBindableMessage, AppMode},
     ui::{
         modes, scene_explorer,
         viewport::{self, ViewportData},
@@ -198,7 +199,7 @@ impl Area {
     pub fn generate_layout(
         &mut self,
         state: &AppMutableState,
-        mode_stack: &ModeStack<AppMode, BindableMessage>,
+        mode_stack: &ModeStack<AppMode, AppBindableMessage>,
     ) -> RenderLayout<App> {
         let tree = TaffyTree::new();
         let reftree = RefCell::new(tree);
@@ -444,7 +445,7 @@ impl Area {
     pub fn handle_mouse_position(
         &mut self,
         state: &mut AppMutableState,
-        mode_stack: &ModeStack<AppMode, BindableMessage>,
+        mode_stack: &ModeStack<AppMode, AppBindableMessage>,
         position: Vector<f32>,
         delta: Vector<f32>,
     ) {
@@ -519,7 +520,7 @@ impl Area {
     pub fn handle_mouse_button(
         &mut self,
         state: &mut AppMutableState,
-        mode_stack: &ModeStack<AppMode, BindableMessage>,
+        mode_stack: &ModeStack<AppMode, AppBindableMessage>,
         button: glfw::MouseButton,
         action: Action,
         modifiers: Modifiers,

@@ -1,0 +1,10 @@
+[package]
+name = "modes"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+colored = "3.0.0"
+keybinds = "0.2.0"
+strum = { version = "0.27.2", features = ["derive"] }

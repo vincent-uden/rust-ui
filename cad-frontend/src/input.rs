@@ -1,8 +1,7 @@
 use glfw::{Action, Key, Modifiers, MouseButton};
 
 use keybinds::{Key as KeybindsKey, KeyInput, Mods};
-
-use crate::modes::{MouseButton as MyMouseButton, MouseInput, MouseModifiers};
+use modes::{MouseButton as MyMouseButton, MouseInput, MouseModifiers};
 
 /// Converts a GLFW key and modifiers to a KeyInput from the keybinds crate.
 /// Returns None if the key is not supported.

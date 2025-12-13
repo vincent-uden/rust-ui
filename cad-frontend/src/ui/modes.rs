@@ -1,6 +1,7 @@
 use std::{cell::RefCell, sync::Arc};
 
 use glm::vec3;
+use modes::ModeStack;
 use rust_ui::render::{
     COLOR_LIGHT, Text,
     renderer::{Listeners, NodeContext, Renderer, UiBuilder},
@@ -9,7 +10,7 @@ use taffy::{NodeId, TaffyTree};
 
 use crate::{
     app::{self, App, AppMutableState},
-    modes::{AppMode, BindableMessage, ModeStack},
+    modes::{AppBindableMessage, AppMode},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -19,7 +20,7 @@ impl Modes {
     pub fn generate_layout(
         tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
-        mode_stack: &ModeStack<AppMode, BindableMessage>,
+        mode_stack: &ModeStack<AppMode, AppBindableMessage>,
     ) {
         let mut mode_stack_fmt = String::from("Mode: ");
         for m in mode_stack.modes() {

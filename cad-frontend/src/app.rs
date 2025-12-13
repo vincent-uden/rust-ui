@@ -7,6 +7,7 @@ use cad::{
     topology::{Edge, Face, TopoEntity, TopoId},
 };
 use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
+use modes::{Config, ModeStack};
 use rust_ui::{
     geometry::Vector,
     perf_overlay::PerformanceOverlay,
@@ -20,7 +21,7 @@ use tracing::{debug, error, info};
 
 use crate::{
     input::{self, glfw_key_to_key_input},
-    modes::{AppMode, BindableMessage, Config, ModeStack},
+    modes::{AppBindableMessage, AppMode, AppMouseAction, default_config},
     sketch_renderer::{SketchPicker, SketchRenderer},
     ui::{
         area::{AreaData, AreaType},
@@ -87,8 +88,8 @@ pub struct App {
     pub sketch_picker: SketchPicker,
     pub mutable_state: RefCell<AppMutableState>,
 
-    pub config: Config,
-    pub mode_stack: ModeStack<AppMode, BindableMessage>,
+    pub config: Config<AppMode, AppBindableMessage, AppMouseAction>,
+    pub mode_stack: ModeStack<AppMode, AppBindableMessage>,
 }
 
 impl App {
@@ -477,7 +478,7 @@ impl Default for App {
                 line_mode_data: LineModeData::default(),
                 circle_mode_data: CircleModeData::default(),
             }),
-            config: Config::default(),
+            config: default_config(),
             mode_stack: ModeStack::with_base(AppMode::Base),
         }
     }
@@ -518,13 +519,13 @@ impl AppState for App {
                         .dispatch(&mut self.config.bindings, key_input)
                     {
                         match action {
-                            BindableMessage::PopMode => {
+                            AppBindableMessage::PopMode => {
                                 self.mode_stack.pop();
                             }
-                            BindableMessage::ToggleSettings => {
+                            AppBindableMessage::ToggleSettings => {
                                 self.settings_open = !self.settings_open;
                             }
-                            BindableMessage::ToggleProjection => {
+                            AppBindableMessage::ToggleProjection => {
                                 for area in self.area_manager.area_map.values_mut() {
                                     if let crate::ui::area::AreaData::Viewport(ref mut vp_data) =
                                         area.area_data
@@ -540,10 +541,10 @@ impl AppState for App {
                                     }
                                 }
                             }
-                            BindableMessage::ToggleDebugDraw => {
+                            AppBindableMessage::ToggleDebugDraw => {
                                 self.debug_draw = !self.debug_draw;
                             }
-                            BindableMessage::DumpDebugPick => {
+                            AppBindableMessage::DumpDebugPick => {
                                 self.debug_picker = !self.debug_picker;
                                 let filename = format!(
                                     "picker_dump_{}.png",
@@ -562,24 +563,24 @@ impl AppState for App {
                                     info!("Dumped picker framebuffer to {}", filename);
                                 }
                             }
-                            BindableMessage::TogglePerformanceOverlay => {
+                            AppBindableMessage::TogglePerformanceOverlay => {
                                 self.perf_overlay.visible = !self.perf_overlay.visible;
                             }
-                            BindableMessage::SplitAreaHorizontally => {
+                            AppBindableMessage::SplitAreaHorizontally => {
                                 self.area_manager
                                     .split_area(self.mouse_pos, BoundaryOrientation::Horizontal);
                             }
-                            BindableMessage::SplitAreaVertically => {
+                            AppBindableMessage::SplitAreaVertically => {
                                 self.area_manager
                                     .split_area(self.mouse_pos, BoundaryOrientation::Vertical);
                             }
-                            BindableMessage::CollapseBoundary => {
+                            AppBindableMessage::CollapseBoundary => {
                                 self.area_manager.collapse_boundary(self.mouse_pos);
                             }
-                            BindableMessage::ActivatePointMode => {
+                            AppBindableMessage::ActivatePointMode => {
                                 self.mode_stack.push(AppMode::Point);
                             }
-                            BindableMessage::Confirm => {
+                            AppBindableMessage::Confirm => {
                                 debug!("Confirm!");
                                 match self.mode_stack.outermost().unwrap() {
                                     AppMode::Line => {

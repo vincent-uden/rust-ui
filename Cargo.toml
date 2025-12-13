@@ -1,5 +1,5 @@
 [workspace]
-members = ["benchmarks","cad", "cad-frontend", "demo", "nurbs","rust-ui", "time-series"]
+members = ["benchmarks","cad", "cad-frontend", "demo", "modes", "nurbs","rust-ui", "time-series"]
 resolver = "3"
 
 [profile.bench]

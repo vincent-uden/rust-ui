@@ -1,5 +1,6 @@
 use std::{cell::RefCell, sync::Arc};
 
+use modes::ModeStack;
 use rust_ui::{
     geometry::Vector,
     render::{
@@ -14,7 +15,7 @@ use taffy::{
 
 use crate::{
     app::{App, AppMutableState},
-    modes::{AppMode, BindableMessage, ModeStack},
+    modes::{AppBindableMessage, AppMode},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -25,7 +26,7 @@ impl SceneExplorer {
         tree: &RefCell<TaffyTree<NodeContext<App>>>,
         parent: NodeId,
         state: &AppMutableState,
-        mode_stack: &ModeStack<AppMode, BindableMessage>,
+        mode_stack: &ModeStack<AppMode, AppBindableMessage>,
     ) {
         let b = UiBuilder::new(tree);
         #[cfg_attr(any(), rustfmt::skip)]

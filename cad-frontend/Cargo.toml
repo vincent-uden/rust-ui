@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 cad = { path = "../cad"}
+modes = { path = "../modes"}
 glfw = "0.60.0"
 gl = "0.14.0"
 glm = {package ="nalgebra-glm", version = "0.20.0"}
