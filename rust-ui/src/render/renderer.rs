@@ -712,10 +712,8 @@ where
             &children,
         );
 
-        let data = unsafe { std::ptr::read(tree.as_ptr()) };
-        std::mem::forget(tree);
         RenderLayout {
-            tree: data,
+            tree: tree.into_inner(),
             root,
             desired_size: Size {
                 width: AvailableSpace::Definite(self.debug_size.x),
