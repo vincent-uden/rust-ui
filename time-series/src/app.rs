@@ -1,6 +1,9 @@
 use rust_ui::{
     geometry::Vector,
-    render::renderer::{AppState, RenderLayout, UiBuilder},
+    render::{
+        COLOR_LIGHT, Text,
+        renderer::{AppState, RenderLayout, UiBuilder},
+    },
 };
 use taffy::TaffyTree;
 
@@ -15,7 +18,15 @@ impl App {
     pub fn base_layer(&self, window_size: Vector<f32>) -> RenderLayout<Self> {
         let tree = TaffyTree::new().into();
         let b = UiBuilder::new(&tree);
-        let root = b.div("w-full h-full", &[]);
+        #[cfg_attr(any(), rustfmt::skip)]
+        let root = b.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
+            b.div("flex-row", &[
+                b.text("", Text::new("Time series explorer".into(), 16, COLOR_LIGHT))
+            ]),
+            b.div("flex-row grow", &[
+                b.div("w-full h-full bg-slate-900", &[])
+            ]),
+        ]);
 
         RenderLayout {
             tree: tree.into_inner(),

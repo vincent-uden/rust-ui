@@ -24,7 +24,7 @@ const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stdout)
-        .with_env_filter(EnvFilter::new("time-series"))
+        .with_env_filter(EnvFilter::new("time_series"))
         .init();
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800, true, true);
@@ -32,6 +32,7 @@ fn main() {
     let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
     let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
     let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
+    let sprite_shader = Shader::new_from_name(&ShaderName::Sprite).unwrap();
 
     let rect_r = RectRenderer::new(rect_shader);
     let text_r = TextRenderer::new(
@@ -52,6 +53,9 @@ fn main() {
 
     text_shader.use_shader();
     text_shader.set_uniform("projection", &projection);
+
+    sprite_shader.use_shader();
+    sprite_shader.set_uniform("projection", &projection);
 
     while !window.should_close() {
         glfw.poll_events();
@@ -80,6 +84,16 @@ fn main() {
             }
         }
         state.update();
+        let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
+
+        rect_shader.use_shader();
+        rect_shader.set_uniform("projection", &projection);
+
+        text_shader.use_shader();
+        text_shader.set_uniform("projection", &projection);
+
+        sprite_shader.use_shader();
+        sprite_shader.set_uniform("projection", &projection);
         unsafe {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
