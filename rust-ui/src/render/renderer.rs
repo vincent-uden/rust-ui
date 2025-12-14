@@ -688,7 +688,7 @@ where
         let mut children = vec![
             #[cfg_attr(any(), rustfmt::skip)]
             b.ui("flex-row", Listeners::default(), &[
-                b.text("grow", Text::new("Debug".into(), 24, COLOR_LIGHT)),
+                b.text("grow", Text::new("Debug", 24, COLOR_LIGHT)),
                 b.sprite("w-30 h-30", if self.debug_expanded { "Up" } else { "Down" }, expand_listener),
             ]),
         ];

@@ -17,6 +17,7 @@ use tracing_subscriber::EnvFilter;
 use crate::app::App;
 
 mod app;
+mod pipeline;
 
 const TARGET_FPS: u64 = 60;
 const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);

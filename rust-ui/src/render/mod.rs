@@ -75,9 +75,9 @@ impl Default for Text {
 }
 
 impl Text {
-    pub fn new(text: String, font_size: u32, color: Color) -> Self {
+    pub fn new(text: impl Into<String>, font_size: u32, color: Color) -> Self {
         Self {
-            text,
+            text: text.into(),
             font_size,
             color,
         }

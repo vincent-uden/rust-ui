@@ -21,7 +21,7 @@ impl App {
         #[cfg_attr(any(), rustfmt::skip)]
         let root = b.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
             b.div("flex-row", &[
-                b.text("", Text::new("Time series explorer".into(), 16, COLOR_LIGHT))
+                b.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
             b.div("flex-row grow", &[
                 b.div("w-full h-full bg-slate-900", &[])
