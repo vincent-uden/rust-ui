@@ -76,3 +76,26 @@ box_sizing
 overflow `overflow-visible` `overflow-clip` `overflow-scroll`
 scrollbar_width
 position
+
+## Interactive UI elements
+Some of these will be tricky to implement.
+
+### Editable text field
+This can basically be rendered as a regular Text ui element with the addition of a cursor. But I need to think about how the keybinds and focus state needs to work. Focus is global, only one element can be focused at a time so this should probably be stored in the app state. Since apps can move focus using bindings in the mode system this focus state needs to be stored in there and not in the renderer.
+```rust
+pub struct TextField {
+    pub text: String,
+    pub font_size: u32,
+    pub color: Color,
+    pub cursor_idx: usize,
+    pub focused: bool,
+}
+```
+
+How is this stored in the App state? An id for the text field? I think that is the only way since I don't know up front what the UI heirarchy is going to look like.
+```rust
+pub struct App {
+    focus: SmolStr,
+}
+```
+How do I generate this id? I guess the id can be a string for now.
