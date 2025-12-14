@@ -11,7 +11,10 @@ use rust_ui::render::{
 };
 use taffy::{NodeId, TaffyTree};
 
-use crate::{app::App, pipeline::DataFrame};
+use crate::{
+    app::App,
+    pipeline::{DataFrame, StepConfig},
+};
 
 pub struct DataSource {
     df: DataFrame,
@@ -30,6 +33,7 @@ impl DataSource {
 pub struct PipelineManagerUi {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
     pub selected_source: Option<usize>,
+    pub pipelines: Vec<Vec<StepConfig>>,
 }
 
 impl PipelineManagerUi {
@@ -37,6 +41,7 @@ impl PipelineManagerUi {
         Self {
             sources,
             selected_source: None,
+            pipelines: Vec::new(),
         }
     }
 
@@ -58,29 +63,73 @@ impl PipelineManagerUi {
             ])
         ])];
         for (i, source) in self.sources.borrow().iter().enumerate() {
-            signal_rows.push(signal_row(&source, &b, i, Some(i) == self.selected_source));
+            signal_rows.push(self.signal_row(&source, &b, i));
         }
         signal_rows.extend_from_slice(&[
             b.div("h-1 w-full bg-slate-500 my-4", &[]),
             b.text("", Text::new("Pipeline", 14, COLOR_LIGHT)),
         ]);
+        if let Some(idx) = self.selected_source {
+            for cfg in &self.pipelines[idx] {
+                signal_rows.push(self.step_config(&cfg, &b));
+            }
+        }
         let outer = b.div("flex-col gap-4", &signal_rows);
         outer
     }
-}
 
-pub fn signal_row(source: &DataSource, b: &UiBuilder<App>, idx: usize, selected: bool) -> NodeId {
-    #[cfg_attr(any(), rustfmt::skip)]
-    b.ui("flex-row hover:bg-slate-600 py-2", Listeners {
-        on_left_mouse_up: Some(Arc::new(move |state| {
-            state.app_state.pipeline_manager.selected_source = Some(idx);
-        })),
-        ..Default::default()
-    }, &[
-        b.text("", Text::new(
-            format!("{}", source.path.file_name().unwrap_or_default().display()),
-            12,
-            if selected { COLOR_SUCCESS } else {COLOR_LIGHT})
-        ),
-    ])
+    fn signal_row(&self, source: &DataSource, b: &UiBuilder<App>, idx: usize) -> NodeId {
+        #[cfg_attr(any(), rustfmt::skip)]
+        b.ui("flex-row hover:bg-slate-600 py-2", Listeners {
+            on_left_mouse_up: Some(Arc::new(move |state| {
+                state.app_state.pipeline_manager.selected_source = Some(idx);
+            })),
+            ..Default::default()
+        }, &[
+            b.text("", Text::new(
+                format!("{}", source.path.file_name().unwrap_or_default().display()),
+                12,
+                if Some(idx) == self.selected_source { COLOR_SUCCESS } else {COLOR_LIGHT})
+            ),
+        ])
+    }
+
+    fn step_config(&self, cfg: &StepConfig, b: &UiBuilder<App>) -> NodeId {
+        let form = match cfg {
+            StepConfig::Average => todo!(),
+            StepConfig::Variance => todo!(),
+            StepConfig::SmoothSignal { window } => todo!(),
+            StepConfig::SmoothReals { window } => todo!(),
+            StepConfig::AbsoluteValueOfReals => todo!(),
+            StepConfig::FourierTransform => todo!(),
+            StepConfig::InverseFourierTransform => todo!(),
+            StepConfig::PostFFTFormatting => todo!(),
+            StepConfig::SkipFirstEntry => todo!(),
+            StepConfig::SkipFirstComplexEntry => todo!(),
+            StepConfig::Normalize => todo!(),
+            StepConfig::BandpassFilter { middle, half_width } => todo!(),
+            StepConfig::CurrentCalculator {
+                capacitance,
+                x1,
+                x2,
+            } => todo!(),
+            StepConfig::PickColumns { column_1, column_2 } => b.div(
+                "flex-col gap-4",
+                &[
+                    b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
+                    b.text("", Text::new(format!("{column_1}"), 12, COLOR_LIGHT)),
+                    b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
+                    b.text("", Text::new(format!("{column_2}"), 12, COLOR_LIGHT)),
+                ],
+            ),
+            StepConfig::ScaleAxis { axis, factor } => todo!(),
+            StepConfig::LogAxis { axis, base } => todo!(),
+        };
+        #[cfg_attr(any(), rustfmt::skip)]
+        b.div("flex-col border-2 border-slate-500 rounded-8 p-8", &[
+            b.text("", Text::new(format!("{cfg}"), 14, COLOR_LIGHT)),
+            b.div("h-4", &[]),
+            form,
+        ])
+    }
 }

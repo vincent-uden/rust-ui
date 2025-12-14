@@ -10,7 +10,10 @@ use rust_ui::{
 use taffy::TaffyTree;
 use tracing::info;
 
-use crate::pipeline::ui::{DataSource, PipelineManagerUi};
+use crate::pipeline::{
+    StepConfig,
+    ui::{DataSource, PipelineManagerUi},
+};
 
 pub struct App {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
@@ -33,6 +36,12 @@ impl App {
         {
             if let Ok(source) = DataSource::from_path(path) {
                 self.sources.borrow_mut().push(source.into());
+                self.pipeline_manager
+                    .pipelines
+                    .push(vec![StepConfig::PickColumns {
+                        column_1: 0,
+                        column_2: 1,
+                    }]);
             }
         }
     }
