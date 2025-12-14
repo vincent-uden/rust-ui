@@ -1,6 +1,7 @@
+use anyhow::{Result, anyhow};
 use rustfft::num_complex::Complex;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
+use std::{fs::File, hash::Hash, io::BufReader, path::Path};
 use strum::{Display, EnumString};
 
 pub mod processing;
@@ -32,6 +33,42 @@ pub struct DataFrame {
 }
 
 impl DataFrame {
+    pub fn from_path(path: &Path) -> Result<Self> {
+        let file = File::open(path).map_err(|_| anyhow!("Error opening file"))?;
+        let reader = BufReader::new(file);
+        let mut rdr = csv::ReaderBuilder::new()
+            .comment(Some(b'#'))
+            .from_reader(reader);
+        let mut out = DataFrame::default();
+        for h in rdr.headers()? {
+            out.column_names.push(h.to_string());
+            out.columns.push(vec![]);
+        }
+        for record in rdr.records().flatten() {
+            for (i, r) in record.iter().enumerate() {
+                match r.parse() {
+                    Ok(f) => {
+                        out.columns[i].push(f);
+                    }
+                    Err(_) => {}
+                }
+            }
+        }
+
+        let mut empty_columns = vec![];
+        for (i, col) in out.columns.iter().enumerate() {
+            if col.is_empty() {
+                empty_columns.push(i);
+            }
+        }
+        for idx in empty_columns.iter().rev() {
+            out.columns.remove(*idx);
+            out.column_names.remove(*idx);
+        }
+
+        Ok(out)
+    }
+
     fn pick(&self, column_1: usize, column_2: usize) -> Signal {
         let mut out = vec![];
         for (x, y) in self.columns[column_1]
@@ -42,6 +79,15 @@ impl DataFrame {
         }
         out
     }
+}
+
+pub fn write_csv(path: &Path, data: &[Record]) -> Result<()> {
+    let mut writer = csv::Writer::from_path(path)?;
+    for r in data {
+        writer.serialize(r)?;
+    }
+    writer.flush()?;
+    Ok(())
 }
 
 pub type Signal = Vec<Record>;

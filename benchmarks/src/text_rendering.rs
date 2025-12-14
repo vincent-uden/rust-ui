@@ -53,7 +53,7 @@ impl AppState for TextRendering {
             "p-16 w-full h-full",
             &[
                 b.text("", Text::new(format!("{}", self.i), 12, COLOR_LIGHT)),
-                b.text_explicit("", Text::new(TEST_TEXT.into(), 12, COLOR_LIGHT)),
+                b.text_explicit("", Text::new(TEST_TEXT, 12, COLOR_LIGHT)),
             ],
         );
 

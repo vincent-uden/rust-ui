@@ -37,10 +37,9 @@ pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
 
 /// Contains relevant information for a UI node in addition to the sizing and position information
 /// stored in [taffy::TaffyTree].
-#[derive(Default)]
 pub struct NodeContext<T>
 where
-    T: AppState + std::default::Default,
+    T: AppState,
 {
     pub flags: Flag,
     // Colors
@@ -65,9 +64,36 @@ where
     pub scissor: bool,
 }
 
+impl<T> Default for NodeContext<T>
+where
+    T: AppState,
+{
+    fn default() -> Self {
+        Self {
+            flags: Default::default(),
+            bg_color: Default::default(),
+            bg_color_hover: Default::default(),
+            border: Default::default(),
+            text: Default::default(),
+            sprite_key: Default::default(),
+            offset: Default::default(),
+            on_scroll: Default::default(),
+            on_mouse_enter: Default::default(),
+            on_mouse_exit: Default::default(),
+            on_left_mouse_down: Default::default(),
+            on_left_mouse_up: Default::default(),
+            on_right_mouse_down: Default::default(),
+            on_right_mouse_up: Default::default(),
+            on_middle_mouse_down: Default::default(),
+            on_middle_mouse_up: Default::default(),
+            scissor: Default::default(),
+        }
+    }
+}
+
 impl<T> NodeContext<T>
 where
-    T: AppState + std::default::Default,
+    T: AppState,
 {
     pub fn set_listeners(&mut self, listeners: Listeners<T>) {
         self.on_scroll = listeners.on_scroll;
@@ -82,10 +108,9 @@ where
     }
 }
 
-#[derive(Default)]
 pub struct Listeners<T>
 where
-    T: AppState + std::default::Default,
+    T: AppState,
 {
     pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
@@ -96,6 +121,25 @@ where
     pub on_right_mouse_up: Option<EventListener<T>>,
     pub on_middle_mouse_down: Option<EventListener<T>>,
     pub on_middle_mouse_up: Option<EventListener<T>>,
+}
+
+impl<T> Default for Listeners<T>
+where
+    T: AppState,
+{
+    fn default() -> Self {
+        Self {
+            on_scroll: Default::default(),
+            on_mouse_enter: Default::default(),
+            on_mouse_exit: Default::default(),
+            on_left_mouse_down: Default::default(),
+            on_left_mouse_up: Default::default(),
+            on_right_mouse_down: Default::default(),
+            on_right_mouse_up: Default::default(),
+            on_middle_mouse_down: Default::default(),
+            on_middle_mouse_up: Default::default(),
+        }
+    }
 }
 
 impl SpriteKey for String {}
@@ -118,7 +162,7 @@ pub enum MouseDragState {
 /// Renders a [taffy::TaffyTree] and handles event listeners associated with UI nodes.
 pub struct Renderer<T>
 where
-    T: AppState + std::default::Default,
+    T: AppState,
 {
     /// The window width
     pub width: u32,
@@ -169,7 +213,7 @@ where
 
 impl<T> Renderer<T>
 where
-    T: AppState + std::default::Default,
+    T: AppState,
 {
     pub fn new(
         rect_renderer: RectRenderer,
@@ -738,7 +782,7 @@ pub fn measure_function<T>(
     text_renderer: &mut TextRenderer,
 ) -> Size<f32>
 where
-    T: AppState + std::default::Default,
+    T: AppState,
 {
     if let Size {
         width: Some(width),
@@ -786,7 +830,7 @@ pub enum Anchor {
 
 pub struct RenderLayout<T>
 where
-    T: AppState + Default,
+    T: AppState,
 {
     pub tree: TaffyTree<NodeContext<T>>,
     pub root: NodeId,
@@ -798,7 +842,7 @@ where
 
 impl<T> Default for RenderLayout<T>
 where
-    T: AppState + Default,
+    T: AppState,
 {
     fn default() -> Self {
         Self {
@@ -812,7 +856,7 @@ where
     }
 }
 
-pub trait AppState: Default {
+pub trait AppState: Sized {
     type SpriteKey: crate::render::sprite::SpriteKey;
 
     fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
@@ -837,14 +881,14 @@ pub trait AppState: Default {
 
 pub struct UiBuilder<'a, T>
 where
-    T: AppState + Default,
+    T: AppState,
 {
     tree: &'a RefCell<TaffyTree<NodeContext<T>>>,
 }
 
 impl<'a, T> UiBuilder<'a, T>
 where
-    T: AppState + Default,
+    T: AppState,
 {
     pub fn new(tree: &'a RefCell<TaffyTree<NodeContext<T>>>) -> Self {
         Self { tree }

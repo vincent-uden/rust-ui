@@ -25,7 +25,7 @@ const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stdout)
-        .with_env_filter(EnvFilter::new("time_series"))
+        .with_env_filter(EnvFilter::new("time_series,rust_ui"))
         .init();
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800, true, true);
@@ -60,6 +60,7 @@ fn main() {
 
     while !window.should_close() {
         glfw.poll_events();
+        state.pre_update();
         for (_, event) in glfw::flush_messages(&events) {
             match event {
                 glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1, action, _) => {

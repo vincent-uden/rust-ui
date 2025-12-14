@@ -1,3 +1,5 @@
+use std::{cell::RefCell, sync::Arc};
+
 use rust_ui::{
     geometry::Vector,
     render::{
@@ -6,13 +8,33 @@ use rust_ui::{
     },
 };
 use taffy::TaffyTree;
+use tracing::info;
 
-#[derive(Default)]
-pub struct App {}
+use crate::pipeline::ui::{DataSource, PipelineManagerUi};
+
+pub struct App {
+    sources: Arc<RefCell<Vec<DataSource>>>,
+    pipeline_manager: PipelineManagerUi,
+}
 
 impl App {
     pub fn new() -> Self {
-        Self {}
+        let sources = Arc::new(RefCell::new(Vec::new()));
+        Self {
+            sources: sources.clone(),
+            pipeline_manager: PipelineManagerUi::new(sources.clone()),
+        }
+    }
+
+    pub fn add_source(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("CSV files", &["csv"])
+            .pick_file()
+        {
+            if let Ok(source) = DataSource::from_path(path) {
+                self.sources.borrow_mut().push(source.into());
+            }
+        }
     }
 
     pub fn base_layer(&self, window_size: Vector<f32>) -> RenderLayout<Self> {
@@ -23,8 +45,9 @@ impl App {
             b.div("flex-row", &[
                 b.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
-            b.div("flex-row grow", &[
-                b.div("w-full h-full bg-slate-900", &[])
+            b.div("flex-row grow gap-4", &[
+                b.div("w-full h-full bg-slate-900", &[]),
+                self.pipeline_manager.generate_layout(&tree),
             ]),
         ]);
 

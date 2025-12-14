@@ -434,7 +434,7 @@ impl TryFrom<&str> for StyleArgument {
 
 pub fn parse_style<T>(style_str: &str) -> (Style, NodeContext<T>)
 where
-    T: AppState + Default,
+    T: AppState,
 {
     let mut style = Style::DEFAULT;
     let mut ctx = NodeContext::default();
