@@ -28,12 +28,16 @@ impl DataSource {
 }
 
 pub struct PipelineManagerUi {
-    sources: Arc<RefCell<Vec<DataSource>>>,
+    pub sources: Arc<RefCell<Vec<DataSource>>>,
+    pub selected_source: Option<usize>,
 }
 
 impl PipelineManagerUi {
     pub fn new(sources: Arc<RefCell<Vec<DataSource>>>) -> Self {
-        Self { sources }
+        Self {
+            sources,
+            selected_source: None,
+        }
     }
 
     pub fn generate_layout(&self, tree: &RefCell<TaffyTree<NodeContext<App>>>) -> NodeId {
@@ -45,7 +49,7 @@ impl PipelineManagerUi {
                 b.text("", Text::new("Sources", 14, COLOR_LIGHT)),
             ]),
             b.ui("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Listeners {
-                on_left_mouse_down: Some(Arc::new(|state| {
+                on_left_mouse_up: Some(Arc::new(|state| {
                     state.app_state.add_source();
                 })),
                 ..Default::default()
@@ -53,11 +57,11 @@ impl PipelineManagerUi {
                 b.text("", Text::new("Add", 14, COLOR_SUCCESS)),
             ])
         ])];
-        for source in &*self.sources.borrow() {
-            signal_rows.push(signal_row(&source, &b));
+        for (i, source) in self.sources.borrow().iter().enumerate() {
+            signal_rows.push(signal_row(&source, &b, i, Some(i) == self.selected_source));
         }
         signal_rows.extend_from_slice(&[
-            b.div("h-2 w-full bg-slate-500", &[]),
+            b.div("h-1 w-full bg-slate-500 my-4", &[]),
             b.text("", Text::new("Pipeline", 14, COLOR_LIGHT)),
         ]);
         let outer = b.div("flex-col gap-4", &signal_rows);
@@ -65,9 +69,18 @@ impl PipelineManagerUi {
     }
 }
 
-pub fn signal_row(source: &DataSource, b: &UiBuilder<App>) -> NodeId {
+pub fn signal_row(source: &DataSource, b: &UiBuilder<App>, idx: usize, selected: bool) -> NodeId {
     #[cfg_attr(any(), rustfmt::skip)]
-    b.div("flex-row hover:bg-slate-600", &[
-        b.text("", Text::new(format!("{}", source.path.file_name().unwrap_or_default().display()), 12, COLOR_LIGHT)),
+    b.ui("flex-row hover:bg-slate-600 py-2", Listeners {
+        on_left_mouse_up: Some(Arc::new(move |state| {
+            state.app_state.pipeline_manager.selected_source = Some(idx);
+        })),
+        ..Default::default()
+    }, &[
+        b.text("", Text::new(
+            format!("{}", source.path.file_name().unwrap_or_default().display()),
+            12,
+            if selected { COLOR_SUCCESS } else {COLOR_LIGHT})
+        ),
     ])
 }

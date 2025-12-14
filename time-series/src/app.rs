@@ -13,8 +13,8 @@ use tracing::info;
 use crate::pipeline::ui::{DataSource, PipelineManagerUi};
 
 pub struct App {
-    sources: Arc<RefCell<Vec<DataSource>>>,
-    pipeline_manager: PipelineManagerUi,
+    pub sources: Arc<RefCell<Vec<DataSource>>>,
+    pub pipeline_manager: PipelineManagerUi,
 }
 
 impl App {
