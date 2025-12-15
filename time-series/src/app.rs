@@ -130,6 +130,10 @@ impl AppState for App {
                         .dispatch(&mut self.config.bindings, key_input)
                     {
                         self.handle_message(msg);
+                    } else {
+                        if self.mode_stack.is_outermost(&AppMode::Typing) {
+                            // TODO: Type into the focused buffer
+                        }
                     }
                 }
                 None => {

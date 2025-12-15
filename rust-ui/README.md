@@ -99,3 +99,16 @@ pub struct App {
 }
 ```
 How do I generate this id? I guess the id can be a string for now.
+
+This is such a big pain point since I dont update and render at the same time.
+
+## What if I wrote a retained GUI mode instead?
+This would simplify so incredibly much of my thinking. I do think it would need both reflection and a lot of dynamic dispatch though. The most important thing is that stateful widgets are so much easier to create in a retained mode. 
+
+The biggest gripe I have so far with immediate mode gui is that I can't build re-usable widgets that can be dropped in anywhere in the codebase.
+
+Since I don't have inheritance to work with, I guess I would need to build an entity-component-system for my UI. A button would for example be composed of a container and an event listener component.
+
+Ryan Fleury uses a global HashMap for all his persistent state which is keyed by a special text string syntax. This is really clever, but a global HashMap is not very Rusty. We can pass it down to every single ui function. Ryan seems to be doing that for his arena allocator, so why not pass the state HashMap? I'd need some kind of refcell to hold the hashmap and other related state in the renderer I guess. Or should it live in the app state? App state for now, renderer later if possible.
+
+Having the UiBuilder in the `rust-ui` crate would pose some problems with extensibility though.

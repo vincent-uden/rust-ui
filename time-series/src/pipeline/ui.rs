@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
+use keybinds::KeyInput;
 use rust_ui::render::{
     COLOR_LIGHT, COLOR_SUCCESS, Text,
     renderer::{Listeners, NodeContext, UiBuilder},
@@ -144,6 +145,10 @@ impl PipelineManagerUi {
             b.div("h-4", &[]),
             form,
         ])
+    }
+
+    pub fn handle_key_input(&self, key_input: KeyInput, focused_id: &Option<SmolStr>) {
+        //
     }
 }
 
