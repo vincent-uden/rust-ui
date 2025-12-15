@@ -1,25 +1,47 @@
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, str::FromStr, sync::Arc};
 
+use glfw::Action;
+use modes::{Config, ModeStack};
 use rust_ui::{
     geometry::Vector,
+    input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
         renderer::{AppState, RenderLayout, UiBuilder},
     },
 };
 use smol_str::SmolStr;
+use strum::EnumString;
 use taffy::TaffyTree;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::pipeline::{
     StepConfig,
     ui::{DataSource, PipelineManagerUi},
 };
 
+#[derive(EnumString, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum AppMode {
+    Base,
+    Typing,
+}
+
+#[derive(EnumString, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppMessage {
+    PopMode,
+    Confirm,
+}
+
+fn default_config() -> Config<AppMode, AppMessage, AppMessage> {
+    Config::from_str(include_str!("../assets/default.conf")).unwrap()
+}
+
 pub struct App {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
     pub pipeline_manager: PipelineManagerUi,
     pub focus: Option<SmolStr>,
+    pub mode_stack: ModeStack<AppMode, AppMessage>,
+    pub config: Config<AppMode, AppMessage, AppMessage>,
 }
 
 impl App {
@@ -29,6 +51,8 @@ impl App {
             sources: sources.clone(),
             pipeline_manager: PipelineManagerUi::new(sources.clone()),
             focus: None,
+            mode_stack: ModeStack::with_base(AppMode::Base),
+            config: default_config(),
         }
     }
 
@@ -70,6 +94,15 @@ impl App {
             ..Default::default()
         }
     }
+
+    pub fn handle_message(&mut self, msg: AppMessage) {
+        match msg {
+            AppMessage::PopMode => {
+                self.mode_stack.pop();
+            }
+            AppMessage::Confirm => todo!(),
+        }
+    }
 }
 
 impl AppState for App {
@@ -80,5 +113,32 @@ impl AppState for App {
         window_size: rust_ui::geometry::Vector<f32>,
     ) -> Vec<rust_ui::render::renderer::RenderLayout<Self>> {
         vec![self.base_layer(window_size)]
+    }
+
+    fn handle_key(
+        &mut self,
+        key: glfw::Key,
+        scancode: glfw::Scancode,
+        action: glfw::Action,
+        modifiers: glfw::Modifiers,
+    ) {
+        if action == Action::Press {
+            match glfw_key_to_key_input(key, modifiers) {
+                Some(key_input) => {
+                    if let Some(msg) = self
+                        .mode_stack
+                        .dispatch(&mut self.config.bindings, key_input)
+                    {
+                        self.handle_message(msg);
+                    }
+                }
+                None => {
+                    error!(
+                        "Couldn't convert GLFW key {:?} {:?} {:?} to keybinds-key",
+                        key, modifiers, action
+                    );
+                }
+            }
+        }
     }
 }

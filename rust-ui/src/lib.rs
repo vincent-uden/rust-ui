@@ -8,6 +8,7 @@ use glfw::Context;
 use std::env;
 
 pub mod geometry;
+pub mod input;
 pub mod perf_overlay;
 pub mod render;
 pub mod shader;

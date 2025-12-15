@@ -130,7 +130,6 @@ impl PipelineManagerUi {
                 "flex-col gap-4",
                 &[
                     b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
-                    // TODO: How to construct a unique id in here?
                     text_field(b, format!("{column_1}"), format!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
                     b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
                     text_field(b, format!("{column_2}"), format!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),

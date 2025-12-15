@@ -7,6 +7,7 @@ edition = "2024"
 glfw = "0.60.0"
 gl = "0.14.0"
 glm = { package ="nalgebra-glm", version = "0.20.0" }
+modes = { path = "../modes"}
 rfd = { version = "0.15.3" }
 taffy = "0.9.1"
 tracing = "0.1.41"

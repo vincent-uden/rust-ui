@@ -565,7 +565,10 @@ mod tests {
     use nalgebra::Vector2;
     use tracing::debug;
 
-    use crate::entity::{Circle, ConstraintType, Line, Point};
+    use crate::{
+        entity::{Circle, ConstraintType, Line, Point},
+        topology,
+    };
 
     use super::*;
 

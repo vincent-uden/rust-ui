@@ -10,6 +10,7 @@ use glfw::{Action, Key, Modifiers, Scancode, WindowEvent};
 use modes::{Config, ModeStack};
 use rust_ui::{
     geometry::Vector,
+    input::glfw_key_to_key_input,
     perf_overlay::PerformanceOverlay,
     render::{
         Color,
@@ -20,7 +21,6 @@ use rust_ui::{
 use tracing::{debug, error, info};
 
 use crate::{
-    input::{self, glfw_key_to_key_input},
     modes::{AppBindableMessage, AppMode, AppMouseAction, default_config},
     sketch_renderer::{SketchPicker, SketchRenderer},
     ui::{

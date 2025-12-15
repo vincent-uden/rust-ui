@@ -78,7 +78,11 @@ where
     }
 
     pub fn pop(&mut self) -> Option<M> {
-        self.stack.pop()
+        if self.stack.len() > 1 {
+            self.stack.pop()
+        } else {
+            None
+        }
     }
 
     pub fn pop_until(&mut self, stop_at: &M) {

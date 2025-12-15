@@ -5,22 +5,24 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.99"
+dashmap = "6.1.0"
 freetype-rs = "0.38.0"
 gl = "0.14.0"
 glfw = "0.60.0"
 glm = {package ="nalgebra-glm", version = "0.20.0"}
+image = "0.25.8"
+keybinds = "0.2.0"
+modes = { path = "../modes" }
 num = "0.4.3"
+serde = { version = "1.0.219", features = ["derive"] }
+smol_str = "0.3.4"
+string_cache = "0.9.0"
+sysinfo = "0.37.0"
+taffy = "0.9.1"
 tracing = "0.1.41"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-image = "0.25.8"
-taffy = "0.9.1"
-sysinfo = "0.37.0"
-serde = { version = "1.0.219", features = ["derive"] }
-dashmap = "6.1.0"
-string_cache = "0.9.0"
 tracy-client = { version = "0.18.2", default-features = false, features = ["enable"] }
-smol_str = "0.3.4"
 
 [build-dependencies]
 walkdir = "2"
