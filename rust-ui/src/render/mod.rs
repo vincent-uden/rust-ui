@@ -1,3 +1,5 @@
+use smol_str::SmolStr;
+
 pub mod circle;
 pub mod line;
 pub mod mesh;

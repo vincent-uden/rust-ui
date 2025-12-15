@@ -9,6 +9,7 @@ use rust_ui::render::{
     COLOR_LIGHT, COLOR_SUCCESS, Text,
     renderer::{Listeners, NodeContext, UiBuilder},
 };
+use smol_str::SmolStr;
 use taffy::{NodeId, TaffyTree};
 
 use crate::{
@@ -45,7 +46,11 @@ impl PipelineManagerUi {
         }
     }
 
-    pub fn generate_layout(&self, tree: &RefCell<TaffyTree<NodeContext<App>>>) -> NodeId {
+    pub fn generate_layout(
+        &self,
+        tree: &RefCell<TaffyTree<NodeContext<App>>>,
+        focused_id: &Option<SmolStr>,
+    ) -> NodeId {
         let b = UiBuilder::new(tree);
 
         #[cfg_attr(any(), rustfmt::skip)]
@@ -70,8 +75,8 @@ impl PipelineManagerUi {
             b.text("", Text::new("Pipeline", 14, COLOR_LIGHT)),
         ]);
         if let Some(idx) = self.selected_source {
-            for cfg in &self.pipelines[idx] {
-                signal_rows.push(self.step_config(&cfg, &b));
+            for (c_idx, cfg) in self.pipelines[idx].iter().enumerate() {
+                signal_rows.push(self.step_config(&cfg, idx, c_idx, &b, focused_id));
             }
         }
         let outer = b.div("flex-col gap-4", &signal_rows);
@@ -94,7 +99,15 @@ impl PipelineManagerUi {
         ])
     }
 
-    fn step_config(&self, cfg: &StepConfig, b: &UiBuilder<App>) -> NodeId {
+    fn step_config(
+        &self,
+        cfg: &StepConfig,
+        pipeline_idx: usize,
+        step_idx: usize,
+        b: &UiBuilder<App>,
+        focused_id: &Option<SmolStr>,
+    ) -> NodeId {
+        #[cfg_attr(any(), rustfmt::skip)]
         let form = match cfg {
             StepConfig::Average => todo!(),
             StepConfig::Variance => todo!(),
@@ -117,9 +130,10 @@ impl PipelineManagerUi {
                 "flex-col gap-4",
                 &[
                     b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
-                    b.text("", Text::new(format!("{column_1}"), 12, COLOR_LIGHT)),
+                    // TODO: How to construct a unique id in here?
+                    text_field(b, format!("{column_1}"), format!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
                     b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
-                    b.text("", Text::new(format!("{column_2}"), 12, COLOR_LIGHT)),
+                    text_field(b, format!("{column_2}"), format!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
                 ],
             ),
             StepConfig::ScaleAxis { axis, factor } => todo!(),
@@ -132,4 +146,31 @@ impl PipelineManagerUi {
             form,
         ])
     }
+}
+
+pub fn text_field(
+    b: &UiBuilder<App>,
+    text: String,
+    id: impl Into<SmolStr>,
+    focused_id: &Option<SmolStr>,
+) -> NodeId {
+    let as_smol: SmolStr = id.into();
+    let style = if &Some(as_smol.clone()) == focused_id {
+        "w-full border-2 border-sky-500 rounded-4 bg-slate-900 py-2 px-4"
+    } else {
+        "w-full rounded-4 bg-slate-900 py-2 px-4"
+    };
+    b.ui(
+        "",
+        Listeners {
+            on_left_mouse_down: Some(Arc::new(move |state| {
+                let as_smol = as_smol.clone();
+                if !as_smol.is_empty() {
+                    state.app_state.focus = Some(as_smol);
+                }
+            })),
+            ..Default::default()
+        },
+        &[b.text_explicit(style, Text::new(text, 12, COLOR_LIGHT))],
+    )
 }

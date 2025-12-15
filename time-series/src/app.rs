@@ -7,6 +7,7 @@ use rust_ui::{
         renderer::{AppState, RenderLayout, UiBuilder},
     },
 };
+use smol_str::SmolStr;
 use taffy::TaffyTree;
 use tracing::info;
 
@@ -18,6 +19,7 @@ use crate::pipeline::{
 pub struct App {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
     pub pipeline_manager: PipelineManagerUi,
+    pub focus: Option<SmolStr>,
 }
 
 impl App {
@@ -26,6 +28,7 @@ impl App {
         Self {
             sources: sources.clone(),
             pipeline_manager: PipelineManagerUi::new(sources.clone()),
+            focus: None,
         }
     }
 
@@ -56,7 +59,7 @@ impl App {
             ]),
             b.div("flex-row grow gap-4", &[
                 b.div("w-full h-full bg-slate-900", &[]),
-                self.pipeline_manager.generate_layout(&tree),
+                self.pipeline_manager.generate_layout(&tree, &self.focus),
             ]),
         ]);
 

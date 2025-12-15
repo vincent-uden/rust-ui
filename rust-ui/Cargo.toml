@@ -20,6 +20,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 dashmap = "6.1.0"
 string_cache = "0.9.0"
 tracy-client = { version = "0.18.2", default-features = false, features = ["enable"] }
+smol_str = "0.3.4"
 
 [build-dependencies]
 walkdir = "2"

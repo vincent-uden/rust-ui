@@ -2,6 +2,7 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashMap, sync::Arc};
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
+use smol_str::SmolStr;
 use string_cache::DefaultAtom;
 
 use crate::{
@@ -991,9 +992,7 @@ where
     pub fn extract_tree(
         tree: RefCell<taffy::TaffyTree<NodeContext<T>>>,
     ) -> taffy::TaffyTree<NodeContext<T>> {
-        let data = unsafe { std::ptr::read(tree.as_ptr()) };
-        std::mem::forget(tree);
-        data
+        tree.into_inner()
     }
 }
 
