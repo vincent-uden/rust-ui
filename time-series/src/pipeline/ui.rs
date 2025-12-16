@@ -6,11 +6,11 @@ use std::{
 
 use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
-use rust_ui::id;
 use rust_ui::render::{
     COLOR_LIGHT, COLOR_SUCCESS, Text,
-    renderer::{Listeners, NodeContext, UiBuilder, UiData},
+    renderer::{AppState, Listeners, NodeContext, UiBuilder, UiData},
 };
+use rust_ui::{id, render::renderer::DefaultAtom};
 use smol_str::SmolStr;
 use taffy::{NodeId, TaffyTree};
 
@@ -129,6 +129,7 @@ impl PipelineManagerUi {
                     text_field(b, format!("{column_1}"), format!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
                     b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
                     text_field(b, format!("{column_2}"), format!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"))
                 ],
             ),
             StepConfig::ScaleAxis { axis, factor } => todo!(),
@@ -174,25 +175,39 @@ pub fn text_field(
     )
 }
 
-pub fn stateful(b: &UiBuilder<App>) {}
-
-#[derive(Debug)]
+/// This could in theory be used as a generic library, although how  styling is
+/// supposed to work is not entirely well defined. Probably something like cva from
+/// shadcn would work decently at least.
+#[derive(Debug, Default)]
 pub struct TextFieldData {
     contents: String,
     cursor_pos: usize,
     select_pos: usize,
 }
-
 impl UiData for TextFieldData {}
 
-pub trait StatefulAccess {
-    fn stateful(&self);
+pub trait TextFieldBuilder {
+    // TODO: Event listeners
+    fn text_field(&self, id: DefaultAtom) -> NodeId;
 }
 
-impl StatefulAccess for UiBuilder<App> {
-    fn stateful(&self) {
-        if let Some(state) = self.accessing_state(id!("TextField{}", 1)) {
-            let data: Arc<TextFieldData> = Arc::downcast(state.data).unwrap();
-        }
+impl<T> TextFieldBuilder for UiBuilder<T>
+where
+    T: AppState,
+{
+    fn text_field(&self, id: DefaultAtom) -> NodeId {
+        let state: Arc<TextFieldData> = Arc::downcast(
+            match self.accessing_state(&id) {
+                Some(s) => s,
+                None => self.insert_state(id, TextFieldData::default()),
+            }
+            .data,
+        )
+        .expect("The data associated with text field must be of type TextFieldData");
+
+        self.div(
+            "bg-slate-900 h-14 w-full p-2",
+            &[self.text_explicit("", Text::new(state.contents.clone(), 12, COLOR_LIGHT))],
+        )
     }
 }

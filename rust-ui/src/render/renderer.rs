@@ -882,7 +882,7 @@ pub use string_cache::DefaultAtom;
 #[macro_export]
 macro_rules! id {
     ($($arg:tt)*) => {
-        &$crate::render::renderer::DefaultAtom::from(format!($($arg)*))
+        $crate::render::renderer::DefaultAtom::from(format!($($arg)*))
     };
 }
 
@@ -1022,10 +1022,19 @@ where
         if let Some(state) = state.get_mut(id) {
             state.last_touched = self.frame;
         }
-        state
-            .borrow()
-            .get(&DefaultAtom::from(id))
-            .map(|x| x.clone())
+        state.borrow().get(id).map(|x| x.clone())
+    }
+
+    pub fn insert_state(&self, id: DefaultAtom, ui_state: impl UiData) -> UiState {
+        let mut state = self.state.borrow_mut();
+        state.insert(
+            id.clone(),
+            UiState {
+                last_touched: self.frame,
+                data: Arc::new(ui_state),
+            },
+        );
+        state[&id].clone()
     }
 
     pub fn tree(self) -> taffy::TaffyTree<NodeContext<T>> {
