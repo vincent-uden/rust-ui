@@ -170,9 +170,9 @@ pub fn text_field(
 /// shadcn would work decently at least.
 #[derive(Debug, Default)]
 pub struct TextFieldData {
-    contents: String,
-    cursor_pos: usize,
-    select_pos: usize,
+    pub contents: String,
+    pub cursor_pos: usize,
+    pub select_pos: usize,
 }
 impl UiData for TextFieldData {}
 
@@ -187,14 +187,13 @@ where
 {
     fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
         // TODO: Render cursor and selection via context flag
-        let state: Arc<TextFieldData> = Arc::downcast(
-            match self.accessing_state(&id) {
-                Some(s) => s,
-                None => self.insert_state(id.clone(), TextFieldData::default()),
-            }
-            .data,
-        )
-        .expect("The data associated with text field must be of type TextFieldData");
+        let binding = match self.accessing_state(&id) {
+            Some(s) => s,
+            None => self.insert_state(id.clone(), TextFieldData::default()),
+        };
+        let guard = binding.data.lock().unwrap();
+        let state: &TextFieldData = guard.downcast_ref().unwrap();
+
         let style = if Some(&id) == focused_id.as_ref() {
             "bg-slate-900 h-14 w-full p-2 rounded-4 border-2 border-sky-500"
         } else {

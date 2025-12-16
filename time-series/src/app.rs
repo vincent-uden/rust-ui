@@ -1,4 +1,4 @@
-use std::{cell::RefCell, str::FromStr, sync::Arc};
+use std::{any::Any, cell::RefCell, str::FromStr, sync::Arc};
 
 use glfw::Action;
 use modes::{Config, ModeStack};
@@ -15,7 +15,7 @@ use tracing::{error, info};
 
 use crate::pipeline::{
     StepConfig,
-    ui::{DataSource, PipelineManagerUi},
+    ui::{DataSource, PipelineManagerUi, TextFieldData},
 };
 
 #[derive(EnumString, Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -76,20 +76,19 @@ impl App {
     }
 
     pub fn base_layer(&self, window_size: Vector<f32>) -> RenderLayout<Self> {
-        let b = UiBuilder::new();
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
-            b.div("flex-row", &[
-                b.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
+        let root = self.ui_builder.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
+            self.ui_builder.div("flex-row", &[
+                self.ui_builder.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
-            b.div("flex-row grow gap-4", &[
-                b.div("w-full h-full bg-slate-900", &[]),
-                self.pipeline_manager.generate_layout(&b, &self.focus),
+            self.ui_builder.div("flex-row grow gap-4", &[
+                self.ui_builder.div("w-full h-full bg-slate-900", &[]),
+                self.pipeline_manager.generate_layout(&self.ui_builder, &self.focus),
             ]),
         ]);
 
         RenderLayout {
-            tree: b.tree(),
+            tree: self.ui_builder.tree(),
             root,
             desired_size: window_size.into(),
             ..Default::default()
@@ -133,7 +132,20 @@ impl AppState for App {
                         self.handle_message(msg);
                     } else {
                         if self.mode_stack.is_outermost(&AppMode::Typing) {
-                            // TODO: Type into the focused buffer
+                            if let Some(focused) = &self.focus {
+                                match key_input.key() {
+                                    keybinds::Key::Char(ch) => {
+                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                            let v: &mut TextFieldData =
+                                                ui_data.downcast_mut().unwrap();
+                                            v.contents.push(ch);
+                                        });
+                                    }
+                                    keybinds::Key::Right => todo!(),
+                                    keybinds::Key::Left => todo!(),
+                                    _ => todo!(),
+                                }
+                            }
                         }
                     }
                 }
@@ -169,5 +181,8 @@ impl AppState for App {
 
     fn set_focus(&mut self, focus: Option<rust_ui::render::renderer::DefaultAtom>) {
         self.focus = focus;
+        if self.focus.is_some() && !self.mode_stack.is_outermost(&AppMode::Typing) {
+            self.mode_stack.push(AppMode::Typing);
+        }
     }
 }

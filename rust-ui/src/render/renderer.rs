@@ -1,9 +1,16 @@
 use core::fmt;
-use std::{any::Any, borrow::Borrow, cell::RefCell, collections::HashMap, sync::Arc};
+use std::{
+    any::Any,
+    borrow::Borrow,
+    cell::{RefCell, RefMut},
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use smol_str::SmolStr;
+use tracing::debug;
 
 use crate::{
     geometry::Vector,
@@ -896,11 +903,27 @@ macro_rules! id {
 
 pub trait UiData: fmt::Debug + Any + Send + Sync {}
 
+impl dyn UiData {
+    pub fn downcast_ref<T>(&self) -> Option<&T>
+    where
+        T: 'static,
+    {
+        (self as &dyn Any).downcast_ref::<T>()
+    }
+
+    pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
+    where
+        T: 'static,
+    {
+        (self as &mut dyn Any).downcast_mut::<T>()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UiState {
     /// The frame number on which this piece of state was last accessed
     pub last_touched: usize,
-    pub data: Arc<dyn UiData>,
+    pub data: Arc<Mutex<Box<dyn UiData>>>,
 }
 
 pub struct UiBuilder<T>
@@ -1033,20 +1056,31 @@ where
         state.borrow().get(id).map(|x| x.clone())
     }
 
+    pub fn mutate_state<F, R>(&self, id: &DefaultAtom, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn UiData) -> R,
+    {
+        let mut state = self.state.borrow_mut();
+        state.get_mut(id).map(|state| {
+            let mut guard = state.data.lock().unwrap();
+            f(guard.as_mut())
+        })
+    }
+
     pub fn insert_state(&self, id: DefaultAtom, ui_state: impl UiData) -> UiState {
         let mut state = self.state.borrow_mut();
         state.insert(
             id.clone(),
             UiState {
                 last_touched: self.frame,
-                data: Arc::new(ui_state),
+                data: Arc::new(Mutex::new(Box::new(ui_state))),
             },
         );
         state[&id].clone()
     }
 
-    pub fn tree(self) -> taffy::TaffyTree<NodeContext<T>> {
-        self.tree.into_inner()
+    pub fn tree(&self) -> taffy::TaffyTree<NodeContext<T>> {
+        self.tree.replace(TaffyTree::new())
     }
 
     pub fn update(&mut self, frame: usize) {
@@ -1056,7 +1090,7 @@ where
 
     fn prune_state_map(&self) {
         let mut state = self.state.borrow_mut();
-        state.retain(|_, v| v.last_touched == self.frame);
+        state.retain(|_, v| v.last_touched >= (self.frame - 1));
     }
 }
 
