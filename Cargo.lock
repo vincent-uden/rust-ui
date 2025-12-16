@@ -3159,7 +3159,6 @@ dependencies = [
  "rust-ui",
  "rustfft",
  "serde",
- "smol_str",
  "strum",
  "sysinfo",
  "taffy",

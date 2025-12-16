@@ -10,7 +10,6 @@ use rust_ui::{
         renderer::{AppState, DefaultAtom, RenderLayout, UiBuilder},
     },
 };
-use smol_str::SmolStr;
 use strum::EnumString;
 use tracing::{error, info};
 
@@ -120,7 +119,7 @@ impl AppState for App {
     fn handle_key(
         &mut self,
         key: glfw::Key,
-        scancode: glfw::Scancode,
+        _scancode: glfw::Scancode,
         action: glfw::Action,
         modifiers: glfw::Modifiers,
     ) {

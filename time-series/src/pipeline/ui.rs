@@ -11,7 +11,6 @@ use rust_ui::render::{
     renderer::{AppState, Listeners, NodeContext, Renderer, UiBuilder, UiData},
 };
 use rust_ui::{id, render::renderer::DefaultAtom};
-use smol_str::SmolStr;
 use taffy::{NodeId, TaffyTree};
 use tracing::info;
 
@@ -143,8 +142,6 @@ impl PipelineManagerUi {
             form,
         ])
     }
-
-    pub fn handle_key_input(&self, key_input: KeyInput, focused_id: &Option<SmolStr>) {}
 }
 
 pub fn text_field(
@@ -201,7 +198,7 @@ where
         let style = if Some(&id) == focused_id.as_ref() {
             "bg-slate-900 h-14 w-full p-2 rounded-4 border-2 border-sky-500"
         } else {
-            "bg-slate-900 h-14 w-full p-2 rounded-4"
+            "bg-slate-900 hover:bg-slate-800 h-14 w-full p-2 rounded-4"
         };
         self.ui(
             style,
