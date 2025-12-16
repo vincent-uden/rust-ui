@@ -46,9 +46,7 @@ impl AppState for TextRendering {
         &mut self,
         window_size: rust_ui::geometry::Vector<f32>,
     ) -> Vec<rust_ui::render::renderer::RenderLayout<Self>> {
-        let tree: taffy::TaffyTree<NodeContext<Self>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-        let b = UiBuilder::new(&tree);
+        let b = UiBuilder::new();
         let root = b.div(
             "p-16 w-full h-full",
             &[
@@ -57,10 +55,8 @@ impl AppState for TextRendering {
             ],
         );
 
-        let data = unsafe { std::ptr::read(tree.as_ptr()) };
-        std::mem::forget(tree);
         vec![RenderLayout {
-            tree: data,
+            tree: b.tree(),
             root,
             desired_size: Size {
                 width: AvailableSpace::Definite(window_size.x),

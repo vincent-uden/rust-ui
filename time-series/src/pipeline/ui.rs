@@ -6,9 +6,10 @@ use std::{
 
 use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
+use rust_ui::id;
 use rust_ui::render::{
     COLOR_LIGHT, COLOR_SUCCESS, Text,
-    renderer::{Listeners, NodeContext, UiBuilder},
+    renderer::{Listeners, NodeContext, UiBuilder, UiData},
 };
 use smol_str::SmolStr;
 use taffy::{NodeId, TaffyTree};
@@ -47,13 +48,7 @@ impl PipelineManagerUi {
         }
     }
 
-    pub fn generate_layout(
-        &self,
-        tree: &RefCell<TaffyTree<NodeContext<App>>>,
-        focused_id: &Option<SmolStr>,
-    ) -> NodeId {
-        let b = UiBuilder::new(tree);
-
+    pub fn generate_layout(&self, b: &UiBuilder<App>, focused_id: &Option<SmolStr>) -> NodeId {
         #[cfg_attr(any(), rustfmt::skip)]
         let mut signal_rows = vec![ b.div("flex-row gap-8", &[
             b.div("p-4 pt-6", &[
@@ -177,4 +172,27 @@ pub fn text_field(
         },
         &[b.text_explicit(style, Text::new(text, 12, COLOR_LIGHT))],
     )
+}
+
+pub fn stateful(b: &UiBuilder<App>) {}
+
+#[derive(Debug)]
+pub struct TextFieldData {
+    contents: String,
+    cursor_pos: usize,
+    select_pos: usize,
+}
+
+impl UiData for TextFieldData {}
+
+pub trait StatefulAccess {
+    fn stateful(&self);
+}
+
+impl StatefulAccess for UiBuilder<App> {
+    fn stateful(&self) {
+        if let Some(state) = self.accessing_state(id!("TextField{}", 1)) {
+            let data: Arc<TextFieldData> = Arc::downcast(state.data).unwrap();
+        }
+    }
 }

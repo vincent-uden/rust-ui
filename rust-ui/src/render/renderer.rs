@@ -1,9 +1,9 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap, sync::Arc};
+use core::fmt;
+use std::{any::Any, borrow::Borrow, cell::RefCell, collections::HashMap, sync::Arc};
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use smol_str::SmolStr;
-use string_cache::DefaultAtom;
 
 use crate::{
     geometry::Vector,
@@ -705,10 +705,7 @@ where
     }
 
     fn debug_layer(&self) -> RenderLayout<T> {
-        let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-
-        let b = UiBuilder::new(&tree);
+        let b = UiBuilder::new();
         let mut entries = vec![];
         for key_value in DEBUG_MAP.iter() {
             let key = key_value.key();
@@ -742,7 +739,7 @@ where
             children.extend(&[
                 b.scrollable("grow", self.debug_scroll, Arc::new(|state| {
                     state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
-                }), &entries),
+                }), entries),
                 b.div("flex-row",
                     &[
                         b.sprite("w-30 h-30", "HandleLeft", resize_listener),
@@ -758,7 +755,7 @@ where
         );
 
         RenderLayout {
-            tree: tree.into_inner(),
+            tree: b.tree(),
             root,
             desired_size: Size {
                 width: AvailableSpace::Definite(self.debug_size.x),
@@ -880,19 +877,44 @@ pub trait AppState: Sized {
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
 }
 
-pub struct UiBuilder<'a, T>
-where
-    T: AppState,
-{
-    tree: &'a RefCell<TaffyTree<NodeContext<T>>>,
+pub use string_cache::DefaultAtom;
+
+#[macro_export]
+macro_rules! id {
+    ($($arg:tt)*) => {
+        &$crate::render::renderer::DefaultAtom::from(format!($($arg)*))
+    };
 }
 
-impl<'a, T> UiBuilder<'a, T>
+pub trait UiData: fmt::Debug + Any + Send + Sync {}
+
+#[derive(Debug, Clone)]
+pub struct UiState {
+    /// The frame number on which this piece of state was last accessed
+    pub last_touched: usize,
+    pub data: Arc<dyn UiData>,
+}
+
+pub struct UiBuilder<T>
 where
     T: AppState,
 {
-    pub fn new(tree: &'a RefCell<TaffyTree<NodeContext<T>>>) -> Self {
-        Self { tree }
+    /// The current frame number. Must be updated by the program running the [UiBuilder]
+    pub frame: usize,
+    tree: RefCell<TaffyTree<NodeContext<T>>>,
+    state: RefCell<HashMap<DefaultAtom, UiState>>,
+}
+
+impl<T> UiBuilder<T>
+where
+    T: AppState,
+{
+    pub fn new() -> Self {
+        Self {
+            frame: 0,
+            tree: TaffyTree::new().into(),
+            state: HashMap::new().into(),
+        }
     }
 
     pub fn ui<I, B>(&self, style: &str, listeners: Listeners<T>, children: I) -> NodeId
@@ -948,7 +970,7 @@ where
         style: &str,
         scroll_height: f32,
         update_scroll: EventListener<T>,
-        children: impl IntoIterator<Item = &'a NodeId>,
+        children: impl IntoIterator<Item = NodeId>,
     ) -> NodeId {
         let scrollbar = {
             let mut tree = self.tree.borrow_mut();
@@ -963,7 +985,7 @@ where
             ctx.offset.y = scroll_height;
             let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
             for child in children {
-                tree.add_child(parent, *child).unwrap();
+                tree.add_child(parent, child).unwrap();
             }
             parent
         };
@@ -993,6 +1015,26 @@ where
         tree: RefCell<taffy::TaffyTree<NodeContext<T>>>,
     ) -> taffy::TaffyTree<NodeContext<T>> {
         tree.into_inner()
+    }
+
+    pub fn accessing_state(&self, id: &DefaultAtom) -> Option<UiState> {
+        let mut state = self.state.borrow_mut();
+        if let Some(state) = state.get_mut(id) {
+            state.last_touched = self.frame;
+        }
+        state
+            .borrow()
+            .get(&DefaultAtom::from(id))
+            .map(|x| x.clone())
+    }
+
+    pub fn tree(self) -> taffy::TaffyTree<NodeContext<T>> {
+        self.tree.into_inner()
+    }
+
+    fn prune_state_map(&self) {
+        let mut state = self.state.borrow_mut();
+        state.retain(|_, v| v.last_touched == self.frame);
     }
 }
 

@@ -111,4 +111,12 @@ Since I don't have inheritance to work with, I guess I would need to build an en
 
 Ryan Fleury uses a global HashMap for all his persistent state which is keyed by a special text string syntax. This is really clever, but a global HashMap is not very Rusty. We can pass it down to every single ui function. Ryan seems to be doing that for his arena allocator, so why not pass the state HashMap? I'd need some kind of refcell to hold the hashmap and other related state in the renderer I guess. Or should it live in the app state? App state for now, renderer later if possible.
 
-Having the UiBuilder in the `rust-ui` crate would pose some problems with extensibility though.
+How would that HashMap work? I'm guessing Ryan just throws in a void pointer to an arena-allocated piece of memory. Then, based on what sort of UI element he's using he can cast that pointer to an actual struct pointer. Since the arena is heap memory I guess my equivalent would be a 
+```rust
+struct UiState {
+    last_touched: usize,
+    data: Box<dyn Any>,
+}
+
+let state = HashMap<String, UiState>;
+```

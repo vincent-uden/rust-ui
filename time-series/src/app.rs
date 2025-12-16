@@ -74,8 +74,7 @@ impl App {
     }
 
     pub fn base_layer(&self, window_size: Vector<f32>) -> RenderLayout<Self> {
-        let tree = TaffyTree::new().into();
-        let b = UiBuilder::new(&tree);
+        let b = UiBuilder::new();
         #[cfg_attr(any(), rustfmt::skip)]
         let root = b.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
             b.div("flex-row", &[
@@ -83,12 +82,12 @@ impl App {
             ]),
             b.div("flex-row grow gap-4", &[
                 b.div("w-full h-full bg-slate-900", &[]),
-                self.pipeline_manager.generate_layout(&tree, &self.focus),
+                self.pipeline_manager.generate_layout(&b, &self.focus),
             ]),
         ]);
 
         RenderLayout {
-            tree: tree.into_inner(),
+            tree: b.tree(),
             root,
             desired_size: window_size.into(),
             ..Default::default()
