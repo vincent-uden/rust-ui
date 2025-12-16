@@ -7,12 +7,11 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
-        renderer::{AppState, RenderLayout, UiBuilder},
+        renderer::{AppState, DefaultAtom, RenderLayout, UiBuilder},
     },
 };
 use smol_str::SmolStr;
 use strum::EnumString;
-use taffy::TaffyTree;
 use tracing::{error, info};
 
 use crate::pipeline::{
@@ -39,9 +38,11 @@ fn default_config() -> Config<AppMode, AppMessage, AppMessage> {
 pub struct App {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
     pub pipeline_manager: PipelineManagerUi,
-    pub focus: Option<SmolStr>,
+    pub focus: Option<DefaultAtom>,
     pub mode_stack: ModeStack<AppMode, AppMessage>,
     pub config: Config<AppMode, AppMessage, AppMessage>,
+    pub ui_builder: UiBuilder<Self>,
+    pub frame: usize,
 }
 
 impl App {
@@ -53,6 +54,8 @@ impl App {
             focus: None,
             mode_stack: ModeStack::with_base(AppMode::Base),
             config: default_config(),
+            ui_builder: UiBuilder::new(),
+            frame: 0,
         }
     }
 
@@ -143,5 +146,29 @@ impl AppState for App {
                 }
             }
         }
+    }
+
+    fn handle_mouse_button(
+        &mut self,
+        _button: glfw::MouseButton,
+        action: Action,
+        _modifiers: glfw::Modifiers,
+    ) {
+        match action {
+            Action::Press => {
+                // Since this runs before event listeners, this won't erase any actual clicks on focused objects
+                self.focus = None;
+            }
+            _ => {}
+        }
+    }
+
+    fn update(&mut self) {
+        self.frame += 1;
+        self.ui_builder.update(self.frame);
+    }
+
+    fn set_focus(&mut self, focus: Option<rust_ui::render::renderer::DefaultAtom>) {
+        self.focus = focus;
     }
 }

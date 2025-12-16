@@ -63,9 +63,8 @@ fn main() {
         state.pre_update();
         for (_, event) in glfw::flush_messages(&events) {
             match event {
-                glfw::WindowEvent::MouseButton(glfw::MouseButton::Button1, action, _) => {
-                    state.mouse_left_down =
-                        action == glfw::Action::Press || action == glfw::Action::Repeat;
+                glfw::WindowEvent::MouseButton(button, action, modifiers) => {
+                    state.handle_mouse_button(button, action, modifiers);
                 }
                 glfw::WindowEvent::CursorPos(x, y) => {
                     state.last_mouse_pos.x = state.mouse_pos.x;

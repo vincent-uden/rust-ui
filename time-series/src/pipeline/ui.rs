@@ -8,11 +8,12 @@ use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::render::{
     COLOR_LIGHT, COLOR_SUCCESS, Text,
-    renderer::{AppState, Listeners, NodeContext, UiBuilder, UiData},
+    renderer::{AppState, Listeners, NodeContext, Renderer, UiBuilder, UiData},
 };
 use rust_ui::{id, render::renderer::DefaultAtom};
 use smol_str::SmolStr;
 use taffy::{NodeId, TaffyTree};
+use tracing::info;
 
 use crate::{
     app::App,
@@ -48,7 +49,7 @@ impl PipelineManagerUi {
         }
     }
 
-    pub fn generate_layout(&self, b: &UiBuilder<App>, focused_id: &Option<SmolStr>) -> NodeId {
+    pub fn generate_layout(&self, b: &UiBuilder<App>, focused_id: &Option<DefaultAtom>) -> NodeId {
         #[cfg_attr(any(), rustfmt::skip)]
         let mut signal_rows = vec![ b.div("flex-row gap-8", &[
             b.div("p-4 pt-6", &[
@@ -101,7 +102,7 @@ impl PipelineManagerUi {
         pipeline_idx: usize,
         step_idx: usize,
         b: &UiBuilder<App>,
-        focused_id: &Option<SmolStr>,
+        focused_id: &Option<DefaultAtom>,
     ) -> NodeId {
         #[cfg_attr(any(), rustfmt::skip)]
         let form = match cfg {
@@ -126,10 +127,10 @@ impl PipelineManagerUi {
                 "flex-col gap-4",
                 &[
                     b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
-                    text_field(b, format!("{column_1}"), format!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
+                    text_field(b, format!("{column_1}"), id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
                     b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
-                    text_field(b, format!("{column_2}"), format!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
-                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"))
+                    text_field(b, format!("{column_2}"), id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id)
                 ],
             ),
             StepConfig::ScaleAxis { axis, factor } => todo!(),
@@ -143,19 +144,16 @@ impl PipelineManagerUi {
         ])
     }
 
-    pub fn handle_key_input(&self, key_input: KeyInput, focused_id: &Option<SmolStr>) {
-        //
-    }
+    pub fn handle_key_input(&self, key_input: KeyInput, focused_id: &Option<SmolStr>) {}
 }
 
 pub fn text_field(
     b: &UiBuilder<App>,
     text: String,
-    id: impl Into<SmolStr>,
-    focused_id: &Option<SmolStr>,
+    id: DefaultAtom,
+    focused_id: &Option<DefaultAtom>,
 ) -> NodeId {
-    let as_smol: SmolStr = id.into();
-    let style = if &Some(as_smol.clone()) == focused_id {
+    let style = if &Some(id) == focused_id {
         "w-full border-2 border-sky-500 rounded-4 bg-slate-900 py-2 px-4"
     } else {
         "w-full rounded-4 bg-slate-900 py-2 px-4"
@@ -163,12 +161,7 @@ pub fn text_field(
     b.ui(
         "",
         Listeners {
-            on_left_mouse_down: Some(Arc::new(move |state| {
-                let as_smol = as_smol.clone();
-                if !as_smol.is_empty() {
-                    state.app_state.focus = Some(as_smol);
-                }
-            })),
+            on_left_mouse_down: Some(Arc::new(move |state| {})),
             ..Default::default()
         },
         &[b.text_explicit(style, Text::new(text, 12, COLOR_LIGHT))],
@@ -188,25 +181,36 @@ impl UiData for TextFieldData {}
 
 pub trait TextFieldBuilder {
     // TODO: Event listeners
-    fn text_field(&self, id: DefaultAtom) -> NodeId;
+    fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId;
 }
 
 impl<T> TextFieldBuilder for UiBuilder<T>
 where
     T: AppState,
 {
-    fn text_field(&self, id: DefaultAtom) -> NodeId {
+    fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
+        // TODO: Render cursor and selection via context flag
         let state: Arc<TextFieldData> = Arc::downcast(
             match self.accessing_state(&id) {
                 Some(s) => s,
-                None => self.insert_state(id, TextFieldData::default()),
+                None => self.insert_state(id.clone(), TextFieldData::default()),
             }
             .data,
         )
         .expect("The data associated with text field must be of type TextFieldData");
-
-        self.div(
-            "bg-slate-900 h-14 w-full p-2",
+        let style = if Some(&id) == focused_id.as_ref() {
+            "bg-slate-900 h-14 w-full p-2 rounded-4 border-2 border-sky-500"
+        } else {
+            "bg-slate-900 h-14 w-full p-2 rounded-4"
+        };
+        self.ui(
+            style,
+            Listeners {
+                on_left_mouse_down: Some(Arc::new(move |state: &mut Renderer<T>| {
+                    state.set_focus(Some(id.clone()));
+                })),
+                ..Default::default()
+            },
             &[self.text_explicit("", Text::new(state.contents.clone(), 12, COLOR_LIGHT))],
         )
     }

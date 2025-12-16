@@ -34,6 +34,7 @@ pub mod flags {
     pub const SCROLL_CONTENT: Flag       = 0b00100000;
 }
 
+// TODO: Investigate if this can be changed to an FnOnce somehow
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
 
 /// Contains relevant information for a UI node in addition to the sizing and position information
@@ -43,10 +44,8 @@ where
     T: AppState,
 {
     pub flags: Flag,
-    // Colors
     pub bg_color: Color,
     pub bg_color_hover: Color,
-    // Border
     pub border: Border,
     pub text: Text,
     pub sprite_key: T::SpriteKey,
@@ -63,6 +62,7 @@ where
     pub on_middle_mouse_up: Option<EventListener<T>>,
     // Clipping
     pub scissor: bool,
+    pub persistent_id: Option<DefaultAtom>,
 }
 
 impl<T> Default for NodeContext<T>
@@ -88,6 +88,7 @@ where
             on_middle_mouse_down: Default::default(),
             on_middle_mouse_up: Default::default(),
             scissor: Default::default(),
+            persistent_id: Default::default(),
         }
     }
 }
@@ -304,6 +305,7 @@ where
             _ => {}
         }
 
+        self.app_state.update();
         self.compute_layout();
         self.run_event_listeners();
     }
@@ -770,6 +772,10 @@ where
             scissor: true,
         }
     }
+
+    pub fn set_focus(&mut self, focus: Option<DefaultAtom>) {
+        self.app_state.set_focus(focus);
+    }
 }
 
 /// Helps taffy decide how big nodes containing text need to be.
@@ -875,6 +881,8 @@ pub trait AppState: Sized {
     }
     fn handle_mouse_position(&mut self, _position: Vector<f32>, _delta: Vector<f32>) {}
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
+    fn update(&mut self) {}
+    fn set_focus(&mut self, _focus: Option<DefaultAtom>) {}
 }
 
 pub use string_cache::DefaultAtom;
@@ -1039,6 +1047,11 @@ where
 
     pub fn tree(self) -> taffy::TaffyTree<NodeContext<T>> {
         self.tree.into_inner()
+    }
+
+    pub fn update(&mut self, frame: usize) {
+        self.frame = frame;
+        self.prune_state_map();
     }
 
     fn prune_state_map(&self) {
