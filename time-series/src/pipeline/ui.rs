@@ -126,10 +126,9 @@ impl PipelineManagerUi {
                 "flex-col gap-4",
                 &[
                     b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
-                    text_field(b, format!("{column_1}"), id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
                     b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
-                    text_field(b, format!("{column_2}"), id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
-                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id)
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
                 ],
             ),
             StepConfig::ScaleAxis { axis, factor } => todo!(),
@@ -142,27 +141,6 @@ impl PipelineManagerUi {
             form,
         ])
     }
-}
-
-pub fn text_field(
-    b: &UiBuilder<App>,
-    text: String,
-    id: DefaultAtom,
-    focused_id: &Option<DefaultAtom>,
-) -> NodeId {
-    let style = if &Some(id) == focused_id {
-        "w-full border-2 border-sky-500 rounded-4 bg-slate-900 py-2 px-4"
-    } else {
-        "w-full rounded-4 bg-slate-900 py-2 px-4"
-    };
-    b.ui(
-        "",
-        Listeners {
-            on_left_mouse_down: Some(Arc::new(move |state| {})),
-            ..Default::default()
-        },
-        &[b.text_explicit(style, Text::new(text, 12, COLOR_LIGHT))],
-    )
 }
 
 /// This could in theory be used as a generic library, although how  styling is
@@ -187,6 +165,7 @@ where
 {
     fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
         // TODO: Render cursor and selection via context flag
+        //       Also include a scrollable in case the text grows larger than the box for fixed-width cases
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
             None => self.insert_state(id.clone(), TextFieldData::default()),
@@ -207,7 +186,7 @@ where
                 })),
                 ..Default::default()
             },
-            &[self.text_explicit("", Text::new(state.contents.clone(), 12, COLOR_LIGHT))],
+            &[self.text("", Text::new(state.contents.clone(), 12, COLOR_LIGHT))],
         )
     }
 }
