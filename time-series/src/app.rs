@@ -76,14 +76,15 @@ impl App {
     }
 
     pub fn base_layer(&self, window_size: Vector<f32>) -> RenderLayout<Self> {
+        let b = &self.ui_builder;
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = self.ui_builder.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
-            self.ui_builder.div("flex-row", &[
-                self.ui_builder.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
+        let root = b.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
+            b.div("flex-row", &[
+                b.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
-            self.ui_builder.div("flex-row grow gap-4", &[
-                self.ui_builder.div("w-full h-full bg-slate-900", &[]),
-                self.pipeline_manager.generate_layout(&self.ui_builder, &self.focus),
+            b.div("flex-row grow gap-4", &[
+                b.div("w-full h-full bg-slate-900", &[]),
+                self.pipeline_manager.generate_layout(&b, &self.focus),
             ]),
         ]);
 
@@ -122,7 +123,8 @@ impl AppState for App {
         action: glfw::Action,
         modifiers: glfw::Modifiers,
     ) {
-        if action == Action::Press {
+        // TODO: Repeat doesnt seem to be happening
+        if action == Action::Press || action == Action::Repeat {
             match glfw_key_to_key_input(key, modifiers) {
                 Some(key_input) => {
                     if let Some(msg) = self
@@ -136,13 +138,25 @@ impl AppState for App {
                                 match key_input.key() {
                                     keybinds::Key::Char(ch) => {
                                         self.ui_builder.mutate_state(focused, |ui_data| {
-                                            let v: &mut TextFieldData =
+                                            let d: &mut TextFieldData =
                                                 ui_data.downcast_mut().unwrap();
-                                            v.contents.push(ch);
+                                            d.write(ch);
                                         });
                                     }
-                                    keybinds::Key::Right => todo!(),
-                                    keybinds::Key::Left => todo!(),
+                                    keybinds::Key::Right => {
+                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                            let d: &mut TextFieldData =
+                                                ui_data.downcast_mut().unwrap();
+                                            d.move_cursor(1);
+                                        });
+                                    }
+                                    keybinds::Key::Left => {
+                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                            let d: &mut TextFieldData =
+                                                ui_data.downcast_mut().unwrap();
+                                            d.move_cursor(-1);
+                                        });
+                                    }
                                     _ => todo!(),
                                 }
                             }

@@ -152,6 +152,19 @@ pub struct TextFieldData {
     pub cursor_pos: usize,
     pub select_pos: usize,
 }
+impl TextFieldData {
+    pub(crate) fn move_cursor(&mut self, arg: isize) {
+        self.cursor_pos = self
+            .cursor_pos
+            .saturating_add_signed(arg)
+            .clamp(0, self.contents.len());
+    }
+
+    pub(crate) fn write(&mut self, ch: char) {
+        self.contents.insert(self.cursor_pos, ch);
+        self.cursor_pos = (self.cursor_pos + 1).min(self.contents.len());
+    }
+}
 impl UiData for TextFieldData {}
 
 pub trait TextFieldBuilder {
