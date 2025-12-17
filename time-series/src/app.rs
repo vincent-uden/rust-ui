@@ -7,7 +7,7 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
-        renderer::{AppState, DefaultAtom, RenderLayout, UiBuilder},
+        renderer::{AppState, DefaultAtom, RenderLayout, TextFieldData, UiBuilder},
     },
 };
 use strum::EnumString;
@@ -15,7 +15,7 @@ use tracing::{error, info};
 
 use crate::pipeline::{
     StepConfig,
-    ui::{DataSource, PipelineManagerUi, TextFieldData},
+    ui::{DataSource, PipelineManagerUi},
 };
 
 #[derive(EnumString, Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -155,6 +155,13 @@ impl AppState for App {
                                             let d: &mut TextFieldData =
                                                 ui_data.downcast_mut().unwrap();
                                             d.move_cursor(-1);
+                                        });
+                                    }
+                                    keybinds::Key::Backspace => {
+                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                            let d: &mut TextFieldData =
+                                                ui_data.downcast_mut().unwrap();
+                                            d.delete_char();
                                         });
                                     }
                                     _ => todo!(),

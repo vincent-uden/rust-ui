@@ -1094,6 +1094,71 @@ where
     }
 }
 
+#[derive(Debug, Default)]
+pub struct TextFieldData {
+    pub contents: String,
+    pub cursor_pos: usize,
+    pub select_pos: usize,
+}
+impl TextFieldData {
+    pub fn move_cursor(&mut self, arg: isize) {
+        self.cursor_pos = self
+            .cursor_pos
+            .saturating_add_signed(arg)
+            .clamp(0, self.contents.len());
+    }
+
+    pub fn write(&mut self, ch: char) {
+        self.contents.insert(self.cursor_pos, ch);
+        self.move_cursor(1);
+    }
+
+    pub fn delete_char(&mut self) {
+        if !self.contents.is_empty() {
+            self.contents.remove(self.cursor_pos - 1);
+            self.move_cursor(-1)
+        }
+    }
+}
+impl UiData for TextFieldData {}
+
+pub trait TextFieldBuilder {
+    // TODO: Event listeners
+    fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId;
+}
+
+impl<T> TextFieldBuilder for UiBuilder<T>
+where
+    T: AppState,
+{
+    fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
+        // TODO: Render cursor and selection via context flag
+        //       Also include a scrollable in case the text grows larger than the box for fixed-width cases
+        let binding = match self.accessing_state(&id) {
+            Some(s) => s,
+            None => self.insert_state(id.clone(), TextFieldData::default()),
+        };
+        let guard = binding.data.lock().unwrap();
+        let state: &TextFieldData = guard.downcast_ref().unwrap();
+
+        let style = if Some(&id) == focused_id.as_ref() {
+            "bg-slate-900 h-14 w-full p-2 rounded-4 border-2 border-sky-500"
+        } else {
+            "bg-slate-900 hover:bg-slate-800 h-14 w-full p-2 rounded-4"
+        };
+        self.ui(
+            style,
+            Listeners {
+                on_left_mouse_down: Some(Arc::new(move |state: &mut Renderer<T>| {
+                    state.set_focus(Some(id.clone()));
+                })),
+                ..Default::default()
+            },
+            &[self.text("", Text::new(state.contents.clone(), 12, COLOR_LIGHT))],
+        )
+    }
+}
+
 pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
     start + normalized * (end - start)
 }
