@@ -258,7 +258,11 @@ impl PerfStats {
 impl AppState for PerfStats {
     type SpriteKey = String;
 
-    fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>> {
+    fn generate_layout(
+        &mut self,
+        window_size: Vector<f32>,
+        _ui: &rust_ui::render::renderer::UiBuilder<Self>,
+    ) -> Vec<RenderLayout<Self>> {
         if self.visible {
             let mut top_left = self.stats_overlay(window_size);
             top_left.anchor = Anchor::TopLeft;
@@ -285,7 +289,14 @@ impl AppState for PerfStats {
         }
     }
 
-    fn handle_key(&mut self, key: Key, _scancode: Scancode, action: Action, _modifiers: Modifiers) {
+    fn handle_key(
+        &mut self,
+        key: Key,
+        _scancode: Scancode,
+        action: Action,
+        _modifiers: Modifiers,
+        _ui: &rust_ui::render::renderer::UiBuilder<Self>,
+    ) {
         #[allow(clippy::single_match)]
         match key {
             Key::F12 => match action {

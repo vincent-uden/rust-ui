@@ -176,6 +176,8 @@ pub struct Renderer<T>
 where
     T: AppState,
 {
+    /// The current frame number
+    pub frame: usize,
     /// The window width
     pub width: u32,
     /// The window height
@@ -214,13 +216,14 @@ where
     pub debug_position: Vector<f32>,
     pub debug_size: Vector<f32>,
     pub debug_cached_size: Vector<f32>,
-    pub debug_scroll: f32,
     pub debug_drag: MouseDragState,
     pub debug_expanded: bool,
     layers: Arc<Vec<RenderLayout<T>>>,
     // --- Event capture
     /// Has the mouse hit any ui elements in a layer? This is the layer in which it happened
     pub mouse_hit_layer: i32,
+    /// The UI builder used for constructing layouts and managing widget state
+    pub ui_builder: UiBuilder<T>,
 }
 
 impl<T> Renderer<T>
@@ -235,6 +238,7 @@ where
         initial_state: T,
     ) -> Self {
         Self {
+            frame: 0,
             width: 1000,
             height: 800,
             mouse_left_down: false,
@@ -257,11 +261,11 @@ where
             debug_position: Vector::zero(),
             debug_size: Vector::new(400.0, 200.0),
             debug_cached_size: Vector::new(400.0, 200.0),
-            debug_scroll: 0.0,
             debug_drag: MouseDragState::Released,
             debug_expanded: true,
             layers: Arc::new(vec![]),
             mouse_hit_layer: -1,
+            ui_builder: UiBuilder::new(),
         }
     }
 
@@ -304,6 +308,8 @@ where
     /// any)*
     pub fn update(&mut self) {
         let _span = tracy_client::span!("App update");
+        self.frame += 1;
+        self.ui_builder.update(self.frame);
         self.mouse_hit_layer = -1;
 
         match self.debug_drag {
@@ -328,7 +334,8 @@ where
         action: Action,
         modifiers: Modifiers,
     ) {
-        self.app_state.handle_key(key, scancode, action, modifiers);
+        self.app_state
+            .handle_key(key, scancode, action, modifiers, &self.ui_builder);
     }
 
     /// Passes mouse button events to the application state
@@ -343,19 +350,19 @@ where
                 self.mouse_left_down =
                     action == glfw::Action::Press || action == glfw::Action::Repeat;
                 self.app_state
-                    .handle_mouse_button(button, action, modifiers);
+                    .handle_mouse_button(button, action, modifiers, &self.ui_builder);
             }
             MouseButton::Button2 => {
                 self.mouse_right_down =
                     action == glfw::Action::Press || action == glfw::Action::Repeat;
                 self.app_state
-                    .handle_mouse_button(button, action, modifiers);
+                    .handle_mouse_button(button, action, modifiers, &self.ui_builder);
             }
             MouseButton::Button3 => {
                 self.mouse_middle_down =
                     action == glfw::Action::Press || action == glfw::Action::Repeat;
                 self.app_state
-                    .handle_mouse_button(button, action, modifiers);
+                    .handle_mouse_button(button, action, modifiers, &self.ui_builder);
             }
             _ => {}
         }
@@ -377,7 +384,7 @@ where
 
     fn compute_layout(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
-        let mut layers = self.app_state.generate_layout(window_size);
+        let mut layers = self.app_state.generate_layout(window_size, &self.ui_builder);
 
         if self.show_debug_layer {
             layers.push(self.debug_layer());
@@ -719,7 +726,7 @@ where
     }
 
     fn debug_layer(&self) -> RenderLayout<T> {
-        let b = UiBuilder::new();
+        let b = &self.ui_builder;
         let mut entries = vec![];
         for key_value in DEBUG_MAP.iter() {
             let key = key_value.key();
@@ -751,9 +758,7 @@ where
         if self.debug_expanded {
             #[cfg_attr(any(), rustfmt::skip)]
             children.extend(&[
-                b.scrollable("grow", self.debug_scroll, Arc::new(|state| {
-                    state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
-                }), entries),
+                b.scrollable(DefaultAtom::from("debug_scroll"), "grow", entries),
                 b.div("flex-row",
                     &[
                         b.sprite("w-30 h-30", "HandleLeft", resize_listener),
@@ -875,13 +880,18 @@ where
 pub trait AppState: Sized {
     type SpriteKey: crate::render::sprite::SpriteKey;
 
-    fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
+    fn generate_layout(
+        &mut self,
+        window_size: Vector<f32>,
+        ui: &UiBuilder<Self>,
+    ) -> Vec<RenderLayout<Self>>;
     fn handle_key(
         &mut self,
         _key: Key,
         _scancode: Scancode,
         _action: Action,
         _modifiers: Modifiers,
+        _ui: &UiBuilder<Self>,
     ) {
     }
     fn handle_mouse_button(
@@ -889,6 +899,7 @@ pub trait AppState: Sized {
         _button: MouseButton,
         _action: Action,
         _modifiers: Modifiers,
+        _ui: &UiBuilder<Self>,
     ) {
     }
     fn handle_mouse_position(&mut self, _position: Vector<f32>, _delta: Vector<f32>) {}
@@ -1000,43 +1011,6 @@ where
         return parent;
     }
 
-    /// Scroll height is in percent. Thus if items are added, scrolling is preserved
-    pub fn scrollable(
-        &self,
-        style: &str,
-        scroll_height: f32,
-        update_scroll: EventListener<T>,
-        children: impl IntoIterator<Item = NodeId>,
-    ) -> NodeId {
-        let scrollbar = {
-            let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) =
-                parse_style("w-full bg-zinc-700 hover:bg-zinc-600 h-32 scroll-bar rounded-4");
-            ctx.offset.y = scroll_height;
-            tree.new_leaf_with_context(stl, ctx).unwrap()
-        };
-        let scroll_content = {
-            let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) = parse_style("flex-col scroll-content");
-            ctx.offset.y = scroll_height;
-            let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
-            for child in children {
-                tree.add_child(parent, child).unwrap();
-            }
-            parent
-        };
-
-        // I am not 100% sure why the overflow-clip has to be this far out, but it works here
-        #[cfg_attr(any(), rustfmt::skip)]
-        self.ui(&format!("{} flex-row overflow-clip", style), Listeners::default(), &[
-            self.ui("grow", Listeners {
-                on_scroll: Some(update_scroll),
-                ..Default::default()
-            }, &[scroll_content]),
-            self.div("w-8", &[scrollbar]),
-        ])
-    }
-
     pub fn sprite(&self, style: &str, sprite_key: &str, listeners: Listeners<T>) -> NodeId {
         let (style, mut context) = parse_style(style);
         context.flags |= flags::SPRITE;
@@ -1127,6 +1101,25 @@ impl TextFieldData {
 }
 impl UiData for TextFieldData {}
 
+#[derive(Debug)]
+pub struct ScrollableData {
+    /// Scroll position from 0.0 (top) to 1.0 (bottom)
+    pub scroll_position: f32,
+    /// How much to scroll per wheel tick (0.0 to 1.0)
+    pub scroll_step: f32,
+}
+
+impl Default for ScrollableData {
+    fn default() -> Self {
+        Self {
+            scroll_position: 0.0,
+            scroll_step: 0.2,
+        }
+    }
+}
+
+impl UiData for ScrollableData {}
+
 pub trait TextFieldBuilder {
     // TODO: Event listeners
     fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId;
@@ -1173,6 +1166,78 @@ where
     }
 }
 
+pub trait ScrollableBuilder {
+    fn scrollable(
+        &self,
+        id: DefaultAtom,
+        style: &str,
+        children: impl IntoIterator<Item = NodeId>,
+    ) -> NodeId;
+}
+
+impl<T> ScrollableBuilder for UiBuilder<T>
+where
+    T: AppState,
+{
+    fn scrollable(
+        &self,
+        id: DefaultAtom,
+        style: &str,
+        children: impl IntoIterator<Item = NodeId>,
+    ) -> NodeId {
+        let state = match self.accessing_state(&id) {
+            Some(s) => s,
+            None => self.insert_state(id.clone(), ScrollableData::default()),
+        };
+        let guard = state.data.lock().unwrap();
+        let data: &ScrollableData = guard.downcast_ref().unwrap();
+        let scroll_position = data.scroll_position;
+        let scroll_step = data.scroll_step;
+        drop(guard);
+
+        let scrollbar = {
+            let mut tree = self.tree.borrow_mut();
+            let (stl, mut ctx) =
+                parse_style("w-full bg-zinc-700 hover:bg-zinc-600 h-32 scroll-bar rounded-4");
+            ctx.offset.y = scroll_position;
+            tree.new_leaf_with_context(stl, ctx).unwrap()
+        };
+
+        let scroll_content = {
+            let mut tree = self.tree.borrow_mut();
+            let (stl, mut ctx) = parse_style("flex-col scroll-content");
+            ctx.offset.y = scroll_position;
+            let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
+            for child in children {
+                tree.add_child(parent, child).unwrap();
+            }
+            parent
+        };
+
+        self.ui(
+            &format!("{} flex-row overflow-clip", style),
+            Listeners::default(),
+            &[
+                self.ui(
+                    "grow",
+                    Listeners {
+                        on_scroll: Some(Arc::new(move |renderer: &mut Renderer<T>| {
+                            let delta = renderer.scroll_delta.y.signum() * scroll_step;
+                            renderer.ui_builder.mutate_state(&id, |ui_data| {
+                                let d: &mut ScrollableData = ui_data.downcast_mut().unwrap();
+                                d.scroll_position = (d.scroll_position - delta).clamp(0.0, 1.0);
+                            });
+                        })),
+                        ..Default::default()
+                    },
+                    &[scroll_content],
+                ),
+                self.div("w-8", &[scrollbar]),
+            ],
+        )
+    }
+}
+
 pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
     start + normalized * (end - start)
 }
@@ -1191,6 +1256,7 @@ pub mod tests {
         fn generate_layout(
             &mut self,
             _: crate::geometry::Vector<f32>,
+            _ui: &UiBuilder<Self>,
         ) -> Vec<crate::render::renderer::RenderLayout<Self>> {
             todo!()
         }

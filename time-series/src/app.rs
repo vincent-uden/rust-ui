@@ -11,7 +11,7 @@ use rust_ui::{
     },
 };
 use strum::EnumString;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::pipeline::{
     StepConfig,
@@ -40,8 +40,6 @@ pub struct App {
     pub focus: Option<DefaultAtom>,
     pub mode_stack: ModeStack<AppMode, AppMessage>,
     pub config: Config<AppMode, AppMessage, AppMessage>,
-    pub ui_builder: UiBuilder<Self>,
-    pub frame: usize,
 }
 
 impl App {
@@ -53,8 +51,6 @@ impl App {
             focus: None,
             mode_stack: ModeStack::with_base(AppMode::Base),
             config: default_config(),
-            ui_builder: UiBuilder::new(),
-            frame: 0,
         }
     }
 
@@ -75,21 +71,29 @@ impl App {
         }
     }
 
-    pub fn base_layer(&self, window_size: Vector<f32>) -> RenderLayout<Self> {
-        let b = &self.ui_builder;
+    pub fn add_step(&mut self) {
+        if let Some(selected) = self.pipeline_manager.selected_source {
+            self.pipeline_manager.pipelines[selected].push(StepConfig::PickColumns {
+                column_1: 0,
+                column_2: 0,
+            });
+        }
+    }
+
+    pub fn base_layer(&self, window_size: Vector<f32>, ui: &UiBuilder<Self>) -> RenderLayout<Self> {
         #[cfg_attr(any(), rustfmt::skip)]
-        let root = b.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
-            b.div("flex-row", &[
-                b.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
+        let root = ui.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
+            ui.div("flex-row", &[
+                ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
-            b.div("flex-row grow gap-4", &[
-                b.div("w-full h-full bg-slate-900", &[]),
-                self.pipeline_manager.generate_layout(&b, &self.focus),
+            ui.div("flex-row grow gap-4", &[
+                ui.div("w-full h-full bg-slate-900", &[]),
+                self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),
         ]);
 
         RenderLayout {
-            tree: self.ui_builder.tree(),
+            tree: ui.tree(),
             root,
             desired_size: window_size.into(),
             ..Default::default()
@@ -112,8 +116,9 @@ impl AppState for App {
     fn generate_layout(
         &mut self,
         window_size: rust_ui::geometry::Vector<f32>,
+        ui: &UiBuilder<Self>,
     ) -> Vec<rust_ui::render::renderer::RenderLayout<Self>> {
-        vec![self.base_layer(window_size)]
+        vec![self.base_layer(window_size, ui)]
     }
 
     fn handle_key(
@@ -122,6 +127,7 @@ impl AppState for App {
         _scancode: glfw::Scancode,
         action: glfw::Action,
         modifiers: glfw::Modifiers,
+        ui: &UiBuilder<Self>,
     ) {
         // TODO: Repeat doesnt seem to be happening
         if action == Action::Press || action == Action::Repeat {
@@ -137,28 +143,28 @@ impl AppState for App {
                             if let Some(focused) = &self.focus {
                                 match key_input.key() {
                                     keybinds::Key::Char(ch) => {
-                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                        ui.mutate_state(focused, |ui_data| {
                                             let d: &mut TextFieldData =
                                                 ui_data.downcast_mut().unwrap();
                                             d.write(ch);
                                         });
                                     }
                                     keybinds::Key::Right => {
-                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                        ui.mutate_state(focused, |ui_data| {
                                             let d: &mut TextFieldData =
                                                 ui_data.downcast_mut().unwrap();
                                             d.move_cursor(1);
                                         });
                                     }
                                     keybinds::Key::Left => {
-                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                        ui.mutate_state(focused, |ui_data| {
                                             let d: &mut TextFieldData =
                                                 ui_data.downcast_mut().unwrap();
                                             d.move_cursor(-1);
                                         });
                                     }
                                     keybinds::Key::Backspace => {
-                                        self.ui_builder.mutate_state(focused, |ui_data| {
+                                        ui.mutate_state(focused, |ui_data| {
                                             let d: &mut TextFieldData =
                                                 ui_data.downcast_mut().unwrap();
                                             d.delete_char();
@@ -185,6 +191,7 @@ impl AppState for App {
         _button: glfw::MouseButton,
         action: Action,
         _modifiers: glfw::Modifiers,
+        _ui: &UiBuilder<Self>,
     ) {
         match action {
             Action::Press => {
@@ -193,11 +200,6 @@ impl AppState for App {
             }
             _ => {}
         }
-    }
-
-    fn update(&mut self) {
-        self.frame += 1;
-        self.ui_builder.update(self.frame);
     }
 
     fn set_focus(&mut self, focus: Option<rust_ui::render::renderer::DefaultAtom>) {

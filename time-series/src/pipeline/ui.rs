@@ -9,7 +9,8 @@ use keybinds::KeyInput;
 use rust_ui::render::{
     COLOR_LIGHT, COLOR_SUCCESS, Text,
     renderer::{
-        AppState, Listeners, NodeContext, Renderer, TextFieldBuilder as _, UiBuilder, UiData,
+        AppState, Listeners, NodeContext, Renderer, ScrollableBuilder as _, TextFieldBuilder as _,
+        UiBuilder, UiData,
     },
 };
 use rust_ui::{id, render::renderer::DefaultAtom};
@@ -71,12 +72,25 @@ impl PipelineManagerUi {
         signal_rows.extend_from_slice(&[
             b.div("h-1 w-full bg-slate-500 my-4", &[]),
             b.text("", Text::new("Pipeline", 14, COLOR_LIGHT)),
+            b.ui(
+                "py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500",
+                Listeners {
+                    on_left_mouse_up: Some(Arc::new(|state| {
+                        state.app_state.add_step();
+                    })),
+                    ..Default::default()
+                },
+                &[b.text("", Text::new("Add", 14, COLOR_SUCCESS))],
+            ),
         ]);
+        let mut pipeline_rows = vec![];
         if let Some(idx) = self.selected_source {
             for (c_idx, cfg) in self.pipelines[idx].iter().enumerate() {
-                signal_rows.push(self.step_config(&cfg, idx, c_idx, &b, focused_id));
+                pipeline_rows.push(self.step_config(&cfg, idx, c_idx, &b, focused_id));
             }
         }
+        let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "h-400", pipeline_rows);
+        signal_rows.push(pipeline_container);
         let outer = b.div("flex-col gap-4", &signal_rows);
         outer
     }

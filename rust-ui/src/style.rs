@@ -775,6 +775,7 @@ mod tests {
         fn generate_layout(
             &mut self,
             _: crate::geometry::Vector<f32>,
+            _ui: &crate::render::renderer::UiBuilder<Self>,
         ) -> Vec<crate::render::renderer::RenderLayout<Self>> {
             todo!()
         }
