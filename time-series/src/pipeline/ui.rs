@@ -89,9 +89,9 @@ impl PipelineManagerUi {
                 pipeline_rows.push(self.step_config(&cfg, idx, c_idx, &b, focused_id));
             }
         }
-        let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "h-400", pipeline_rows);
+        let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "", pipeline_rows);
         signal_rows.push(pipeline_container);
-        let outer = b.div("flex-col gap-4", &signal_rows);
+        let outer = b.div("flex-col gap-4 min-h-0", &signal_rows);
         outer
     }
 

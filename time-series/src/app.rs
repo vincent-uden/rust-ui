@@ -86,7 +86,7 @@ impl App {
             ui.div("flex-row", &[
                 ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
-            ui.div("flex-row grow gap-4", &[
+            ui.div("flex-row grow gap-4 h-full", &[
                 ui.div("w-full h-full bg-slate-900", &[]),
                 self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),

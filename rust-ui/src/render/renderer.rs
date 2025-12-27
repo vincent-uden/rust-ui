@@ -384,7 +384,9 @@ where
 
     fn compute_layout(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
-        let mut layers = self.app_state.generate_layout(window_size, &self.ui_builder);
+        let mut layers = self
+            .app_state
+            .generate_layout(window_size, &self.ui_builder);
 
         if self.show_debug_layer {
             layers.push(self.debug_layer());
@@ -1149,9 +1151,9 @@ where
         };
 
         let style = if Some(&id) == focused_id.as_ref() {
-            "bg-slate-900 h-14 w-100 p-2 rounded-4 border-2 border-sky-500"
+            "bg-slate-900 h-14 w-200 p-2 rounded-4 border-2 border-sky-500"
         } else {
-            "bg-slate-900 hover:bg-slate-800 h-14 w-100 p-2 rounded-4"
+            "bg-slate-900 hover:bg-slate-800 h-14 w-200 p-2 rounded-4"
         };
         self.ui(
             style,
@@ -1198,7 +1200,7 @@ where
         let scrollbar = {
             let mut tree = self.tree.borrow_mut();
             let (stl, mut ctx) =
-                parse_style("w-full bg-zinc-700 hover:bg-zinc-600 h-32 scroll-bar rounded-4");
+                parse_style("w-full bg-zinc-300 hover:bg-zinc-200 h-32 scroll-bar rounded-4");
             ctx.offset.y = scroll_position;
             tree.new_leaf_with_context(stl, ctx).unwrap()
         };
@@ -1215,7 +1217,7 @@ where
         };
 
         self.ui(
-            &format!("{} flex-row overflow-clip", style),
+            &format!("{} flex-row overflow-clip h-full", style),
             Listeners::default(),
             &[
                 self.ui(
