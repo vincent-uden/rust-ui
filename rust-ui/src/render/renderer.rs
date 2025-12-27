@@ -1137,7 +1137,7 @@ where
     T: AppState,
 {
     fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
-        // TODO: Render cursor and selection via context flag
+        // TODO:
         //       Also include a scrollable in case the text grows larger than the box for fixed-width cases
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
@@ -1156,9 +1156,9 @@ where
         };
 
         let style = if Some(&id) == focused_id.as_ref() {
-            "bg-slate-900 h-14 w-full p-2 rounded-4 border-2 border-sky-500"
+            "bg-slate-900 h-14 w-100 p-2 rounded-4 border-2 border-sky-500"
         } else {
-            "bg-slate-900 hover:bg-slate-800 h-14 w-full p-2 rounded-4"
+            "bg-slate-900 hover:bg-slate-800 h-14 w-100 p-2 rounded-4"
         };
         self.ui(
             style,
