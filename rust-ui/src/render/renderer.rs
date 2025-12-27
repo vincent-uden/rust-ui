@@ -31,14 +31,14 @@ type Flag = u8;
 pub mod flags {
     use super::Flag;
     /// Enables text drawing in a node
-    pub const TEXT: Flag                 = 0b00000001;
-    pub const HOVER_BG: Flag             = 0b00000010;
-    pub const EXPLICIT_TEXT_LAYOUT: Flag = 0b00000100;
-    pub const SPRITE: Flag               = 0b00001000;
+    pub const TEXT: Flag                 = 1 << 0;
+    pub const HOVER_BG: Flag             = 1 << 1;
+    pub const EXPLICIT_TEXT_LAYOUT: Flag = 1 << 2;
+    pub const SPRITE: Flag               = 1 << 3;
     /// Changes how the limits of offsets work to act as a scoll bar
-    pub const SCROLL_BAR: Flag           = 0b00010000;
+    pub const SCROLL_BAR: Flag           = 1 << 4;
     /// Changes how the limits of offsets work to act as content being scrolled
-    pub const SCROLL_CONTENT: Flag       = 0b00100000;
+    pub const SCROLL_CONTENT: Flag       = 1 << 5;
 }
 
 // TODO: Investigate if this can be changed to an FnOnce somehow
@@ -69,7 +69,9 @@ where
     pub on_middle_mouse_up: Option<EventListener<T>>,
     // Clipping
     pub scissor: bool,
+    // Persistent state
     pub persistent_id: Option<DefaultAtom>,
+    pub cursor_idx: Option<usize>,
 }
 
 impl<T> Default for NodeContext<T>
@@ -96,6 +98,7 @@ where
             on_middle_mouse_up: Default::default(),
             scissor: Default::default(),
             persistent_id: Default::default(),
+            cursor_idx: Default::default(),
         }
     }
 }
@@ -667,6 +670,7 @@ where
                             width: layout.size.width - layout.padding.left - layout.padding.right,
                             height: layout.size.height - layout.padding.top - layout.padding.bottom,
                         },
+                        ctx.cursor_idx,
                     );
                 } else {
                     self.text_r.draw_in_box_explicit(
@@ -679,6 +683,7 @@ where
                             width: layout.size.width - layout.padding.left - layout.padding.right,
                             height: layout.size.height - layout.padding.top - layout.padding.bottom,
                         },
+                        ctx.cursor_idx,
                     );
                 }
             }
@@ -1141,6 +1146,15 @@ where
         let guard = binding.data.lock().unwrap();
         let state: &TextFieldData = guard.downcast_ref().unwrap();
 
+        let (style, mut context) = parse_style("");
+        context.text = Text::new(state.contents.clone(), 12, COLOR_LIGHT);
+        context.flags |= flags::TEXT;
+        context.cursor_idx = Some(state.cursor_pos);
+        let inner_text = {
+            let mut tree = self.tree.borrow_mut();
+            tree.new_leaf_with_context(style, context).unwrap()
+        };
+
         let style = if Some(&id) == focused_id.as_ref() {
             "bg-slate-900 h-14 w-full p-2 rounded-4 border-2 border-sky-500"
         } else {
@@ -1154,7 +1168,7 @@ where
                 })),
                 ..Default::default()
             },
-            &[self.text("", Text::new(state.contents.clone(), 12, COLOR_LIGHT))],
+            &[inner_text],
         )
     }
 }
@@ -1165,10 +1179,8 @@ pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
 
 #[cfg(test)]
 pub mod tests {
-    use std::cell::RefCell;
-
     use super::*;
-    use crate::render::renderer::{AppState, NodeContext};
+    use crate::render::renderer::AppState;
 
     #[derive(Default)]
     struct DummyState {}
@@ -1186,9 +1198,7 @@ pub mod tests {
 
     #[test]
     pub fn ui_shorthand_doesnt_deadlock() {
-        let tree: taffy::TaffyTree<NodeContext<DummyState>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-        let b = UiBuilder::new(&tree);
+        let b = UiBuilder::<DummyState>::new();
         b.ui("", Listeners::default(), &[b.div("", &[]), b.div("", &[])]);
     }
 }

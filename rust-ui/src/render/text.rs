@@ -370,6 +370,7 @@ impl TextRenderer {
         font_size: u32,
         scale: f32,
         instances: &mut Vec<CharacterInstance>,
+        cursor_idx: Option<usize>,
     ) {
         if text.is_empty() {
             return;
@@ -398,6 +399,19 @@ impl TextRenderer {
             inst.position[0] = (base_position.x + position.x).floor();
             inst.position[1] = (base_position.y + position.y).floor();
             instances.push(inst);
+        }
+
+        if let Some(cursor_idx) = cursor_idx {
+            let cursor_pos = if cursor_idx == 0 {
+                cached.1[0]
+            } else {
+                cached.1[cursor_idx - 1] + Vector::new(cached.0[cursor_idx - 1].size[0], 0.0)
+            };
+            let (cursor_inst, _) = self.compute_glyph_positions("|", font_size, scale);
+            let mut cursor_inst = cursor_inst[0];
+            cursor_inst.position[0] = cursor_pos.x + position.x;
+            cursor_inst.position[1] = cursor_pos.y + position.y;
+            instances.push(cursor_inst);
         }
     }
 
@@ -443,8 +457,10 @@ impl TextRenderer {
         text: Text,
         position: Vector<f32>,
         size: taffy::geometry::Size<f32>,
+        cursor_idx: Option<usize>,
     ) {
         let mut instances = vec![];
+        let mut line_start = 0;
         for line in self.layout_text(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
@@ -453,12 +469,23 @@ impl TextRenderer {
             text.text,
             text.font_size,
         ) {
+            let cursor_idx = if let Some(idx) = cursor_idx {
+                if line_start <= idx && idx <= line_start + line.contents.len() {
+                    Some(idx - line_start) // TODO: Why is this not trigering?
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            line_start += line.contents.len();
             self.draw_line(
                 &line.contents,
                 position + line.position,
                 text.font_size,
                 1.0,
                 &mut instances,
+                cursor_idx,
             );
         }
         self.commit_drawing(&mut instances, text.font_size, text.color);
@@ -471,8 +498,10 @@ impl TextRenderer {
         text: Text,
         position: Vector<f32>,
         size: taffy::geometry::Size<f32>,
+        cursor_idx: Option<usize>,
     ) {
         let mut instances = vec![];
+        let mut line_start = 0;
         for line in self.layout_text_explicit(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
@@ -481,12 +510,23 @@ impl TextRenderer {
             text.text,
             text.font_size,
         ) {
+            let cursor_idx = if let Some(idx) = cursor_idx {
+                if line_start <= idx && idx < line_start + line.contents.len() {
+                    Some(idx - line_start)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            line_start += line.contents.len();
             self.draw_line(
                 &line.contents,
                 position + line.position,
                 text.font_size,
                 1.0,
                 &mut instances,
+                cursor_idx,
             );
         }
         self.commit_drawing(&mut instances, text.font_size, text.color);
