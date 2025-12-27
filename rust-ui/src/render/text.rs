@@ -469,15 +469,9 @@ impl TextRenderer {
             text.text,
             text.font_size,
         ) {
-            let cursor_idx = if let Some(idx) = cursor_idx {
-                if line_start <= idx && idx <= line_start + line.contents.len() {
-                    Some(idx - line_start) // TODO: Why is this not trigering?
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+            let cursor_idx = cursor_idx
+                .filter(|&idx| line_start <= idx && idx <= line_start + line.contents.len())
+                .map(|idx| idx - line_start);
             line_start += line.contents.len();
             self.draw_line(
                 &line.contents,
@@ -510,15 +504,9 @@ impl TextRenderer {
             text.text,
             text.font_size,
         ) {
-            let cursor_idx = if let Some(idx) = cursor_idx {
-                if line_start <= idx && idx < line_start + line.contents.len() {
-                    Some(idx - line_start)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+            let cursor_idx = cursor_idx
+                .filter(|&idx| line_start <= idx && idx < line_start + line.contents.len())
+                .map(|idx| idx - line_start);
             line_start += line.contents.len();
             self.draw_line(
                 &line.contents,
