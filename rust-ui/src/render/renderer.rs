@@ -669,7 +669,7 @@ where
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
 
             if ctx.flags & flags::TEXT != 0 {
-                let text_pos = Vector::new(
+                let mut text_pos = Vector::new(
                     abs_pos.x + layout.padding.left,
                     abs_pos.y + layout.padding.top,
                 );
@@ -678,18 +678,19 @@ where
                     height: layout.size.height - layout.padding.top - layout.padding.bottom,
                 };
                 if ctx.flags & flags::TEXT_SCROLL != 0 {
-                    // I need the parents size, the text of course grows with the text field
                     if let Some(Ok(parent_layout)) = tree.parent(id).map(|pid| tree.layout(pid)) {
                         self.enable_scissor_for_layer(parent_pos.into(), parent_layout.size.into());
-                    }
-                    if let Some(cursor_idx) = ctx.cursor_idx {
-                        // How much do we need to offset for scroll?
-                        let cursor_pos = self.text_r.cursor_pos(
-                            &ctx.text.text,
-                            position,
-                            ctx.text.font_size,
-                            cursor_idx,
-                        );
+                        if let Some(cursor_idx) = ctx.cursor_idx {
+                            let cursor_pos = self.text_r.cursor_pos(
+                                &ctx.text.text,
+                                Vector::zero(),
+                                ctx.text.font_size,
+                                cursor_idx,
+                            );
+                            if cursor_pos.x > parent_layout.size.width {
+                                text_pos.x += parent_layout.size.width - cursor_pos.x - 10.0;
+                            }
+                        }
                     }
                 }
                 if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT != 0 {
