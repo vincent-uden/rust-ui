@@ -682,7 +682,15 @@ where
                     if let Some(Ok(parent_layout)) = tree.parent(id).map(|pid| tree.layout(pid)) {
                         self.enable_scissor_for_layer(parent_pos.into(), parent_layout.size.into());
                     }
-                    // How much do we need to offset for scroll?
+                    if let Some(cursor_idx) = ctx.cursor_idx {
+                        // How much do we need to offset for scroll?
+                        let cursor_pos = self.text_r.cursor_pos(
+                            &ctx.text.text,
+                            position,
+                            ctx.text.font_size,
+                            cursor_idx,
+                        );
+                    }
                 }
                 if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT != 0 {
                     self.text_r.draw_in_box_explicit(

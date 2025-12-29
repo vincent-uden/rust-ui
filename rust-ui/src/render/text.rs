@@ -325,8 +325,8 @@ impl TextRenderer {
         &mut self,
         text: &str,
         font_size: u32,
-        scale: f32,
     ) -> (Vec<CharacterInstance>, Vec<Vector<f32>>) {
+        let scale = 1.0;
         let mut instances = Vec::new();
         let mut base_positions = Vec::new();
         let size = self.measure_text_size(text, font_size);
@@ -366,7 +366,6 @@ impl TextRenderer {
         &mut self,
         text: &str,
         font_size: u32,
-        scale: f32,
     ) -> &(Vec<CharacterInstance>, Vec<Vector<f32>>) {
         self.get_or_create_atlas(font_size);
         if self
@@ -376,7 +375,7 @@ impl TextRenderer {
             .and_then(|(_, atlas)| atlas.line_cache.iter().find(|(k, _)| k == text))
             .is_none()
         {
-            let instances = self.compute_glyph_positions(text, font_size, scale);
+            let instances = self.compute_glyph_positions(text, font_size);
             let atlas = self.get_or_create_atlas(font_size);
             atlas.line_cache.push((DefaultAtom::from(text), instances));
         }
@@ -390,11 +389,10 @@ impl TextRenderer {
         text: &str,
         position: Vector<f32>,
         font_size: u32,
-        scale: f32,
         instances: &mut Vec<CharacterInstance>,
         cursor_idx: Option<usize>,
     ) {
-        let cached = self.compute_line(text, font_size, scale);
+        let cached = self.compute_line(text, font_size);
         // This can be avoided by changing cache from Vec<(CharacterInstance, [f32;2])> to
         // (Vec<CharacterInstance>, Vec<[f32;2]>). Or at least the extra allocation. Still the
         // bottleneck is probably the amount of draw calls
@@ -406,8 +404,8 @@ impl TextRenderer {
         }
 
         if let Some(cursor_idx) = cursor_idx {
-            let (cursor_inst, _) = self.compute_glyph_positions("|", font_size, scale);
-            let cursor_pos = self.cursor_pos(text, position, font_size, scale, cursor_idx);
+            let (cursor_inst, _) = self.compute_glyph_positions("|", font_size);
+            let cursor_pos = self.cursor_pos(text, position, font_size, cursor_idx);
             let mut cursor_inst = cursor_inst[0];
             cursor_inst.position[0] = cursor_pos.x;
             cursor_inst.position[1] = cursor_pos.y;
@@ -420,13 +418,12 @@ impl TextRenderer {
         text: &str,
         position: Vector<f32>,
         font_size: u32,
-        scale: f32,
         cursor_idx: usize,
     ) -> Vector<f32> {
         if text.is_empty() {
             return Vector::zero();
         }
-        let cached = self.compute_line(text, font_size, scale);
+        let cached = self.compute_line(text, font_size);
         let cursor_pos = if cursor_idx == 0 {
             cached.1[0]
         } else {
@@ -497,7 +494,6 @@ impl TextRenderer {
                 &line.contents,
                 position + line.position,
                 text.font_size,
-                1.0,
                 &mut instances,
                 cursor_idx,
             );
@@ -532,7 +528,6 @@ impl TextRenderer {
                 &line.contents,
                 position + line.position,
                 text.font_size,
-                1.0,
                 &mut instances,
                 cursor_idx,
             );
