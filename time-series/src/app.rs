@@ -142,13 +142,6 @@ impl AppState for App {
                         if self.mode_stack.is_outermost(&AppMode::Typing) {
                             if let Some(focused) = &self.focus {
                                 match key_input.key() {
-                                    keybinds::Key::Char(ch) => {
-                                        ui.mutate_state(focused, |ui_data| {
-                                            let d: &mut TextFieldData =
-                                                ui_data.downcast_mut().unwrap();
-                                            d.write(ch);
-                                        });
-                                    }
                                     keybinds::Key::Right => {
                                         ui.mutate_state(focused, |ui_data| {
                                             let d: &mut TextFieldData =
@@ -170,7 +163,7 @@ impl AppState for App {
                                             d.delete_char();
                                         });
                                     }
-                                    _ => todo!(),
+                                    _ => {}
                                 }
                             }
                         }
@@ -181,6 +174,25 @@ impl AppState for App {
                         "Couldn't convert GLFW key {:?} {:?} {:?} to keybinds-key",
                         key, modifiers, action
                     );
+                }
+            }
+        }
+    }
+
+    fn handle_char(
+        &mut self,
+        unicode: u32,
+        ui: &UiBuilder<Self>,
+    ) {
+        if let Some(ch) = char::from_u32(unicode) {
+            if self.mode_stack.is_outermost(&AppMode::Typing) {
+                if let Some(focused) = &self.focus {
+                    if !ch.is_control() {
+                        ui.mutate_state(focused, |ui_data| {
+                            let d: &mut TextFieldData = ui_data.downcast_mut().unwrap();
+                            d.write(ch);
+                        });
+                    }
                 }
             }
         }

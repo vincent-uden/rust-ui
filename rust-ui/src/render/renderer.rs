@@ -342,6 +342,11 @@ where
             .handle_key(key, scancode, action, modifiers, &self.ui_builder);
     }
 
+    /// Passes character input to application state
+    pub fn handle_char(&mut self, unicode: u32) {
+        self.app_state.handle_char(unicode, &self.ui_builder);
+    }
+
     /// Passes mouse button events to the application state
     pub fn handle_mouse_button(
         &mut self,
@@ -918,6 +923,12 @@ pub trait AppState: Sized {
         _scancode: Scancode,
         _action: Action,
         _modifiers: Modifiers,
+        _ui: &UiBuilder<Self>,
+    ) {
+    }
+    fn handle_char(
+        &mut self,
+        _unicode: u32,
         _ui: &UiBuilder<Self>,
     ) {
     }

@@ -81,6 +81,9 @@ fn main() {
                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
                     state.handle_key(key, scancode, action, modifiers);
                 }
+                glfw::WindowEvent::Char(unicode) => {
+                    state.handle_char(unicode as u32);
+                }
                 glfw::WindowEvent::Scroll(x, y) => {
                     state.handle_mouse_scroll(rust_ui::geometry::Vector::new(x as f32, y as f32));
                 }
