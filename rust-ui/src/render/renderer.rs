@@ -39,6 +39,8 @@ pub mod flags {
     pub const SCROLL_BAR: Flag           = 1 << 4;
     /// Changes how the limits of offsets work to act as content being scrolled
     pub const SCROLL_CONTENT: Flag       = 1 << 5;
+    /// Should text scroll to keep the cursor position visible
+    pub const TEXT_SCROLL: Flag          = 1 << 6;
 }
 
 // TODO: Investigate if this can be changed to an FnOnce somehow
@@ -617,10 +619,9 @@ where
                 trail.push((id, Some((abs_pos.into(), layout.size.into()))));
                 self.enable_scissor_for_layer(abs_pos.into(), layout.size.into());
             } else {
-                if let Some((_, scissor)) =
+                if let Some((_, Some(scissor))) =
                     trail.iter().rev().find(|(_, scissor)| scissor.is_some())
                 {
-                    let scissor = scissor.unwrap();
                     self.enable_scissor_for_layer(scissor.0, scissor.1);
                 }
                 trail.push((id, None));
@@ -635,7 +636,7 @@ where
                     );
                 }
             } else if ctx.flags & flags::SCROLL_CONTENT != 0 {
-                if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
+                if let Some(Ok(parent_bbox)) = tree.parent(id).map(|pid| tree.layout(pid)) {
                     if layout.content_size.height > parent_bbox.size.height {
                         abs_pos.y -= lerp(
                             0.0,
@@ -668,32 +669,31 @@ where
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
 
             if ctx.flags & flags::TEXT != 0 {
-                if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT == 0 {
-                    self.text_r.draw_in_box(
+                let text_pos = Vector::new(
+                    abs_pos.x + layout.padding.left,
+                    abs_pos.y + layout.padding.top,
+                );
+                let text_size = Size {
+                    width: layout.size.width - layout.padding.left - layout.padding.right,
+                    height: layout.size.height - layout.padding.top - layout.padding.bottom,
+                };
+                if ctx.flags & flags::TEXT_SCROLL != 0 {
+                    // I need the parents size, the text of course grows with the text field
+                    if let Some(Ok(parent_layout)) = tree.parent(id).map(|pid| tree.layout(pid)) {
+                        self.enable_scissor_for_layer(parent_pos.into(), parent_layout.size.into());
+                    }
+                    // How much do we need to offset for scroll?
+                }
+                if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT != 0 {
+                    self.text_r.draw_in_box_explicit(
                         ctx.text.clone(),
-                        Vector::new(
-                            abs_pos.x + layout.padding.left,
-                            abs_pos.y + layout.padding.top,
-                        ),
-                        Size {
-                            width: layout.size.width - layout.padding.left - layout.padding.right,
-                            height: layout.size.height - layout.padding.top - layout.padding.bottom,
-                        },
+                        text_pos,
+                        text_size,
                         ctx.cursor_idx,
                     );
                 } else {
-                    self.text_r.draw_in_box_explicit(
-                        ctx.text.clone(),
-                        Vector::new(
-                            abs_pos.x + layout.padding.left,
-                            abs_pos.y + layout.padding.top,
-                        ),
-                        Size {
-                            width: layout.size.width - layout.padding.left - layout.padding.right,
-                            height: layout.size.height - layout.padding.top - layout.padding.bottom,
-                        },
-                        ctx.cursor_idx,
-                    );
+                    self.text_r
+                        .draw_in_box(ctx.text.clone(), text_pos, text_size, ctx.cursor_idx);
                 }
             }
             if ctx.flags & flags::SPRITE != 0 {
@@ -1075,11 +1075,20 @@ where
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TextFieldData {
     pub contents: String,
     pub cursor_pos: usize,
     pub select_pos: usize,
+}
+impl Default for TextFieldData {
+    fn default() -> Self {
+        Self {
+            contents: Default::default(),
+            cursor_pos: Default::default(),
+            select_pos: Default::default(),
+        }
+    }
 }
 impl TextFieldData {
     pub fn move_cursor(&mut self, arg: isize) {
@@ -1103,27 +1112,9 @@ impl TextFieldData {
 }
 impl UiData for TextFieldData {}
 
-#[derive(Debug)]
-pub struct ScrollableData {
-    /// Scroll position from 0.0 (top) to 1.0 (bottom)
-    pub scroll_position: f32,
-    /// How much to scroll per wheel tick (0.0 to 1.0)
-    pub scroll_step: f32,
-}
-
-impl Default for ScrollableData {
-    fn default() -> Self {
-        Self {
-            scroll_position: 0.0,
-            scroll_step: 0.2,
-        }
-    }
-}
-
-impl UiData for ScrollableData {}
-
 pub trait TextFieldBuilder {
     // TODO: Event listeners
+    /// Text fields are single line text inputs
     fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId;
 }
 
@@ -1144,6 +1135,7 @@ where
         let (style, mut context) = parse_style("");
         context.text = Text::new(state.contents.clone(), 12, COLOR_LIGHT);
         context.flags |= flags::TEXT;
+        context.flags |= flags::TEXT_SCROLL;
         context.cursor_idx = Some(state.cursor_pos);
         let inner_text = {
             let mut tree = self.tree.borrow_mut();
@@ -1167,6 +1159,25 @@ where
         )
     }
 }
+
+#[derive(Debug)]
+pub struct ScrollableData {
+    /// Scroll position from 0.0 (top) to 1.0 (bottom)
+    pub scroll_position: f32,
+    /// How much to scroll per wheel tick (0.0 to 1.0)
+    pub scroll_step: f32,
+}
+
+impl Default for ScrollableData {
+    fn default() -> Self {
+        Self {
+            scroll_position: 0.0,
+            scroll_step: 0.2,
+        }
+    }
+}
+
+impl UiData for ScrollableData {}
 
 pub trait ScrollableBuilder {
     fn scrollable(

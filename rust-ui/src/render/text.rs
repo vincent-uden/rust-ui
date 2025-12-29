@@ -362,21 +362,13 @@ impl TextRenderer {
         (instances, base_positions)
     }
 
-    /// Draws a single line of text
-    pub fn draw_line(
+    fn compute_line(
         &mut self,
         text: &str,
-        position: Vector<f32>,
         font_size: u32,
         scale: f32,
-        instances: &mut Vec<CharacterInstance>,
-        cursor_idx: Option<usize>,
-    ) {
-        if text.is_empty() {
-            return;
-        }
+    ) -> &(Vec<CharacterInstance>, Vec<Vector<f32>>) {
         self.get_or_create_atlas(font_size);
-
         if self
             .atlases
             .iter()
@@ -388,9 +380,21 @@ impl TextRenderer {
             let atlas = self.get_or_create_atlas(font_size);
             atlas.line_cache.push((DefaultAtom::from(text), instances));
         }
-
         let atlas = self.get_or_create_atlas(font_size);
-        let cached = &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1;
+        &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1
+    }
+
+    /// Draws a single line of text
+    pub fn draw_line(
+        &mut self,
+        text: &str,
+        position: Vector<f32>,
+        font_size: u32,
+        scale: f32,
+        instances: &mut Vec<CharacterInstance>,
+        cursor_idx: Option<usize>,
+    ) {
+        let cached = self.compute_line(text, font_size, scale);
         // This can be avoided by changing cache from Vec<(CharacterInstance, [f32;2])> to
         // (Vec<CharacterInstance>, Vec<[f32;2]>). Or at least the extra allocation. Still the
         // bottleneck is probably the amount of draw calls
@@ -402,17 +406,33 @@ impl TextRenderer {
         }
 
         if let Some(cursor_idx) = cursor_idx {
-            let cursor_pos = if cursor_idx == 0 {
-                cached.1[0]
-            } else {
-                cached.1[cursor_idx - 1] + Vector::new(cached.0[cursor_idx - 1].size[0], 0.0)
-            };
             let (cursor_inst, _) = self.compute_glyph_positions("|", font_size, scale);
+            let cursor_pos = self.cursor_pos(text, position, font_size, scale, cursor_idx);
             let mut cursor_inst = cursor_inst[0];
-            cursor_inst.position[0] = cursor_pos.x + position.x;
-            cursor_inst.position[1] = cursor_pos.y + position.y;
+            cursor_inst.position[0] = cursor_pos.x;
+            cursor_inst.position[1] = cursor_pos.y;
             instances.push(cursor_inst);
         }
+    }
+
+    pub fn cursor_pos(
+        &mut self,
+        text: &str,
+        position: Vector<f32>,
+        font_size: u32,
+        scale: f32,
+        cursor_idx: usize,
+    ) -> Vector<f32> {
+        if text.is_empty() {
+            return Vector::zero();
+        }
+        let cached = self.compute_line(text, font_size, scale);
+        let cursor_pos = if cursor_idx == 0 {
+            cached.1[0]
+        } else {
+            cached.1[cursor_idx - 1] + Vector::new(cached.0[cursor_idx - 1].size[0], 0.0)
+        };
+        Vector::new(cursor_pos.x + position.x, cursor_pos.y + position.y)
     }
 
     fn commit_drawing(&self, instances: &mut Vec<CharacterInstance>, font_size: u32, color: Color) {
