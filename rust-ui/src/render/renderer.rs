@@ -41,6 +41,8 @@ pub mod flags {
     pub const SCROLL_CONTENT: Flag       = 1 << 5;
     /// Should text scroll to keep the cursor position visible
     pub const TEXT_SCROLL: Flag          = 1 << 6;
+    /// Force text onto a single line (no wrapping). Not compatible with [EXPLICIT_TEXT_LAYOUT]
+    pub const TEXT_SINGLE_LINE: Flag     = 1 << 7;
 }
 
 // TODO: Investigate if this can be changed to an FnOnce somehow
@@ -701,8 +703,21 @@ where
                         ctx.cursor_idx,
                     );
                 } else {
-                    self.text_r
-                        .draw_in_box(ctx.text.clone(), text_pos, text_size, ctx.cursor_idx);
+                    if ctx.flags & flags::TEXT_SINGLE_LINE != 0 {
+                        self.text_r.draw_on_line(
+                            ctx.text.clone(),
+                            text_pos,
+                            text_size,
+                            ctx.cursor_idx,
+                        );
+                    } else {
+                        self.text_r.draw_in_box(
+                            ctx.text.clone(),
+                            text_pos,
+                            text_size,
+                            ctx.cursor_idx,
+                        );
+                    }
                 }
             }
             if ctx.flags & flags::SPRITE != 0 {
@@ -832,6 +847,7 @@ where
                 available_space,
                 ctx.text.text.clone(),
                 ctx.text.font_size,
+                true,
             );
             total_size(&lines).into()
         } else {
@@ -1143,8 +1159,7 @@ where
 
         let (style, mut context) = parse_style("");
         context.text = Text::new(state.contents.clone(), 12, COLOR_LIGHT);
-        context.flags |= flags::TEXT;
-        context.flags |= flags::TEXT_SCROLL;
+        context.flags |= flags::TEXT | flags::TEXT_SCROLL | flags::TEXT_SINGLE_LINE;
         context.cursor_idx = Some(state.cursor_pos);
         let inner_text = {
             let mut tree = self.tree.borrow_mut();

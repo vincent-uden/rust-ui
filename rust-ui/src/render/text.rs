@@ -485,6 +485,7 @@ impl TextRenderer {
             },
             text.text,
             text.font_size,
+            true,
         ) {
             let cursor_idx = cursor_idx
                 .filter(|&idx| line_start <= idx && idx <= line_start + line.contents.len())
@@ -522,6 +523,40 @@ impl TextRenderer {
         ) {
             let cursor_idx = cursor_idx
                 .filter(|&idx| line_start <= idx && idx < line_start + line.contents.len())
+                .map(|idx| idx - line_start);
+            line_start += line.contents.len();
+            self.draw_line(
+                &line.contents,
+                position + line.position,
+                text.font_size,
+                &mut instances,
+                cursor_idx,
+            );
+        }
+        self.commit_drawing(&mut instances, text.font_size, text.color);
+    }
+
+    /// Draws text without any wrapping
+    pub fn draw_on_line(
+        &mut self,
+        text: Text,
+        position: Vector<f32>,
+        size: taffy::geometry::Size<f32>,
+        cursor_idx: Option<usize>,
+    ) {
+        let mut instances = vec![];
+        let mut line_start = 0;
+        for line in self.layout_text(
+            taffy::Size {
+                width: AvailableSpace::Definite(size.width),
+                height: AvailableSpace::Definite(size.height),
+            },
+            text.text,
+            text.font_size,
+            false,
+        ) {
+            let cursor_idx = cursor_idx
+                .filter(|&idx| line_start <= idx && idx <= line_start + line.contents.len())
                 .map(|idx| idx - line_start);
             line_start += line.contents.len();
             self.draw_line(
@@ -577,6 +612,7 @@ impl TextRenderer {
         available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
         text: String,
         font_size: u32,
+        wrap: bool,
     ) -> Vec<TextLine> {
         let mut out = vec![];
 
@@ -594,6 +630,7 @@ impl TextRenderer {
                     AvailableSpace::MaxContent => 9999.0,
                 })
                 && !current_line.is_empty()
+                && wrap
             {
                 let size = self.measure_text_size(&current_line, font_size);
                 out.push(TextLine {
