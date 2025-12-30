@@ -11,7 +11,7 @@ use rust_ui::{
     },
 };
 use strum::EnumString;
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::pipeline::{
     StepConfig,
@@ -100,12 +100,24 @@ impl App {
         }
     }
 
-    pub fn handle_message(&mut self, msg: AppMessage) {
+    pub fn handle_message(&mut self, msg: AppMessage, ui: &UiBuilder<Self>) {
         match msg {
             AppMessage::PopMode => {
                 self.mode_stack.pop();
+                self.focus = None;
             }
-            AppMessage::Confirm => todo!(),
+            // TODO: Think about how this should be communicated. I want the state change
+            // localized at the UI. That requires notifying Renderer. Still the App might
+            // want to decide when a "Confirm is taking place"
+            AppMessage::Confirm => {
+                if let Some(focus) = &self.focus
+                    && let Some(state) = ui.accessing_state(focus)
+                {
+                    let data = state.data.lock().unwrap();
+                    let text_data: &TextFieldData<Self> = data.downcast_ref().unwrap();
+                    debug!("{text_data:?}");
+                }
+            }
         }
     }
 }
@@ -137,28 +149,28 @@ impl AppState for App {
                         .mode_stack
                         .dispatch(&mut self.config.bindings, key_input)
                     {
-                        self.handle_message(msg);
+                        self.handle_message(msg, ui);
                     } else {
                         if self.mode_stack.is_outermost(&AppMode::Typing) {
                             if let Some(focused) = &self.focus {
                                 match key_input.key() {
                                     keybinds::Key::Right => {
                                         ui.mutate_state(focused, |ui_data| {
-                                            let d: &mut TextFieldData =
+                                            let d: &mut TextFieldData<Self> =
                                                 ui_data.downcast_mut().unwrap();
                                             d.move_cursor(1);
                                         });
                                     }
                                     keybinds::Key::Left => {
                                         ui.mutate_state(focused, |ui_data| {
-                                            let d: &mut TextFieldData =
+                                            let d: &mut TextFieldData<Self> =
                                                 ui_data.downcast_mut().unwrap();
                                             d.move_cursor(-1);
                                         });
                                     }
                                     keybinds::Key::Backspace => {
                                         ui.mutate_state(focused, |ui_data| {
-                                            let d: &mut TextFieldData =
+                                            let d: &mut TextFieldData<Self> =
                                                 ui_data.downcast_mut().unwrap();
                                             d.delete_char();
                                         });
@@ -179,17 +191,13 @@ impl AppState for App {
         }
     }
 
-    fn handle_char(
-        &mut self,
-        unicode: u32,
-        ui: &UiBuilder<Self>,
-    ) {
+    fn handle_char(&mut self, unicode: u32, ui: &UiBuilder<Self>) {
         if let Some(ch) = char::from_u32(unicode) {
             if self.mode_stack.is_outermost(&AppMode::Typing) {
                 if let Some(focused) = &self.focus {
                     if !ch.is_control() {
                         ui.mutate_state(focused, |ui_data| {
-                            let d: &mut TextFieldData = ui_data.downcast_mut().unwrap();
+                            let d: &mut TextFieldData<Self> = ui_data.downcast_mut().unwrap();
                             d.write(ch);
                         });
                     }

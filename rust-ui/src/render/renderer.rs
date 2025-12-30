@@ -926,12 +926,7 @@ pub trait AppState: Sized {
         _ui: &UiBuilder<Self>,
     ) {
     }
-    fn handle_char(
-        &mut self,
-        _unicode: u32,
-        _ui: &UiBuilder<Self>,
-    ) {
-    }
+    fn handle_char(&mut self, _unicode: u32, _ui: &UiBuilder<Self>) {}
     fn handle_mouse_button(
         &mut self,
         _button: MouseButton,
@@ -955,7 +950,7 @@ macro_rules! id {
     };
 }
 
-pub trait UiData: fmt::Debug + Any + Send + Sync {}
+pub trait UiData: fmt::Debug + Any {}
 
 impl dyn UiData {
     pub fn downcast_ref<T>(&self) -> Option<&T>
@@ -1111,22 +1106,51 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct TextFieldData {
+pub struct TextFieldData<T>
+where
+    T: AppState,
+{
     pub contents: String,
     pub cursor_pos: usize,
     pub select_pos: usize,
+    pub on_confirm: Option<EventListener<T>>,
 }
-impl Default for TextFieldData {
+impl<T> Default for TextFieldData<T>
+where
+    T: AppState,
+{
     fn default() -> Self {
         Self {
             contents: Default::default(),
             cursor_pos: Default::default(),
             select_pos: Default::default(),
+            on_confirm: None,
         }
     }
 }
-impl TextFieldData {
+impl<T> std::fmt::Debug for TextFieldData<T>
+where
+    T: AppState,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextFieldData")
+            .field("contents", &self.contents)
+            .field("cursor_pos", &self.cursor_pos)
+            .field("select_pos", &self.select_pos)
+            .field(
+                "on_confirm",
+                match self.on_confirm {
+                    Some(_) => &"Some(...)",
+                    None => &"None",
+                },
+            )
+            .finish()
+    }
+}
+impl<T> TextFieldData<T>
+where
+    T: AppState,
+{
     pub fn move_cursor(&mut self, arg: isize) {
         self.cursor_pos = self
             .cursor_pos
@@ -1146,7 +1170,7 @@ impl TextFieldData {
         }
     }
 }
-impl UiData for TextFieldData {}
+impl<T> UiData for TextFieldData<T> where T: AppState + 'static {}
 
 pub trait TextFieldBuilder {
     // TODO: Event listeners
@@ -1156,17 +1180,17 @@ pub trait TextFieldBuilder {
 
 impl<T> TextFieldBuilder for UiBuilder<T>
 where
-    T: AppState,
+    T: AppState + 'static,
 {
     fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
         // TODO:
         //       Also include a scrollable in case the text grows larger than the box for fixed-width cases
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
-            None => self.insert_state(id.clone(), TextFieldData::default()),
+            None => self.insert_state(id.clone(), TextFieldData::<T>::default()),
         };
         let guard = binding.data.lock().unwrap();
-        let state: &TextFieldData = guard.downcast_ref().unwrap();
+        let state: &TextFieldData<T> = guard.downcast_ref().unwrap();
 
         let (style, mut context) = parse_style("");
         context.text = Text::new(state.contents.clone(), 12, COLOR_LIGHT);
