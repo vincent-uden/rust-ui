@@ -8,6 +8,7 @@ pub mod rect;
 pub mod renderer;
 pub mod sprite;
 pub mod text;
+pub mod widgets;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Color {

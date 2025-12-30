@@ -7,7 +7,8 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
-        renderer::{AppState, DefaultAtom, RenderLayout, TextFieldData, UiBuilder},
+        renderer::{AppState, RenderLayout},
+        widgets::{DefaultAtom, UiBuilder, text_field::TextFieldData},
     },
 };
 use strum::EnumString;
@@ -109,6 +110,9 @@ impl App {
             // TODO: Think about how this should be communicated. I want the state change
             // localized at the UI. That requires notifying Renderer. Still the App might
             // want to decide when a "Confirm is taking place"
+            //
+            // The Renderer won't necessarily know what sort of widgets exist. I guess
+            // the widgets need to know when they are triggered?
             AppMessage::Confirm => {
                 if let Some(focus) = &self.focus
                     && let Some(state) = ui.accessing_state(focus)
@@ -222,7 +226,7 @@ impl AppState for App {
         }
     }
 
-    fn set_focus(&mut self, focus: Option<rust_ui::render::renderer::DefaultAtom>) {
+    fn set_focus(&mut self, focus: Option<DefaultAtom>) {
         self.focus = focus;
         if self.focus.is_some() && !self.mode_stack.is_outermost(&AppMode::Typing) {
             self.mode_stack.push(AppMode::Typing);

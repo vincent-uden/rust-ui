@@ -6,14 +6,17 @@ use std::{
 
 use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
-use rust_ui::render::{
-    COLOR_LIGHT, COLOR_SUCCESS, Text,
-    renderer::{
-        AppState, Listeners, NodeContext, Renderer, ScrollableBuilder as _, TextFieldBuilder as _,
-        UiBuilder, UiData,
+use rust_ui::{
+    id,
+    render::{
+        COLOR_LIGHT, COLOR_SUCCESS, Text,
+        renderer::{AppState, Listeners, NodeContext, Renderer},
+        widgets::{
+            DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
+            text_field::TextFieldBuilder as _,
+        },
     },
 };
-use rust_ui::{id, render::renderer::DefaultAtom};
 use taffy::{NodeId, TaffyTree};
 use tracing::info;
 

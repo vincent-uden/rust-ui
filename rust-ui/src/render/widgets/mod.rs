@@ -1,0 +1,180 @@
+pub use string_cache::DefaultAtom;
+
+use std::any::Any;
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::{Arc, Mutex};
+
+use taffy::{NodeId, TaffyTree};
+
+use crate::render::renderer::{AppState, EventListener, Listeners, NodeContext, Renderer, flags};
+use crate::render::{COLOR_LIGHT, Text};
+use crate::style::parse_style;
+
+pub mod scrollable;
+pub mod text_field;
+
+#[macro_export]
+macro_rules! id {
+    ($($arg:tt)*) => {
+        $crate::render::widgets::DefaultAtom::from(format!($($arg)*))
+    };
+}
+
+pub trait UiData: fmt::Debug + Any {}
+
+impl dyn UiData {
+    pub fn downcast_ref<T>(&self) -> Option<&T>
+    where
+        T: 'static,
+    {
+        (self as &dyn Any).downcast_ref::<T>()
+    }
+
+    pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
+    where
+        T: 'static,
+    {
+        (self as &mut dyn Any).downcast_mut::<T>()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UiState {
+    /// The frame number on which this piece of state was last accessed
+    pub last_touched: usize,
+    pub data: Arc<Mutex<Box<dyn UiData>>>,
+}
+
+pub struct UiBuilder<T>
+where
+    T: AppState,
+{
+    /// The current frame number. Must be updated by the program running the [UiBuilder]
+    pub frame: usize,
+    tree: RefCell<TaffyTree<NodeContext<T>>>,
+    state: RefCell<HashMap<DefaultAtom, UiState>>,
+}
+
+impl<T> UiBuilder<T>
+where
+    T: AppState,
+{
+    pub fn new() -> Self {
+        Self {
+            frame: 0,
+            tree: TaffyTree::new().into(),
+            state: HashMap::new().into(),
+        }
+    }
+
+    pub fn ui<I, B>(&self, style: &str, listeners: Listeners<T>, children: I) -> NodeId
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<NodeId>,
+    {
+        let (style, mut context) = parse_style(style);
+        context.set_listeners(listeners);
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        for child in children {
+            tree.add_child(parent, *child.borrow()).unwrap();
+        }
+        return parent;
+    }
+
+    pub fn div<I, B>(&self, style: &str, children: I) -> NodeId
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<NodeId>,
+    {
+        let (style, context) = parse_style(style);
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        for child in children {
+            tree.add_child(parent, *child.borrow()).unwrap();
+        }
+        return parent;
+    }
+
+    pub fn text(&self, style: &str, text: Text) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.text = text;
+        context.flags |= flags::TEXT;
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        return parent;
+    }
+
+    pub fn text_explicit(&self, style: &str, text: Text) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.text = text;
+        context.flags |= flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT;
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        return parent;
+    }
+
+    pub fn sprite(&self, style: &str, sprite_key: &str, listeners: Listeners<T>) -> NodeId {
+        let (style, mut context) = parse_style(style);
+        context.flags |= flags::SPRITE;
+        context.sprite_key = sprite_key.into();
+        context.set_listeners(listeners);
+        let mut tree = self.tree.borrow_mut();
+        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        return parent;
+    }
+
+    pub fn extract_tree(
+        tree: RefCell<taffy::TaffyTree<NodeContext<T>>>,
+    ) -> taffy::TaffyTree<NodeContext<T>> {
+        tree.into_inner()
+    }
+
+    pub fn accessing_state(&self, id: &DefaultAtom) -> Option<UiState> {
+        let mut state = self.state.borrow_mut();
+        if let Some(state) = state.get_mut(id) {
+            state.last_touched = self.frame;
+        }
+        state.borrow().get(id).map(|x| x.clone())
+    }
+
+    pub fn mutate_state<F, R>(&self, id: &DefaultAtom, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn UiData) -> R,
+    {
+        let mut state = self.state.borrow_mut();
+        state.get_mut(id).map(|state| {
+            let mut guard = state.data.lock().unwrap();
+            f(guard.as_mut())
+        })
+    }
+
+    pub fn insert_state(&self, id: DefaultAtom, ui_state: impl UiData) -> UiState {
+        let mut state = self.state.borrow_mut();
+        state.insert(
+            id.clone(),
+            UiState {
+                last_touched: self.frame,
+                data: Arc::new(Mutex::new(Box::new(ui_state))),
+            },
+        );
+        state[&id].clone()
+    }
+
+    pub fn tree(&self) -> taffy::TaffyTree<NodeContext<T>> {
+        self.tree.replace(TaffyTree::new())
+    }
+
+    pub fn update(&mut self, frame: usize) {
+        self.frame = frame;
+        self.prune_state_map();
+    }
+
+    fn prune_state_map(&self) {
+        let mut state = self.state.borrow_mut();
+        state.retain(|_, v| v.last_touched >= (self.frame - 1));
+    }
+}
