@@ -145,9 +145,11 @@ impl PipelineManagerUi {
                 "flex-col gap-4",
                 &[
                     b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
-                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id, Some(Arc::new(|app, data| {
+                        info!("Confirmed! {}", data.contents)
+                    }))),
                     b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
-                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id, None),
                 ],
             ),
             StepConfig::ScaleAxis { axis, factor } => todo!(),

@@ -914,7 +914,7 @@ where
     }
 }
 
-pub trait AppState: Sized {
+pub trait AppState: Sized + 'static {
     type SpriteKey: crate::render::sprite::SpriteKey;
 
     fn generate_layout(

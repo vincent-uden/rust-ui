@@ -8,7 +8,7 @@ use rust_ui::{
     render::{
         COLOR_LIGHT, Text,
         renderer::{AppState, RenderLayout},
-        widgets::{DefaultAtom, UiBuilder, text_field::TextFieldData},
+        widgets::{DefaultAtom, UiBuilder, UiData, text_field::TextFieldData},
     },
 };
 use strum::EnumString;
@@ -101,7 +101,7 @@ impl App {
         }
     }
 
-    pub fn handle_message(&mut self, msg: AppMessage, ui: &UiBuilder<Self>) {
+    pub fn handle_message(&mut self, msg: AppMessage, ui: &UiBuilder<Self>) -> Vec<String> {
         match msg {
             AppMessage::PopMode => {
                 self.mode_stack.pop();
@@ -117,12 +117,13 @@ impl App {
                 if let Some(focus) = &self.focus
                     && let Some(state) = ui.accessing_state(focus)
                 {
-                    let data = state.data.lock().unwrap();
-                    let text_data: &TextFieldData<Self> = data.downcast_ref().unwrap();
-                    debug!("{text_data:?}");
+                    let mut data = state.data.lock().unwrap();
+                    let text_data: &mut TextFieldData<Self> = data.downcast_mut().unwrap();
+                    text_data.run_event_listener("confirm", self);
                 }
             }
         }
+        vec![]
     }
 }
 

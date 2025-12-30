@@ -5,7 +5,7 @@ use crate::render::widgets::{DefaultAtom, UiBuilder, UiData};
 use crate::style::parse_style;
 use taffy::NodeId;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScrollableData {
     /// Scroll position from 0.0 (top) to 1.0 (bottom)
     pub scroll_position: f32,
@@ -22,7 +22,7 @@ impl Default for ScrollableData {
     }
 }
 
-impl UiData for ScrollableData {}
+impl<T> UiData<T> for ScrollableData where T: AppState {}
 
 pub trait ScrollableBuilder {
     fn scrollable(
@@ -83,7 +83,7 @@ where
                             let delta = renderer.scroll_delta.y.signum() * scroll_step;
                             renderer
                                 .ui_builder
-                                .mutate_state(&id, |ui_data: &mut dyn UiData| {
+                                .mutate_state(&id, |ui_data: &mut dyn UiData<T>| {
                                     let d: &mut ScrollableData = ui_data.downcast_mut().unwrap();
                                     d.scroll_position = (d.scroll_position - delta).clamp(0.0, 1.0);
                                 });

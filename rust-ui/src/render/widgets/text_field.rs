@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::render::renderer::{AppState, EventListener, Listeners, Renderer, flags};
+use crate::render::renderer::{AppState, Listeners, Renderer, flags};
 use crate::render::widgets::{DefaultAtom, UiBuilder, UiData};
 use crate::render::{COLOR_LIGHT, Text};
 use crate::style::parse_style;
@@ -13,7 +13,20 @@ where
     pub contents: String,
     pub cursor_pos: usize,
     pub select_pos: usize,
-    pub on_confirm: Option<EventListener<T>>,
+    pub on_confirm: EventListener<T>,
+}
+impl<T> Clone for TextFieldData<T>
+where
+    T: AppState,
+{
+    fn clone(&self) -> Self {
+        Self {
+            contents: self.contents.clone(),
+            cursor_pos: self.cursor_pos.clone(),
+            select_pos: self.select_pos.clone(),
+            on_confirm: self.on_confirm.clone(),
+        }
+    }
 }
 impl<T> Default for TextFieldData<T>
 where
@@ -70,27 +83,52 @@ where
         }
     }
 }
-impl<T> UiData for TextFieldData<T> where T: AppState + 'static {}
-
-pub trait TextFieldBuilder {
-    // TODO: Event listeners
-    /// Text fields are single line text inputs
-    fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId;
-}
-
-impl<T> TextFieldBuilder for UiBuilder<T>
+impl<T> UiData<T> for TextFieldData<T>
 where
     T: AppState + 'static,
 {
-    fn text_field(&self, id: DefaultAtom, focused_id: &Option<DefaultAtom>) -> NodeId {
-        // TODO:
-        //       Also include a scrollable in case the text grows larger than the box for fixed-width cases
+    fn run_event_listener(&mut self, name: &str, app: &mut T) {
+        if name == "confirm" {
+            if let Some(el) = self.on_confirm.take() {
+                el(app, self)
+            }
+        }
+    }
+}
+
+pub type EventListener<T> = Option<Arc<dyn Fn(&mut T, &TextFieldData<T>)>>;
+
+pub trait TextFieldBuilder<T>
+where
+    T: AppState,
+{
+    // TODO: Event listeners
+    /// Text fields are single line text inputs
+    fn text_field(
+        &self,
+        id: DefaultAtom,
+        focused_id: &Option<DefaultAtom>,
+        on_confirm: EventListener<T>,
+    ) -> NodeId;
+}
+
+impl<T> TextFieldBuilder<T> for UiBuilder<T>
+where
+    T: AppState,
+{
+    fn text_field(
+        &self,
+        id: DefaultAtom,
+        focused_id: &Option<DefaultAtom>,
+        on_confirm: EventListener<T>,
+    ) -> NodeId {
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
             None => self.insert_state(id.clone(), TextFieldData::<T>::default()),
         };
-        let guard = binding.data.lock().unwrap();
-        let state: &TextFieldData<T> = guard.downcast_ref().unwrap();
+        let mut guard = binding.data.lock().unwrap();
+        let state: &mut TextFieldData<T> = guard.downcast_mut().unwrap();
+        state.on_confirm = on_confirm;
 
         let (style, mut context) = parse_style("");
         context.text = Text::new(state.contents.clone(), 12, COLOR_LIGHT);

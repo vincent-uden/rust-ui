@@ -23,29 +23,51 @@ macro_rules! id {
     };
 }
 
-pub trait UiData: fmt::Debug + Any {}
+pub trait UiData<T>: fmt::Debug + Any
+where
+    T: AppState,
+{
+    fn run_event_listener(&mut self, name: &str, renderer: &mut T) {}
+}
 
-impl dyn UiData {
-    pub fn downcast_ref<T>(&self) -> Option<&T>
+impl<T> dyn UiData<T>
+where
+    T: AppState,
+{
+    pub fn downcast_ref<U>(&self) -> Option<&U>
     where
-        T: 'static,
+        U: 'static,
     {
-        (self as &dyn Any).downcast_ref::<T>()
+        (self as &dyn Any).downcast_ref::<U>()
     }
 
-    pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
+    pub fn downcast_mut<U>(&mut self) -> Option<&mut U>
     where
-        T: 'static,
+        U: 'static,
     {
-        (self as &mut dyn Any).downcast_mut::<T>()
+        (self as &mut dyn Any).downcast_mut::<U>()
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct UiState {
+#[derive(Debug)]
+pub struct UiState<T>
+where
+    T: AppState,
+{
     /// The frame number on which this piece of state was last accessed
     pub last_touched: usize,
-    pub data: Arc<Mutex<Box<dyn UiData>>>,
+    pub data: Arc<Mutex<Box<dyn UiData<T>>>>,
+}
+impl<T> Clone for UiState<T>
+where
+    T: AppState,
+{
+    fn clone(&self) -> Self {
+        Self {
+            last_touched: self.last_touched.clone(),
+            data: self.data.clone(),
+        }
+    }
 }
 
 pub struct UiBuilder<T>
@@ -55,7 +77,7 @@ where
     /// The current frame number. Must be updated by the program running the [UiBuilder]
     pub frame: usize,
     tree: RefCell<TaffyTree<NodeContext<T>>>,
-    state: RefCell<HashMap<DefaultAtom, UiState>>,
+    state: RefCell<HashMap<DefaultAtom, UiState<T>>>,
 }
 
 impl<T> UiBuilder<T>
@@ -133,17 +155,17 @@ where
         tree.into_inner()
     }
 
-    pub fn accessing_state(&self, id: &DefaultAtom) -> Option<UiState> {
+    pub fn accessing_state(&self, id: &DefaultAtom) -> Option<UiState<T>> {
         let mut state = self.state.borrow_mut();
         if let Some(state) = state.get_mut(id) {
             state.last_touched = self.frame;
         }
-        state.borrow().get(id).map(|x| x.clone())
+        state.borrow().get(id).cloned()
     }
 
     pub fn mutate_state<F, R>(&self, id: &DefaultAtom, f: F) -> Option<R>
     where
-        F: FnOnce(&mut dyn UiData) -> R,
+        F: FnOnce(&mut dyn UiData<T>) -> R,
     {
         let mut state = self.state.borrow_mut();
         state.get_mut(id).map(|state| {
@@ -152,7 +174,7 @@ where
         })
     }
 
-    pub fn insert_state(&self, id: DefaultAtom, ui_state: impl UiData) -> UiState {
+    pub fn insert_state(&self, id: DefaultAtom, ui_state: impl UiData<T>) -> UiState<T> {
         let mut state = self.state.borrow_mut();
         state.insert(
             id.clone(),
