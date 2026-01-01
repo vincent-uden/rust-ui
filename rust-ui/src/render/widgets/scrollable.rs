@@ -97,7 +97,3 @@ where
         )
     }
 }
-
-pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
-    start + normalized * (end - start)
-}

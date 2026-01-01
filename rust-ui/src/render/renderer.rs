@@ -21,10 +21,7 @@ use crate::{
         rect::RectRenderer,
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
-        widgets::{
-            UiBuilder,
-            scrollable::{ScrollableBuilder, lerp},
-        },
+        widgets::{UiBuilder, scrollable::ScrollableBuilder},
     },
     style::parse_style,
 };
@@ -482,9 +479,32 @@ where
         let mut current_scissor: Option<crate::geometry::Rect<f32>>;
         while let Some((id, parent_pos)) = to_render.pop() {
             let layout = tree.layout(id)?;
-            let abs_pos = layout.location + parent_pos;
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
+
+            let mut abs_pos = layout.location + parent_pos;
+
+            if ctx.flags & flags::SCROLL_BAR != 0 {
+                if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
+                    abs_pos.y += lerp(
+                        0.0,
+                        parent_bbox.size.height - layout.size.height,
+                        ctx.offset.y,
+                    );
+                }
+            } else if ctx.flags & flags::SCROLL_CONTENT != 0 {
+                if let Some(Ok(parent_bbox)) = tree.parent(id).map(|pid| tree.layout(pid)) {
+                    if layout.content_size.height > parent_bbox.size.height {
+                        abs_pos.y -= lerp(
+                            0.0,
+                            layout.content_size.height - parent_bbox.size.height,
+                            ctx.offset.y,
+                        );
+                    }
+                }
+            } else {
+                abs_pos = abs_pos + ctx.offset.into();
+            }
 
             // Traverse trail to find parent
             while trail.last().is_some() && tree.parent(id) != trail.last().map(|x| x.0) {
@@ -944,6 +964,10 @@ pub trait AppState: Sized + 'static {
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
     fn update(&mut self) {}
     fn set_focus(&mut self, _focus: Option<DefaultAtom>) {}
+}
+
+pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
+    start + normalized * (end - start)
 }
 
 #[cfg(test)]
