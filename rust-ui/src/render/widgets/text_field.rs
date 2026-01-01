@@ -133,7 +133,11 @@ where
         let (style, mut context) = parse_style("");
         context.text = Text::new(state.contents.clone(), 12, COLOR_LIGHT);
         context.flags |= flags::TEXT | flags::TEXT_SCROLL | flags::TEXT_SINGLE_LINE;
-        context.cursor_idx = Some(state.cursor_pos);
+        context.cursor_idx = if Some(&id) == focused_id.as_ref() {
+            Some(state.cursor_pos)
+        } else {
+            None
+        };
         let inner_text = {
             let mut tree = self.tree.borrow_mut();
             tree.new_leaf_with_context(style, context).unwrap()

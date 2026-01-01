@@ -89,7 +89,7 @@ impl PipelineManagerUi {
         let mut pipeline_rows = vec![];
         if let Some(idx) = self.selected_source {
             for (c_idx, cfg) in self.pipelines[idx].iter().enumerate() {
-                pipeline_rows.push(self.step_config(&cfg, idx, c_idx, &b, focused_id));
+                pipeline_rows.push(self.step_config(*cfg, idx, c_idx, &b, focused_id));
             }
         }
         let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "", pipeline_rows);
@@ -116,7 +116,7 @@ impl PipelineManagerUi {
 
     fn step_config(
         &self,
-        cfg: &StepConfig,
+        cfg: StepConfig,
         pipeline_idx: usize,
         step_idx: usize,
         b: &UiBuilder<App>,
@@ -141,17 +141,34 @@ impl PipelineManagerUi {
                 x1,
                 x2,
             } => todo!(),
-            StepConfig::PickColumns { column_1, column_2 } => b.div(
-                "flex-col gap-4",
-                &[
-                    b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
-                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id, Some(Arc::new(|app, data| {
-                        info!("Confirmed! {}", data.contents)
+            StepConfig::PickColumns { column_1, column_2 } => {
+                let available: Vec<_> = self.available_columns()
+                    .iter()
+                    .map(|col| b.text("", Text::new(col.clone(), 12, COLOR_LIGHT)))
+                    .collect();
+                let mut controls = vec![
+                    b.text("", Text::new(format!("Time column ({column_1})"), 12, COLOR_LIGHT)),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c1"), focused_id, Some(Arc::new(move |app, data| {
+                        let pm = &mut app.pipeline_manager;
+                        let pos = pm.available_columns().iter().position(|col| col == &data.contents);
+                        pm.pipelines[pm.selected_source.unwrap()][step_idx] = StepConfig::PickColumns {
+                            column_1: pos.unwrap_or(column_1),
+                            column_2: column_2,
+                        };
                     }))),
-                    b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
-                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id, None),
-                ],
-            ),
+                    b.text("", Text::new(format!("Value column ({column_2})"), 12, COLOR_LIGHT)),
+                    b.text_field(id!("cfg-{pipeline_idx}-{step_idx}-c2"), focused_id, Some(Arc::new(move |app, data| {
+                        let pm = &mut app.pipeline_manager;
+                        let pos = pm.available_columns().iter().position(|col| col == &data.contents);
+                        pm.pipelines[pm.selected_source.unwrap()][step_idx] = StepConfig::PickColumns {
+                            column_1: column_1,
+                            column_2: pos.unwrap_or(column_2),
+                        };
+                    }))),
+                ];
+                controls.extend_from_slice(&available);
+                b.div( "flex-col gap-4", &controls)
+            },
             StepConfig::ScaleAxis { axis, factor } => todo!(),
             StepConfig::LogAxis { axis, base } => todo!(),
         };
@@ -161,5 +178,17 @@ impl PipelineManagerUi {
             b.div("h-4", &[]),
             form,
         ])
+    }
+
+    fn available_columns(&self) -> Vec<String> {
+        let sources = self.sources.borrow();
+        if let Some(idx) = self.selected_source {
+            sources
+                .get(idx)
+                .map(|s| s.df.column_names.clone())
+                .unwrap_or(vec![])
+        } else {
+            vec![]
+        }
     }
 }
