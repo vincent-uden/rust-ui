@@ -9,7 +9,7 @@ use keybinds::KeyInput;
 use rust_ui::{
     id,
     render::{
-        COLOR_LIGHT, COLOR_SUCCESS, Text,
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
             DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
@@ -39,10 +39,37 @@ impl DataSource {
     }
 }
 
+pub struct Pipeline {
+    pub steps: Vec<StepConfig>,
+    pub step_ids: Vec<usize>,
+    pub next_id: usize,
+}
+
+impl Pipeline {
+    pub fn new() -> Self {
+        Self {
+            steps: Vec::new(),
+            step_ids: Vec::new(),
+            next_id: 0,
+        }
+    }
+
+    pub fn push(&mut self, step: StepConfig) {
+        self.steps.push(step);
+        self.step_ids.push(self.next_id);
+        self.next_id += 1;
+    }
+
+    pub fn remove(&mut self, idx: usize) -> StepConfig {
+        self.step_ids.remove(idx);
+        self.steps.remove(idx)
+    }
+}
+
 pub struct PipelineManagerUi {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
     pub selected_source: Option<usize>,
-    pub pipelines: Vec<Vec<StepConfig>>,
+    pub pipelines: Vec<Pipeline>,
 }
 
 impl PipelineManagerUi {
@@ -63,6 +90,7 @@ impl PipelineManagerUi {
             b.ui("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Listeners {
                 on_left_mouse_up: Some(Arc::new(|state| {
                     state.app_state.add_source();
+                    state.app_state.pipeline_manager.pipelines.push(Pipeline::new());
                 })),
                 ..Default::default()
             }, &[
@@ -73,7 +101,6 @@ impl PipelineManagerUi {
             signal_rows.push(self.signal_row(&source, &b, i));
         }
         signal_rows.extend_from_slice(&[
-            b.div("h-1 w-full bg-slate-500 my-4", &[]),
             b.text("", Text::new("Pipeline", 14, COLOR_LIGHT)),
             b.ui(
                 "py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500",
@@ -88,8 +115,9 @@ impl PipelineManagerUi {
         ]);
         let mut pipeline_rows = vec![];
         if let Some(idx) = self.selected_source {
-            for (c_idx, cfg) in self.pipelines[idx].iter().enumerate() {
-                pipeline_rows.push(self.step_config(*cfg, idx, c_idx, &b, focused_id));
+            for (c_idx, cfg) in self.pipelines[idx].steps.iter().enumerate() {
+                let step_id = self.pipelines[idx].step_ids[c_idx];
+                pipeline_rows.push(self.step_config(*cfg, step_id, c_idx, &b, focused_id));
             }
         }
         let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "", pipeline_rows);
@@ -131,7 +159,7 @@ impl PipelineManagerUi {
     fn step_config(
         &self,
         cfg: StepConfig,
-        pipeline_idx: usize,
+        step_id: usize,
         step_idx: usize,
         b: &UiBuilder<App>,
         focused_id: &Option<DefaultAtom>,
@@ -143,7 +171,7 @@ impl PipelineManagerUi {
             StepConfig::SmoothSignal { window } => b.div(
                 "flex-col gap-4",
                 &[b.text_field(
-                    id!("cfg-{pipeline_idx}-{step_idx}-smoothing"),
+                    id!("cfg-{step_id}-smoothing"),
                     focused_id,
                     Some(Arc::new(move |app, data| {
                         if let Ok(new_window) = data.contents.parse() {
@@ -181,7 +209,7 @@ impl PipelineManagerUi {
                         Text::new(format!("Time column ({column_1})"), 12, COLOR_LIGHT),
                     ),
                     b.text_field(
-                        id!("cfg-{pipeline_idx}-{step_idx}-c1"),
+                        id!("cfg-{step_id}-c1"),
                         focused_id,
                         Some(Arc::new(move |app, data| {
                             let pm = &mut app.pipeline_manager;
@@ -189,7 +217,7 @@ impl PipelineManagerUi {
                                 .available_columns()
                                 .iter()
                                 .position(|col| col == &data.contents);
-                            pm.pipelines[pm.selected_source.unwrap()][step_idx] =
+                            pm.pipelines[pm.selected_source.unwrap()].steps[step_idx] =
                                 StepConfig::PickColumns {
                                     column_1: pos.unwrap_or(column_1),
                                     column_2: column_2,
@@ -201,7 +229,7 @@ impl PipelineManagerUi {
                         Text::new(format!("Value column ({column_2})"), 12, COLOR_LIGHT),
                     ),
                     b.text_field(
-                        id!("cfg-{pipeline_idx}-{step_idx}-c2"),
+                        id!("cfg-{step_id}-c2"),
                         focused_id,
                         Some(Arc::new(move |app, data| {
                             let pm = &mut app.pipeline_manager;
@@ -209,7 +237,7 @@ impl PipelineManagerUi {
                                 .available_columns()
                                 .iter()
                                 .position(|col| col == &data.contents);
-                            pm.pipelines[pm.selected_source.unwrap()][step_idx] =
+                            pm.pipelines[pm.selected_source.unwrap()].steps[step_idx] =
                                 StepConfig::PickColumns {
                                     column_1: column_1,
                                     column_2: pos.unwrap_or(column_2),
@@ -256,7 +284,16 @@ impl PipelineManagerUi {
             ),
         ];
         let mut inner = vec![
-            b.text("", Text::new(format!("{cfg}"), 14, COLOR_LIGHT)),
+            b.div(
+                "flex-row gap-4",
+                &[
+                    b.text("grow", Text::new(format!("{cfg}"), 14, COLOR_LIGHT)),
+                    #[cfg_attr(any(), rustfmt::skip)]
+                    Self::text_button(b, Text::new("x", 14, COLOR_DANGER), Arc::new(move |state| {
+                        state.app_state.pipeline_manager.remove_step(step_idx);
+                    })),
+                ],
+            ),
             b.div("h-4", &[]),
         ];
         inner.extend_from_slice(step_types);
@@ -281,7 +318,13 @@ impl PipelineManagerUi {
     /// Modifies an existing configuration step in the currently selected pipeline.
     pub fn set_cfg_step(&mut self, new_step: StepConfig, step_idx: usize) {
         if let Some(selected) = self.selected_source {
-            self.pipelines[selected][step_idx] = new_step;
+            self.pipelines[selected].steps[step_idx] = new_step;
+        }
+    }
+
+    pub fn remove_step(&mut self, idx: usize) {
+        if let Some(selected) = self.selected_source {
+            self.pipelines[selected].remove(idx);
         }
     }
 }

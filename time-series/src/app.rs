@@ -16,7 +16,7 @@ use tracing::{debug, error};
 
 use crate::pipeline::{
     StepConfig,
-    ui::{DataSource, PipelineManagerUi},
+    ui::{DataSource, Pipeline, PipelineManagerUi},
 };
 
 #[derive(EnumString, Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -62,12 +62,7 @@ impl App {
         {
             if let Ok(source) = DataSource::from_path(path) {
                 self.sources.borrow_mut().push(source.into());
-                self.pipeline_manager
-                    .pipelines
-                    .push(vec![StepConfig::PickColumns {
-                        column_1: 0,
-                        column_2: 1,
-                    }]);
+                self.pipeline_manager.pipelines.push(Pipeline::new());
             }
         }
     }
