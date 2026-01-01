@@ -139,6 +139,23 @@ where
         return parent;
     }
 
+    pub fn text_button(&self, style: &str, text: Text, listeners: Listeners<T>) -> NodeId {
+        let mut tree = self.tree.borrow_mut();
+
+        let mut inner_ctx = NodeContext::default();
+        inner_ctx.text = text;
+        inner_ctx.flags |= flags::TEXT;
+        let inner = tree
+            .new_leaf_with_context(taffy::Style::DEFAULT, inner_ctx)
+            .unwrap();
+
+        let (style, mut outer_ctx) = parse_style(style);
+        let outer = tree.new_with_children(style, &[inner]).unwrap();
+        outer_ctx.set_listeners(listeners);
+        tree.set_node_context(outer, Some(outer_ctx)).unwrap();
+        return outer;
+    }
+
     pub fn sprite(&self, style: &str, sprite_key: &str, listeners: Listeners<T>) -> NodeId {
         let (style, mut context) = parse_style(style);
         context.flags |= flags::SPRITE;
