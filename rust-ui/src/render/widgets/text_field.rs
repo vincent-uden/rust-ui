@@ -102,7 +102,6 @@ pub trait TextFieldBuilder<T>
 where
     T: AppState,
 {
-    // TODO: Event listeners
     /// Text fields are single line text inputs
     fn text_field(
         &self,

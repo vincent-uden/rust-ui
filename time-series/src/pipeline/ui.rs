@@ -18,11 +18,14 @@ use rust_ui::{
     },
 };
 use taffy::{NodeId, TaffyTree};
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
     app::App,
-    pipeline::{DataFrame, StepConfig},
+    pipeline::{
+        DataFrame, PipelineIntermediate, Record, StepConfig,
+        processing::{average, run_pipeline},
+    },
 };
 
 pub struct DataSource {
@@ -70,6 +73,7 @@ pub struct PipelineManagerUi {
     pub sources: Arc<RefCell<Vec<DataSource>>>,
     pub selected_source: Option<usize>,
     pub pipelines: Vec<Pipeline>,
+    pub outputs: Vec<PipelineIntermediate>,
 }
 
 impl PipelineManagerUi {
@@ -78,6 +82,7 @@ impl PipelineManagerUi {
             sources,
             selected_source: None,
             pipelines: Vec::new(),
+            outputs: Vec::new(),
         }
     }
 
@@ -122,6 +127,19 @@ impl PipelineManagerUi {
         }
         let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "", pipeline_rows);
         signal_rows.push(pipeline_container);
+        signal_rows.push(b.div(
+            "p-8",
+            &[b.ui(
+                "bg-green-600 hover:bg-green-700 rounded-8 flex-col items-center w-full py-4",
+                Listeners {
+                    on_left_mouse_down: Some(Arc::new(move |state| {
+                        state.app_state.pipeline_manager.run();
+                    })),
+                    ..Default::default()
+                },
+                &[b.text("", Text::new("Run", 14, COLOR_LIGHT))],
+            )],
+        ));
         let outer = b.div("flex-col gap-4 min-h-0", &signal_rows);
         outer
     }
@@ -325,6 +343,25 @@ impl PipelineManagerUi {
     pub fn remove_step(&mut self, idx: usize) {
         if let Some(selected) = self.selected_source {
             self.pipelines[selected].remove(idx);
+        }
+    }
+
+    pub fn run(&mut self) {
+        self.outputs.clear();
+        let sources = self.sources.borrow();
+        for (source, pipeline) in sources.iter().zip(self.pipelines.iter()) {
+            match run_pipeline(
+                &pipeline.steps,
+                PipelineIntermediate::DataFrame(source.df.clone()),
+            ) {
+                Ok(signal) => {
+                    self.outputs.push(signal);
+                }
+                Err(e) => {
+                    error!("{}", e);
+                    self.outputs.push(PipelineIntermediate::Signal(Vec::new()));
+                }
+            }
         }
     }
 }
