@@ -49,6 +49,8 @@ pub struct FontAtlas {
     line_height: i32,
     line_cache: Vec<(DefaultAtom, (Vec<CharacterInstance>, Vec<Vector<f32>>))>,
     size_cache: HashMap<DefaultAtom, Vector<f32>>,
+    max_ascent: f32,
+    max_descent: f32,
 }
 
 #[derive(Debug)]
@@ -197,9 +199,9 @@ impl TextRenderer {
         })
     }
 
-    fn get_or_create_atlas(&mut self, font_size: u32) -> &mut FontAtlas {
+    fn get_or_create_atlas(&mut self, font_size: u32) -> Result<&mut FontAtlas> {
         if let Some(idx) = self.atlases.iter().position(|(fs, _)| *fs == font_size) {
-            return &mut self.atlases[idx].1;
+            return Ok(&mut self.atlases[idx].1);
         }
         let atlas_size = Vector::new(512, 512);
         let mut texture_id: GLuint = 0;
@@ -226,6 +228,16 @@ impl TextRenderer {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
+        self.ft_face.set_pixel_sizes(0, font_size)?;
+        let units_per_em = self.ft_face.em_size() as f32;
+        let ascender = self.ft_face.ascender() as f32;
+        let descender = self.ft_face.descender() as f32;
+        let max_ascent = (ascender / units_per_em) * font_size as f32;
+        let max_descent = (-descender / units_per_em) * font_size as f32;
+
+        let final_ascent = max_ascent;
+        let final_descent = max_descent;
+
         let new_atlas = FontAtlas {
             texture_id,
             size: atlas_size,
@@ -235,13 +247,15 @@ impl TextRenderer {
             line_height: 0,
             line_cache: Vec::new(),
             size_cache: HashMap::new(),
+            max_ascent: final_ascent,
+            max_descent: final_descent,
         };
         self.atlases.push((font_size, new_atlas));
-        &mut self.atlases.last_mut().unwrap().1
+        Ok(&mut self.atlases.last_mut().unwrap().1)
     }
 
     fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size)?;
 
         for (c, char_info) in &atlas.characters {
             if *c == character {
@@ -265,7 +279,7 @@ impl TextRenderer {
         let buffer_ptr = bitmap.buffer().as_ptr();
         let buffer_empty = bitmap.buffer().is_empty();
 
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size)?;
 
         // Check if we need to move to next line
         if atlas.current_x + glyph_width + 2 > atlas.size.x {
@@ -367,7 +381,7 @@ impl TextRenderer {
         text: &str,
         font_size: u32,
     ) -> &(Vec<CharacterInstance>, Vec<Vector<f32>>) {
-        self.get_or_create_atlas(font_size);
+        self.get_or_create_atlas(font_size).ok();
         if self
             .atlases
             .iter()
@@ -376,10 +390,11 @@ impl TextRenderer {
             .is_none()
         {
             let instances = self.compute_glyph_positions(text, font_size);
-            let atlas = self.get_or_create_atlas(font_size);
-            atlas.line_cache.push((DefaultAtom::from(text), instances));
+            if let Ok(atlas) = self.get_or_create_atlas(font_size) {
+                atlas.line_cache.push((DefaultAtom::from(text), instances));
+            }
         }
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
         &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1
     }
 
@@ -582,24 +597,23 @@ impl TextRenderer {
             }
         }
 
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
+        let max_ascent = atlas.max_ascent;
+        let max_descent = atlas.max_descent;
+
         let mut width: f32 = 0.0;
-        let mut max_ascent: f32 = 0.0;
-        let mut max_descent: f32 = 0.0;
-
         for c in text.chars() {
-            let loaded = self.load_character(c, font_size).unwrap();
-            width += loaded.advance;
-            max_ascent = max_ascent.max(loaded.ascent);
-            max_descent = max_descent.max(loaded.descent);
+            let ch = match self.load_character(c, font_size) {
+                Ok(ch) => ch,
+                Err(_) => continue,
+            };
+            width += ch.advance;
         }
 
-        let mut height = max_ascent + max_descent;
-        if height == 0.0 {
-            height = font_size as f32; // Fallback if no height data
-        }
+        let height = max_ascent + max_descent;
 
         let size = Vector::new(width, height);
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
         atlas.size_cache.insert(key, size);
         size
     }
