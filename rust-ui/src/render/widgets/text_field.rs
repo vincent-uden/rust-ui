@@ -143,9 +143,9 @@ where
         };
 
         let style = if Some(&id) == focused_id.as_ref() {
-            "bg-slate-900 h-14 w-200 p-2 rounded-4 border-2 border-sky-500"
+            "bg-slate-900 w-200 p-2 rounded-4 border-2 border-sky-500"
         } else {
-            "bg-slate-900 hover:bg-slate-800 h-14 w-200 p-2 rounded-4"
+            "bg-slate-900 hover:bg-slate-800 w-200 p-2 rounded-4"
         };
         self.ui(
             style,

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ffi::c_void, path::Path};
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use freetype as ft;
 use gl::types::GLuint;
 use string_cache::DefaultAtom;
@@ -583,8 +583,13 @@ impl TextRenderer {
     }
 
     fn measure_text_size(&mut self, text: &str, font_size: u32) -> Vector<f32> {
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
+        let max_ascent = atlas.max_ascent;
+        let max_descent = atlas.max_descent;
+        let height = max_ascent + max_descent;
+
         if text.is_empty() {
-            return Vector::new(0.0, font_size as f32);
+            return Vector::new(0.0, height);
         }
 
         let key = DefaultAtom::from(text);
@@ -594,10 +599,6 @@ impl TextRenderer {
             }
         }
 
-        let atlas = self.get_or_create_atlas(font_size).unwrap();
-        let max_ascent = atlas.max_ascent;
-        let max_descent = atlas.max_descent;
-
         let mut width: f32 = 0.0;
         for c in text.chars() {
             let ch = match self.load_character(c, font_size) {
@@ -606,8 +607,6 @@ impl TextRenderer {
             };
             width += ch.advance;
         }
-
-        let height = max_ascent + max_descent;
 
         let size = Vector::new(width, height);
         let atlas = self.get_or_create_atlas(font_size).unwrap();
@@ -661,6 +660,12 @@ impl TextRenderer {
                 position: Vector::new(0.0, y),
                 size: self.measure_text_size(&current_line, font_size),
                 contents: current_line.clone(),
+            });
+        } else if out.is_empty() {
+            out.push(TextLine {
+                position: Vector::new(0.0, y),
+                size: Vector::new(0.0, font_size as f32 * 1.2),
+                contents: String::new(),
             });
         }
 
