@@ -235,9 +235,6 @@ impl TextRenderer {
         let max_ascent = (ascender / units_per_em) * font_size as f32;
         let max_descent = (-descender / units_per_em) * font_size as f32;
 
-        let final_ascent = max_ascent;
-        let final_descent = max_descent;
-
         let new_atlas = FontAtlas {
             texture_id,
             size: atlas_size,
@@ -247,8 +244,8 @@ impl TextRenderer {
             line_height: 0,
             line_cache: Vec::new(),
             size_cache: HashMap::new(),
-            max_ascent: final_ascent,
-            max_descent: final_descent,
+            max_ascent,
+            max_descent,
         };
         self.atlases.push((font_size, new_atlas));
         Ok(&mut self.atlases.last_mut().unwrap().1)
