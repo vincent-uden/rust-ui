@@ -435,9 +435,19 @@ impl TextRenderer {
         if text.is_empty() {
             return Vector::zero();
         }
+
         let cached = self.compute_line(text, font_size);
         let cursor_pos = if cursor_idx == 0 {
             cached.1[0]
+        } else if cursor_idx == text.len() {
+            let line_width: f32 = text
+                .chars()
+                .map(|c| {
+                    self.load_character(c, font_size)
+                        .map_or(0.0, |ch| ch.advance)
+                })
+                .sum();
+            Vector::new(line_width, 0.0)
         } else {
             cached.1[cursor_idx - 1] + Vector::new(cached.0[cursor_idx - 1].size[0], 0.0)
         };
@@ -490,21 +500,37 @@ impl TextRenderer {
     ) {
         let mut instances = vec![];
         let mut line_start = 0;
+        let text_str = text.text.clone();
+        let text_len = text_str.len();
         for line in self.layout_text(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
                 height: AvailableSpace::Definite(size.height),
             },
-            text.text,
+            text_str.clone(),
             text.font_size,
             true,
         ) {
             let cursor_idx = cursor_idx
-                .filter(|&idx| line_start <= idx && idx <= line_start + line.contents.len())
-                .map(|idx| idx - line_start);
+                .filter(|&idx| {
+                    line_start <= idx
+                        && (idx <= line_start + line.contents.len() || idx == text_len)
+                })
+                .map(|idx| {
+                    if idx == text_len {
+                        line.contents.len()
+                    } else {
+                        idx - line_start
+                    }
+                });
+            let draw_text = if cursor_idx == Some(line.contents.len()) && text_len > line_start {
+                &text_str[line_start..]
+            } else {
+                &line.contents
+            };
             line_start += line.contents.len();
             self.draw_line(
-                &line.contents,
+                draw_text,
                 position + line.position,
                 text.font_size,
                 &mut instances,
@@ -558,21 +584,37 @@ impl TextRenderer {
     ) {
         let mut instances = vec![];
         let mut line_start = 0;
+        let text_str = text.text.clone();
+        let text_len = text_str.len();
         for line in self.layout_text(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
                 height: AvailableSpace::Definite(size.height),
             },
-            text.text,
+            text_str.clone(),
             text.font_size,
             false,
         ) {
             let cursor_idx = cursor_idx
-                .filter(|&idx| line_start <= idx && idx <= line_start + line.contents.len())
-                .map(|idx| idx - line_start);
+                .filter(|&idx| {
+                    line_start <= idx
+                        && (idx <= line_start + line.contents.len() || idx == text_len)
+                })
+                .map(|idx| {
+                    if idx == text_len {
+                        line.contents.len()
+                    } else {
+                        idx - line_start
+                    }
+                });
+            let draw_text = if cursor_idx == Some(line.contents.len()) && text_len > line_start {
+                &text_str[line_start..]
+            } else {
+                &line.contents
+            };
             line_start += line.contents.len();
             self.draw_line(
-                &line.contents,
+                draw_text,
                 position + line.position,
                 text.font_size,
                 &mut instances,
