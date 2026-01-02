@@ -19,6 +19,7 @@ use rust_ui::{
         renderer::{Anchor, AppState, NodeContext, RenderLayout, Renderer, flags},
         sprite::{SpriteAtlas, SpriteRenderer},
         text::TextRenderer,
+        widgets::UiBuilder,
     },
     shader::{Shader, ShaderName},
 };
@@ -261,7 +262,7 @@ impl AppState for PerfStats {
     fn generate_layout(
         &mut self,
         window_size: Vector<f32>,
-        _ui: &rust_ui::render::renderer::UiBuilder<Self>,
+        _ui: &UiBuilder<Self>,
     ) -> Vec<RenderLayout<Self>> {
         if self.visible {
             let mut top_left = self.stats_overlay(window_size);
@@ -295,7 +296,7 @@ impl AppState for PerfStats {
         _scancode: Scancode,
         action: Action,
         _modifiers: Modifiers,
-        _ui: &rust_ui::render::renderer::UiBuilder<Self>,
+        _ui: &UiBuilder<Self>,
     ) {
         #[allow(clippy::single_match)]
         match key {
