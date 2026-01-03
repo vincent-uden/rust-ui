@@ -1,11 +1,13 @@
 use std::{path::PathBuf, str::FromStr, time::Duration};
 
+use anyhow::Result;
 use glfw::Context;
 use rust_ui::{
     geometry::Vector,
     init_open_gl,
     render::{
         COLOR_DANGER,
+        graph::GraphRenderer,
         line::LineRenderer,
         rect::RectRenderer,
         renderer::Renderer,
@@ -24,7 +26,7 @@ mod pipeline;
 const TARGET_FPS: u64 = 60;
 const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
-fn main() {
+fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stdout)
         .with_env_filter(EnvFilter::new("time_series,rust_ui"))
@@ -32,21 +34,26 @@ fn main() {
 
     let (mut glfw, mut window, events) = init_open_gl(1000, 800, true, true);
 
-    let rect_shader = Shader::new_from_name(&ShaderName::Rect).unwrap();
-    let text_shader = Shader::new_from_name(&ShaderName::Text).unwrap();
-    let line_shader = Shader::new_from_name(&ShaderName::Line).unwrap();
-    let sprite_shader = Shader::new_from_name(&ShaderName::Sprite).unwrap();
+    let rect_shader = Shader::new_from_name(&ShaderName::Rect)?;
+    let text_shader = Shader::new_from_name(&ShaderName::Text)?;
+    let line_shader = Shader::new_from_name(&ShaderName::Line)?;
+    let sprite_shader = Shader::new_from_name(&ShaderName::Sprite)?;
+    let graph_shader = Shader::new_from_name(&ShaderName::Graph)?;
 
     let rect_r = RectRenderer::new(rect_shader);
     let text_r = TextRenderer::new(
         text_shader,
-        &PathBuf::from_str("assets/fonts/LiberationMono.ttf").unwrap(),
+        &PathBuf::from_str("assets/fonts/LiberationMono.ttf")?,
     )
     .unwrap();
     let line_r = LineRenderer::new(line_shader);
     let sprite_r = SpriteRenderer::new(Shader::empty(), SpriteAtlas::empty());
+    let graph_r = GraphRenderer::new(
+        graph_shader,
+        Vector::new(window.get_size().0, window.get_size().1),
+    );
 
-    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, App::new());
+    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, graph_r, App::new());
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
@@ -109,14 +116,6 @@ fn main() {
         }
         state.render();
 
-        state.line_r.draw(
-            Vector::new(100.0, 100.0),
-            Vector::new(400.0, 400.0),
-            COLOR_DANGER,
-            10.0,
-            Vector::new(state.width as f32, state.height as f32),
-        );
-
         window.swap_buffers();
     }
 
@@ -127,4 +126,6 @@ fn main() {
     glfw::make_context_current(None);
     // Segfaults due to bug in glfw with wayland
     std::mem::forget(window);
+
+    Ok(())
 }

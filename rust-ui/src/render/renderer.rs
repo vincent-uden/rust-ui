@@ -17,6 +17,7 @@ use crate::{
     geometry::Vector,
     render::{
         Border, COLOR_LIGHT, Color, Text,
+        graph::GraphRenderer,
         line::LineRenderer,
         rect::RectRenderer,
         sprite::{SpriteKey, SpriteRenderer},
@@ -210,6 +211,7 @@ where
     pub text_r: TextRenderer,
     pub line_r: LineRenderer,
     pub sprite_r: SpriteRenderer<T::SpriteKey>,
+    pub graph_r: GraphRenderer,
     /// Event listeners which have been triggered and are waiting to be called
     pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
@@ -241,6 +243,7 @@ where
         text_renderer: TextRenderer,
         line_renderer: LineRenderer,
         sprite_renderer: SpriteRenderer<T::SpriteKey>,
+        graph_renderer: GraphRenderer,
         initial_state: T,
     ) -> Self {
         Self {
@@ -260,6 +263,7 @@ where
             text_r: text_renderer,
             line_r: line_renderer,
             sprite_r: sprite_renderer,
+            graph_r: graph_renderer,
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,
