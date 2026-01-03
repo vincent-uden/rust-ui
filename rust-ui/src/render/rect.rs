@@ -23,7 +23,7 @@ pub struct RectRenderer {
 }
 
 #[rustfmt::skip]
-fn vertices() -> Vec<f32> {
+pub fn vertices() -> Vec<f32> {
     vec![
         // pos      // tex
         0.0, 1.0, 0.0, 1.0,

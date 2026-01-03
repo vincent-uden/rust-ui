@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ffi::c_void, path::Path};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
 use string_cache::DefaultAtom;

@@ -8,6 +8,7 @@ struct LineVertex {
     pub position: [f32; 3],
 }
 
+/// Draws primitive lines within a 3D space. Can also be used to draw 2D lines.
 #[derive(Debug)]
 pub struct LineRenderer {
     pub shader: Shader,
