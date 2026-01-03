@@ -2,8 +2,10 @@ use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use glfw::Context;
 use rust_ui::{
+    geometry::Vector,
     init_open_gl,
     render::{
+        COLOR_DANGER,
         line::LineRenderer,
         rect::RectRenderer,
         renderer::Renderer,
@@ -106,6 +108,15 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         state.render();
+
+        state.line_r.draw(
+            Vector::new(100.0, 100.0),
+            Vector::new(400.0, 400.0),
+            COLOR_DANGER,
+            10.0,
+            Vector::new(state.width as f32, state.height as f32),
+        );
+
         window.swap_buffers();
     }
 

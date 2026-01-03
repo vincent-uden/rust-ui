@@ -2,10 +2,19 @@ use std::ffi::c_void;
 
 use gl::types::GLuint;
 
-use crate::{geometry::Vector, render::rect::vertices, shader::Shader};
+use crate::{
+    geometry::{Rect, Vector},
+    render::rect::vertices,
+    shader::Shader,
+};
 use anyhow::{Result, anyhow};
 
-const MAX_TRACES: usize = 20;
+const MAX_TRACES: i32 = 20;
+
+#[derive(Debug)]
+pub enum Interpolation {
+    Linear,
+}
 
 /// Renders a line graph onto a single quad somehwere on the screen.
 #[derive(Debug)]
@@ -16,12 +25,14 @@ pub struct GraphRenderer {
     texture_id: GLuint,
     /// The texture will be roughly window_width*MAX_TRACES in size
     texture_size: Vector<i32>,
+    /// The actual dimensions on the screen
+    graph_size: Vector<f32>,
 }
 
 impl GraphRenderer {
     /// Creates a new graph renderer. For now we'll assume a graph can't be bigger than the screen.
     /// If it is it will be interpolated in the shader.
-    pub fn new(shader: Shader, window_size: Vector<i32>) -> Result<Self> {
+    pub fn new(shader: Shader, window_size: Vector<i32>) -> Self {
         let mut quad_vao = 0;
         let mut quad_vbo = 0;
         let quad_vertices = vertices();
@@ -63,9 +74,9 @@ impl GraphRenderer {
                 0,
                 gl::RED as i32,
                 window_size.x,
-                window_size.y,
+                MAX_TRACES,
                 0,
-                gl::RED,
+                gl::RED, // Single channel texture
                 gl::FLOAT,
                 std::ptr::null(),
             );
@@ -73,14 +84,34 @@ impl GraphRenderer {
             // here
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
-        Ok(Self {
+        Self {
             shader,
             quad_vao,
             quad_vbo,
             texture_id,
             texture_size: window_size,
-        })
+            graph_size: Vector::zero(),
+        }
+    }
+
+    /// Takes a [Vec] of points representing a line graph. We want to draw some subset of the line
+    /// graph (or a zoomed out view containing the entire graph), this is controlled by [limits].
+    fn bind_graph(
+        &mut self,
+        points: &[Vector<f32>],
+        limits: Rect<f32>,
+        interpolation: Interpolation,
+        graph_size: Vector<f32>,
+        channel: usize,
+    ) {
+        // - Determine which points are in the visible x-range (and just outside, since they're
+        //   needed for interpolation)
+        // - Calculate a height (by interpolation) for every pixel in the visual graph_size
+        // - Store these heights on the channel-th channel of the texture
+        // - Then (outside the scope of this function) a shader will draw the line graph
+        todo!()
     }
 }
