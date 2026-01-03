@@ -1,7 +1,5 @@
-use smol_str::SmolStr;
-
-pub mod batch_2d_line;
 pub mod circle;
+pub mod graph;
 pub mod line;
 pub mod mesh;
 pub mod point;

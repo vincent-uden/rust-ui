@@ -27,6 +27,8 @@ pub struct GraphRenderer {
     texture_size: Vector<i32>,
     /// The actual dimensions on the screen
     graph_size: Vector<f32>,
+    limits: [Rect<f32>; MAX_TRACES as usize],
+    active_traces: usize,
 }
 
 impl GraphRenderer {
@@ -94,6 +96,8 @@ impl GraphRenderer {
             texture_id,
             texture_size: window_size,
             graph_size: Vector::zero(),
+            limits: [Rect::default(); 20],
+            active_traces: 0,
         }
     }
 
@@ -112,6 +116,29 @@ impl GraphRenderer {
         // - Calculate a height (by interpolation) for every pixel in the visual graph_size
         // - Store these heights on the channel-th channel of the texture
         // - Then (outside the scope of this function) a shader will draw the line graph
-        todo!()
+        //
+        // To start off, I will just draw a flat line
+        let mut fake_buffer: Vec<f32> = vec![];
+        for _ in 0..self.texture_size.x {
+            fake_buffer.push(1.0)
+        }
+        self.active_traces = 1;
+        self.limits[channel] = limits;
+
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                0,
+                channel as i32,
+                fake_buffer.len() as i32,
+                1,
+                gl::RED,
+                gl::FLOAT,
+                fake_buffer.as_ptr() as *const c_void,
+            );
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
     }
 }

@@ -81,6 +81,7 @@ pub enum ShaderName {
     Mesh,
     Sprite,
     Pick,
+    Graph,
 }
 
 impl ShaderName {
@@ -93,6 +94,7 @@ impl ShaderName {
             ShaderName::Mesh => Self::to_paths("mesh"),
             ShaderName::Sprite => Self::to_paths("sprite"),
             ShaderName::Pick => Self::to_paths("picking"),
+            ShaderName::Graph => Self::to_paths("graph"),
         }
     }
 
