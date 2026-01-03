@@ -14,10 +14,10 @@ use string_cache::DefaultAtom;
 use tracing::debug;
 
 use crate::{
-    geometry::Vector,
+    geometry::{Rect, Vector},
     render::{
-        Border, COLOR_LIGHT, Color, Text,
-        graph::GraphRenderer,
+        Border, COLOR_DANGER, COLOR_LIGHT, Color, Text,
+        graph::{GraphRenderer, Interpolation},
         line::LineRenderer,
         rect::RectRenderer,
         sprite::{SpriteKey, SpriteRenderer},
@@ -28,7 +28,7 @@ use crate::{
 };
 use taffy::prelude::*;
 
-type Flag = u8;
+type Flag = u16;
 
 #[cfg_attr(any(), rustfmt::skip)]
 pub mod flags {
@@ -46,6 +46,8 @@ pub mod flags {
     pub const TEXT_SCROLL: Flag          = 1 << 6;
     /// Force text onto a single line (no wrapping). Not compatible with [EXPLICIT_TEXT_LAYOUT]
     pub const TEXT_SINGLE_LINE: Flag     = 1 << 7;
+    /// Should the rectangle be used to render a (line) graph
+    pub const GRAPH: Flag                = 1 << 8;
 }
 
 // TODO: Investigate if this can be changed to an FnOnce somehow
@@ -703,6 +705,16 @@ where
 
             // Drawing
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
+            if ctx.flags & flags::GRAPH != 0 {
+                self.graph_r.bind_graph(
+                    &[],
+                    Rect::from_points(Vector::zero(), Vector::new(1.0, 1.0)),
+                    Interpolation::Linear,
+                    layout.size.into(),
+                    0,
+                );
+                self.graph_r.draw(0, bbox, COLOR_DANGER, COLOR_DANGER, 1.0);
+            }
 
             if ctx.flags & flags::TEXT != 0 {
                 let mut text_pos = Vector::new(

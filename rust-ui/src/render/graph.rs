@@ -4,7 +4,7 @@ use gl::types::GLuint;
 
 use crate::{
     geometry::{Rect, Vector},
-    render::rect::vertices,
+    render::{Color, rect::vertices},
     shader::Shader,
 };
 use anyhow::{Result, anyhow};
@@ -103,7 +103,7 @@ impl GraphRenderer {
 
     /// Takes a [Vec] of points representing a line graph. We want to draw some subset of the line
     /// graph (or a zoomed out view containing the entire graph), this is controlled by [limits].
-    fn bind_graph(
+    pub fn bind_graph(
         &mut self,
         points: &[Vector<f32>],
         limits: Rect<f32>,
@@ -139,6 +139,49 @@ impl GraphRenderer {
                 fake_buffer.as_ptr() as *const c_void,
             );
             gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+    }
+
+    pub fn draw(
+        &self,
+        channel: i32,
+        rect: Rect<f32>,
+        bg_color: Color,
+        trace_color: Color,
+        edge_softness: f32,
+    ) {
+        if bg_color == Color::new(0.0, 0.0, 0.0, 0.0) {
+            return;
+        }
+        self.shader.use_shader();
+        let mut model = glm::Mat4::identity();
+        model *= &glm::translation(&glm::Vec3::new(-0.5, -0.5, 0.0));
+        let mut scale = glm::make_vec3(&[1.0, 1.0, 1.0]);
+        scale.x = rect.size().x + edge_softness * 2.0;
+        scale.y = rect.size().y + edge_softness * 2.0;
+        model = glm::scale(&model, &scale);
+        model = glm::translate(&model, &glm::Vec3::new(0.5, 0.5, 0.0).component_div(&scale));
+        model = glm::translate(
+            &model,
+            &glm::Vec3::new(rect.x0.x, rect.x0.y, 0.0).component_div(&scale),
+        );
+        model = glm::translate(
+            &model,
+            &glm::Vec3::new(-edge_softness, -edge_softness, 0.0).component_div(&scale),
+        );
+        self.shader.set_uniform("model", &model);
+        let bg_color_vec = glm::make_vec4(&[bg_color.r, bg_color.g, bg_color.b, bg_color.a]);
+        self.shader.set_uniform("bgColor", &bg_color_vec);
+        let trace_color_vec =
+            glm::make_vec4(&[trace_color.r, trace_color.g, trace_color.b, trace_color.a]);
+        self.shader.set_uniform("traceColor", &trace_color_vec);
+        let rect_size = glm::Vec2::new(rect.width(), rect.height());
+        self.shader.set_uniform("size", &rect_size);
+
+        unsafe {
+            gl::BindVertexArray(self.quad_vao);
+            gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            gl::BindVertexArray(0);
         }
     }
 }

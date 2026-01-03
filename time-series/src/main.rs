@@ -67,6 +67,9 @@ fn main() -> Result<()> {
     sprite_shader.use_shader();
     sprite_shader.set_uniform("projection", &projection);
 
+    graph_shader.use_shader();
+    graph_shader.set_uniform("projection", &projection);
+
     while !window.should_close() {
         glfw.poll_events();
         state.pre_update();
@@ -110,6 +113,9 @@ fn main() -> Result<()> {
 
         sprite_shader.use_shader();
         sprite_shader.set_uniform("projection", &projection);
+
+        graph_shader.use_shader();
+        graph_shader.set_uniform("projection", &projection);
         unsafe {
             gl::ClearColor(0.2, 0.2, 0.2, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);

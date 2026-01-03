@@ -216,4 +216,12 @@ where
         let mut state = self.state.borrow_mut();
         state.retain(|_, v| v.last_touched >= (self.frame - 1));
     }
+
+    pub fn mutate_context<F>(&self, id: NodeId, f: F)
+    where
+        F: FnOnce(&mut NodeContext<T>),
+    {
+        let mut tree = self.tree.borrow_mut();
+        tree.get_node_context_mut(id).map(f);
+    }
 }

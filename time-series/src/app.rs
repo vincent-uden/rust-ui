@@ -7,7 +7,7 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
-        renderer::{AppState, RenderLayout},
+        renderer::{AppState, RenderLayout, flags},
         widgets::{DefaultAtom, UiBuilder, UiData, text_field::TextFieldData},
     },
 };
@@ -77,16 +77,20 @@ impl App {
     }
 
     pub fn base_layer(&self, window_size: Vector<f32>, ui: &UiBuilder<Self>) -> RenderLayout<Self> {
+        let graph_holder = ui.div("w-full h-full bg-slate-900", &[]);
         #[cfg_attr(any(), rustfmt::skip)]
         let root = ui.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
             ui.div("flex-row", &[
                 ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
-                ui.div("w-full h-full bg-slate-900", &[]),
+                graph_holder,
                 self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),
         ]);
+        ui.mutate_context(graph_holder, |ctx| {
+            ctx.flags |= flags::GRAPH;
+        });
 
         RenderLayout {
             tree: ui.tree(),
