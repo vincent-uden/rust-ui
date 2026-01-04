@@ -708,7 +708,7 @@ where
             if ctx.flags & flags::GRAPH != 0 {
                 self.graph_r.bind_graph(
                     &[],
-                    Rect::from_points(Vector::zero(), Vector::new(1.0, 1.0)),
+                    Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
                     Interpolation::Linear,
                     layout.size.into(),
                     0,

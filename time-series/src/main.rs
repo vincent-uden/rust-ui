@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         .with_env_filter(EnvFilter::new("time_series,rust_ui"))
         .init();
 
-    let (mut glfw, mut window, events) = init_open_gl(1000, 800, true, true);
+    let (mut glfw, mut window, events) = init_open_gl(1600, 900, true, true);
 
     let rect_shader = Shader::new_from_name(&ShaderName::Rect)?;
     let text_shader = Shader::new_from_name(&ShaderName::Text)?;

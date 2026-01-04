@@ -1,6 +1,8 @@
+use core::f32;
 use std::ffi::c_void;
 
 use gl::types::GLuint;
+use tracing::info;
 
 use crate::{
     geometry::{Rect, Vector},
@@ -9,7 +11,7 @@ use crate::{
 };
 use anyhow::{Result, anyhow};
 
-const MAX_TRACES: i32 = 20;
+const MAX_TRACES: i32 = 10;
 
 #[derive(Debug)]
 pub enum Interpolation {
@@ -72,9 +74,9 @@ impl GraphRenderer {
             gl::GenTextures(1, &mut texture_id);
             gl::BindTexture(gl::TEXTURE_2D, texture_id);
             gl::TexImage2D(
-                gl::TEXTURE,
+                gl::TEXTURE_2D,
                 0,
-                gl::RED as i32,
+                gl::R32F as i32,
                 window_size.x,
                 MAX_TRACES,
                 0,
@@ -84,6 +86,8 @@ impl GraphRenderer {
             );
             // Interpolation parameters lifted from font rendering. Perhaps i want something else
             // here
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
             gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -96,7 +100,7 @@ impl GraphRenderer {
             texture_id,
             texture_size: window_size,
             graph_size: Vector::zero(),
-            limits: [Rect::default(); 20],
+            limits: [Rect::default(); MAX_TRACES as usize],
             active_traces: 0,
         }
     }
@@ -119,8 +123,17 @@ impl GraphRenderer {
         //
         // To start off, I will just draw a flat line
         let mut fake_buffer: Vec<f32> = vec![];
-        for _ in 0..self.texture_size.x {
-            fake_buffer.push(1.0)
+        for i in 0..self.texture_size.x {
+            let x: f32 = (i as f32) / (self.texture_size.x as f32) * f32::consts::TAU;
+            fake_buffer.push((x * 5.0).sin());
+        }
+        for _ in 2..MAX_TRACES {
+            for _ in 0..self.texture_size.x {
+                fake_buffer.push(0.0)
+            }
+        }
+        for i in 0..self.texture_size.x {
+            fake_buffer.push((i as f32) / (self.texture_size.x as f32))
         }
         self.active_traces = 1;
         self.limits[channel] = limits;
@@ -132,8 +145,8 @@ impl GraphRenderer {
                 0,
                 0,
                 channel as i32,
-                fake_buffer.len() as i32,
-                1,
+                fake_buffer.len() as i32 / MAX_TRACES,
+                MAX_TRACES,
                 gl::RED,
                 gl::FLOAT,
                 fake_buffer.as_ptr() as *const c_void,
@@ -177,11 +190,23 @@ impl GraphRenderer {
         self.shader.set_uniform("traceColor", &trace_color_vec);
         let rect_size = glm::Vec2::new(rect.width(), rect.height());
         self.shader.set_uniform("size", &rect_size);
+        self.shader.set_uniform("text", &0);
+        self.shader.set_uniform("maxTraces", &(MAX_TRACES as f32));
+        let limits = self.limits[channel as usize];
+        self.shader.set_uniform(
+            "limits",
+            &glm::vec4(limits.x0.x, limits.x0.y, limits.x1.x, limits.x1.y),
+        );
 
         unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
+
             gl::BindVertexArray(self.quad_vao);
             gl::DrawArrays(gl::TRIANGLES, 0, 6);
             gl::BindVertexArray(0);
+
+            gl::BindTexture(gl::TEXTURE_2D, 0);
         }
     }
 }
