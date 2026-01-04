@@ -193,10 +193,8 @@ impl GraphRenderer {
         self.shader.set_uniform("text", &0);
         self.shader.set_uniform("maxTraces", &(MAX_TRACES as f32));
         let limits = self.limits[channel as usize];
-        self.shader.set_uniform(
-            "limits",
-            &glm::vec4(limits.x0.x, limits.x0.y, limits.x1.x, limits.x1.y),
-        );
+        self.shader
+            .set_uniform("yLimits", &glm::vec2(limits.x0.y, limits.x1.y));
 
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
