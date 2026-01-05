@@ -48,18 +48,19 @@ float distanceToLine(vec2 a, vec2 b, vec2 p) {
 }
 
 void main() {
+    int channel = 1;
     vec2 coord = uvToScreenSpace(fragCoord);
     float dist = lineHalfWidth + 1.0;
-    vec2 previousPoint = vec2(coord.x - lineHalfWidth, heightSS(coord.x - lineHalfWidth, 0));
+    vec2 previousPoint = vec2(coord.x - lineHalfWidth, heightSS(coord.x - lineHalfWidth, channel));
 
-    for (float i = -loopBound + 1.; i <= loopBound; i += 1.) {
-        vec2 currentPoint = vec2(coord.x + i, heightSS(coord.x + i, 0));
+    for (float i = -loopBound + 1.; i <= loopBound; i += 1.0) {
+        vec2 currentPoint = vec2(coord.x + i, heightSS(coord.x + i, channel));
         dist = min(dist, distanceToLine(previousPoint, currentPoint, coord));
         previousPoint = currentPoint;
     }
 
     float alpha = clamp(lineHalfWidth + 0.5 - dist, 0., 1.);
-    if (coord.y > heightSS(coord.x, 0)) alpha = max(alpha, 0.3);
+    if (coord.y > heightSS(coord.x, channel)) alpha = max(alpha, 0.3);
 
     color = vec4(1.0, 0.0, 0.0, alpha);
 }
