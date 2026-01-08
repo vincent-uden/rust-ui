@@ -52,6 +52,8 @@ impl<T> GraphWidgetBuilder<T> for UiBuilder<T>
 where
     T: AppState,
 {
+    // TODO: Take some reference to data here, store some kinda cache in state which can be used to
+    // render
     fn graph_time_series(&self, style: &str, id: DefaultAtom) -> NodeId {
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
