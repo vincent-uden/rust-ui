@@ -60,7 +60,7 @@ void main() {
     }
 
     float alpha = clamp(lineHalfWidth + 0.5 - dist, 0., 1.);
-    if (coord.y > heightSS(coord.x, channel)) alpha = max(alpha, 0.3);
+    if (coord.y > heightSS(coord.x, channel)) alpha = max(alpha, mix(0.0, 0.3, 1.0 - fragCoord.y));
 
     color = vec4(1.0, 0.0, 0.0, alpha);
 }

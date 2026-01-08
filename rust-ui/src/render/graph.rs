@@ -13,9 +13,47 @@ use anyhow::{Result, anyhow};
 
 const MAX_TRACES: i32 = 10;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Interpolation {
     Linear,
+}
+
+impl Interpolation {
+    /// Returns the amount of pixels that could be samples from `points`. The return value will
+    /// equal `n` if `points[0] <= limits.x0.x && points[points.len()-1] >= limits.x1.x`.
+    /// Otherwise fewer points than `n` will be returned. `out` is assumed to be at least `n` long.
+    fn interpolate(
+        &self,
+        points: &[Vector<f32>],
+        limits: Rect<f32>,
+        n: usize,
+        out: &mut [f32],
+    ) -> usize {
+        if points.is_empty() {
+            return 0;
+        }
+        let mut x = limits.x0.x;
+        let mut i = 0;
+        let mut j = 0;
+        let dx = limits.width() / (n as f32);
+
+        while x < limits.x1.x && i < (points.len() - 1) && j < n {
+            match self {
+                Interpolation::Linear => {
+                    let delta = points[i + 1] - points[i];
+                    out[j] = points[i].y + delta.y * (x - points[i].x);
+                }
+            }
+
+            x += dx;
+            j += 1;
+            while x > points[i + 1].x && i < (points.len() - 1) {
+                i += 1;
+            }
+        }
+
+        i
+    }
 }
 
 /// Renders a line graph onto a single quad somehwere on the screen.
@@ -124,22 +162,17 @@ impl GraphRenderer {
         //
         // To start off, I will just draw a flat line
         let mut fake_buffer: Vec<f32> = vec![];
-        for i in 0..self.texture_size.x {
-            let x: f32 = (i as f32) / (self.texture_size.x as f32) * f32::consts::TAU;
-            fake_buffer.push((x * 5.0).sin());
-        }
-        for _ in 2..MAX_TRACES {
-            for _ in 0..self.texture_size.x {
-                fake_buffer.push(0.0)
-            }
-        }
-        for i in 0..self.texture_size.x {
-            fake_buffer.push((i as f32) / (self.texture_size.x as f32))
-        }
+        fake_buffer.resize((self.texture_size.x * MAX_TRACES) as usize, 0.0);
         self.active_traces = 1;
         self.limits[channel] = limits;
 
-        let (lower_idx, upper_i) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
+        let (lower_idx, upper_idx) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
+        interpolation.interpolate(
+            &points[lower_idx..upper_idx],
+            limits,
+            graph_size.x as usize,
+            &mut fake_buffer[0..(self.texture_size.x as usize)],
+        );
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
