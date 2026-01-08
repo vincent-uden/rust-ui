@@ -145,7 +145,6 @@ impl GraphRenderer {
 
     /// Takes a [Vec] of points representing a line graph. We want to draw some subset of the line
     /// graph (or a zoomed out view containing the entire graph), this is controlled by [limits].
-    /// Params:
     pub fn bind_graph(
         &mut self,
         points: &[Vector<f32>], // data domain, sorted along the x axis

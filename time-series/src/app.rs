@@ -4,6 +4,7 @@ use glfw::Action;
 use modes::{Config, ModeStack};
 use rust_ui::{
     geometry::Vector,
+    id,
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
@@ -14,9 +15,12 @@ use rust_ui::{
 use strum::EnumString;
 use tracing::{debug, error};
 
-use crate::pipeline::{
-    StepConfig,
-    ui::{DataSource, Pipeline, PipelineManagerUi},
+use crate::{
+    graph_widget::GraphWidgetBuilder,
+    pipeline::{
+        StepConfig,
+        ui::{DataSource, Pipeline, PipelineManagerUi},
+    },
 };
 
 #[derive(EnumString, Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -77,20 +81,16 @@ impl App {
     }
 
     pub fn base_layer(&self, window_size: Vector<f32>, ui: &UiBuilder<Self>) -> RenderLayout<Self> {
-        let graph_holder = ui.div("w-full h-full bg-slate-900", &[]);
         #[cfg_attr(any(), rustfmt::skip)]
         let root = ui.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
             ui.div("flex-row", &[
                 ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
-                graph_holder,
+                ui.graph_time_series("w-full h-full bg-slate-900", id!("main_graph")),
                 self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),
         ]);
-        ui.mutate_context(graph_holder, |ctx| {
-            ctx.flags |= flags::GRAPH;
-        });
 
         RenderLayout {
             tree: ui.tree(),

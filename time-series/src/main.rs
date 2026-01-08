@@ -21,6 +21,7 @@ use tracing_subscriber::EnvFilter;
 use crate::app::App;
 
 mod app;
+mod graph_widget;
 mod pipeline;
 
 const TARGET_FPS: u64 = 60;

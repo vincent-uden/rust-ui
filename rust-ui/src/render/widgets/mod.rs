@@ -76,8 +76,8 @@ where
 {
     /// The current frame number. Must be updated by the program running the [UiBuilder]
     pub frame: usize,
-    tree: RefCell<TaffyTree<NodeContext<T>>>,
-    state: RefCell<HashMap<DefaultAtom, UiState<T>>>,
+    pub tree: RefCell<TaffyTree<NodeContext<T>>>,
+    pub state: RefCell<HashMap<DefaultAtom, UiState<T>>>,
 }
 
 impl<T> UiBuilder<T>
