@@ -107,12 +107,13 @@ impl GraphRenderer {
 
     /// Takes a [Vec] of points representing a line graph. We want to draw some subset of the line
     /// graph (or a zoomed out view containing the entire graph), this is controlled by [limits].
+    /// Params:
     pub fn bind_graph(
         &mut self,
-        points: &[Vector<f32>],
-        limits: Rect<f32>,
+        points: &[Vector<f32>], // data domain, sorted along the x axis
+        limits: Rect<f32>,      // data domain
         interpolation: Interpolation,
-        graph_size: Vector<f32>,
+        graph_size: Vector<f32>, // screen domain
         channel: usize,
     ) {
         // - Determine which points are in the visible x-range (and just outside, since they're
@@ -137,6 +138,8 @@ impl GraphRenderer {
         }
         self.active_traces = 1;
         self.limits[channel] = limits;
+
+        let (lower_idx, upper_i) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
@@ -206,5 +209,77 @@ impl GraphRenderer {
 
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
+    }
+}
+
+/// Finds the smallest sub-set of `points` that spans (`min_x`, `max_x`) if possible. Returns (0,
+/// points.len() - 1) if `points` contains a data range smaller than (`min_x`, `max_x`).
+fn binary_search_for_limits(points: &[Vector<f32>], min_x: f32, max_x: f32) -> (usize, usize) {
+    const EPSILON: f32 = 1e-6;
+    if points.is_empty() {
+        return (0, 0);
+    }
+    let left = points.partition_point(|p| p.x < min_x - EPSILON);
+    let right = points
+        .partition_point(|p| p.x <= max_x + EPSILON)
+        .saturating_sub(1);
+    if left <= right && points[left].x <= min_x + EPSILON && points[right].x >= max_x - EPSILON {
+        (left, right)
+    } else {
+        (0, points.len() - 1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::Vector;
+
+    #[test]
+    fn test_single_point_inside_range() {
+        let points = vec![Vector::new(0.5, 1.0)];
+        assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 0));
+    }
+
+    #[test]
+    fn test_points_at_exact_min_max() {
+        let points = vec![Vector::new(0.0, 1.0), Vector::new(1.0, 2.0)];
+        assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 1));
+    }
+
+    #[test]
+    fn test_points_near_edges_with_epsilon() {
+        let points = vec![Vector::new(0.000001, 1.0), Vector::new(0.999999, 2.0)];
+        assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 1));
+    }
+
+    #[test]
+    fn test_subset_in_middle() {
+        let points = vec![
+            Vector::new(-1.0, 0.0),
+            Vector::new(0.5, 1.0),
+            Vector::new(1.5, 2.0),
+        ];
+        assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 2));
+    }
+
+    #[test]
+    fn test_full_range_covered() {
+        let points = vec![
+            Vector::new(0.0, 0.0),
+            Vector::new(0.5, 1.0),
+            Vector::new(1.0, 2.0),
+        ];
+        assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 2));
+    }
+
+    #[test]
+    fn test_partial_coverage_fallback() {
+        let points = vec![
+            Vector::new(0.0, 0.0),
+            Vector::new(0.5, 1.0),
+            Vector::new(1.0, 2.0),
+        ];
+        assert_eq!(binary_search_for_limits(&points, -10.0, 10.0), (0, 2));
     }
 }
