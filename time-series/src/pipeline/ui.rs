@@ -1,12 +1,14 @@
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
+    rc::Rc,
     sync::Arc,
 };
 
 use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
+    geometry::Vector,
     id,
     render::{
         COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
@@ -74,6 +76,7 @@ pub struct PipelineManagerUi {
     pub selected_source: Option<usize>,
     pub pipelines: Vec<Pipeline>,
     pub outputs: Vec<PipelineIntermediate>,
+    pub as_points: Rc<RefCell<Vec<Vec<Vector<f32>>>>>,
 }
 
 impl PipelineManagerUi {
@@ -83,6 +86,7 @@ impl PipelineManagerUi {
             selected_source: None,
             pipelines: Vec::new(),
             outputs: Vec::new(),
+            as_points: Rc::new(RefCell::new(Vec::new())),
         }
     }
 

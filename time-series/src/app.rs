@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell, str::FromStr, sync::Arc};
+use std::{any::Any, cell::RefCell, rc::Rc, str::FromStr, sync::Arc};
 
 use glfw::Action;
 use modes::{Config, ModeStack};
@@ -87,7 +87,7 @@ impl App {
                 ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
-                ui.graph_time_series("w-full h-full bg-slate-900", id!("main_graph")),
+                ui.graph_time_series("w-full h-full bg-slate-900", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
                 self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),
         ]);

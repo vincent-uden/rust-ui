@@ -4,6 +4,7 @@ use std::{
     borrow::Borrow,
     cell::{RefCell, RefMut},
     collections::HashMap,
+    rc::Weak,
     sync::{Arc, Mutex},
 };
 
@@ -81,6 +82,8 @@ where
     // Persistent state
     pub persistent_id: Option<DefaultAtom>,
     pub cursor_idx: Option<usize>,
+    // Move somewhere else? Can we simplify this in any way?
+    pub graph_data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
 }
 
 impl<T> Default for NodeContext<T>
@@ -108,6 +111,7 @@ where
             scissor: Default::default(),
             persistent_id: Default::default(),
             cursor_idx: Default::default(),
+            graph_data: Default::default(),
         }
     }
 }
@@ -706,13 +710,25 @@ where
             // Drawing
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
             if ctx.flags & flags::GRAPH != 0 {
-                self.graph_r.bind_graph(
-                    &[],
-                    Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
-                    Interpolation::Linear,
-                    layout.size.into(),
-                    0,
-                );
+                if let Some(rc) = ctx.graph_data.upgrade() {
+                    let points = (*rc).borrow();
+                    // TODO: Loop over traces
+                    self.graph_r.bind_graph(
+                        &points[0],
+                        Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
+                        Interpolation::Linear,
+                        layout.size.into(),
+                        0,
+                    );
+                } else {
+                    self.graph_r.bind_graph(
+                        &[],
+                        Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
+                        Interpolation::Linear,
+                        layout.size.into(),
+                        0,
+                    );
+                }
                 self.graph_r.draw(0, bbox, COLOR_DANGER, COLOR_DANGER, 1.0);
             }
 

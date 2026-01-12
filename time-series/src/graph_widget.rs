@@ -1,6 +1,7 @@
-use std::{fmt, marker::PhantomData};
+use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak};
 
 use rust_ui::{
+    geometry::Vector,
     render::{
         renderer::{AppState, flags},
         widgets::{DefaultAtom, UiBuilder, UiData},
@@ -45,25 +46,34 @@ pub trait GraphWidgetBuilder<T>
 where
     T: AppState,
 {
-    fn graph_time_series(&self, style: &str, id: DefaultAtom) -> NodeId;
+    fn graph_time_series(
+        &self,
+        style: &str,
+        id: DefaultAtom,
+        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    ) -> NodeId;
 }
 
 impl<T> GraphWidgetBuilder<T> for UiBuilder<T>
 where
     T: AppState,
 {
-    // TODO: Take some reference to data here, store some kinda cache in state which can be used to
-    // render
-    fn graph_time_series(&self, style: &str, id: DefaultAtom) -> NodeId {
+    fn graph_time_series(
+        &self,
+        style: &str,
+        id: DefaultAtom,
+        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    ) -> NodeId {
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
             None => self.insert_state(id.clone(), GraphWidgetData::<T>::default()),
         };
         let mut guard = binding.data.lock().unwrap();
-        let state: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
+        let _state: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
 
         let (style, mut context) = parse_style::<T>(style);
         context.flags |= flags::GRAPH;
+        context.graph_data = data;
 
         self.tree
             .borrow_mut()
