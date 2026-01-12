@@ -367,5 +367,22 @@ impl PipelineManagerUi {
                 }
             }
         }
+        let mut as_points = self.as_points.borrow_mut();
+        as_points.clear();
+        for output in &self.outputs {
+            match output {
+                PipelineIntermediate::Signal(records) => {
+                    as_points.push(
+                        records
+                            .iter()
+                            .map(|r| Vector::new(r.x as f32, r.y as f32))
+                            .collect(),
+                    );
+                }
+                PipelineIntermediate::Complex(_) | PipelineIntermediate::DataFrame(_) => {
+                    as_points.push(Vec::new());
+                }
+            }
+        }
     }
 }

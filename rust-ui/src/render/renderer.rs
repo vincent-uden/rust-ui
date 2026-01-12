@@ -711,15 +711,17 @@ where
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
             if ctx.flags & flags::GRAPH != 0 {
                 if let Some(rc) = ctx.graph_data.upgrade() {
-                    let points = (*rc).borrow();
                     // TODO: Loop over traces
-                    self.graph_r.bind_graph(
-                        &points[0],
-                        Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
-                        Interpolation::Linear,
-                        layout.size.into(),
-                        0,
-                    );
+                    let points = (*rc).borrow();
+                    if !points.is_empty() {
+                        self.graph_r.bind_graph(
+                            &points[0],
+                            Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
+                            Interpolation::Linear,
+                            layout.size.into(),
+                            0,
+                        );
+                    }
                 } else {
                     self.graph_r.bind_graph(
                         &[],

@@ -37,7 +37,7 @@ impl Interpolation {
         let mut j = 0;
         let dx = limits.width() / (n as f32);
 
-        while x < limits.x1.x && i < (points.len() - 1) && j < n {
+        while x < limits.x1.x && i < (points.len() - 1) && j < n && j < out.len() {
             match self {
                 Interpolation::Linear => {
                     let delta = points[i + 1] - points[i];
