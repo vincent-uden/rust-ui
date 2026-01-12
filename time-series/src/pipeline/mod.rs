@@ -1,7 +1,13 @@
 use anyhow::{Result, anyhow};
 use rustfft::num_complex::Complex;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, hash::Hash, io::BufReader, path::Path};
+use std::{
+    fs::File,
+    hash::Hash,
+    io::{Cursor, Read},
+    path::Path,
+    str::FromStr,
+};
 use strum::{Display, EnumString};
 
 pub mod processing;
@@ -35,10 +41,17 @@ pub struct DataFrame {
 impl DataFrame {
     pub fn from_path(path: &Path) -> Result<Self> {
         let file = File::open(path).map_err(|_| anyhow!("Error opening file"))?;
-        let reader = BufReader::new(file);
+        Self::from_reader(file)
+    }
+
+    pub fn from_reader<R: Read>(mut reader: R) -> Result<Self> {
+        let mut contents = String::new();
+        reader.read_to_string(&mut contents)?;
+
         let mut rdr = csv::ReaderBuilder::new()
             .comment(Some(b'#'))
-            .from_reader(reader);
+            .from_reader(contents.as_bytes());
+
         let mut out = DataFrame::default();
         for h in rdr.headers()? {
             out.column_names.push(h.to_string());
@@ -78,6 +91,14 @@ impl DataFrame {
             out.push(Record { x: *x, y: *y });
         }
         out
+    }
+}
+
+impl FromStr for DataFrame {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Self::from_reader(Cursor::new(s))
     }
 }
 
@@ -299,6 +320,32 @@ impl PartialEq for StepConfig {
                 StepConfig::ScaleAxis { axis: _, factor: _ },
             ) => true,
             _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::pipeline::processing::run_pipeline;
+
+    use super::*;
+
+    const SAWTOOTH: &str = include_str!("../../assets/test_csvs/sawtooth.csv");
+
+    #[test]
+    fn extract_coordinates_from_sawtooth() {
+        let pipeline = vec![StepConfig::PickColumns {
+            column_1: 0,
+            column_2: 1,
+        }];
+        let df = DataFrame::from_str(SAWTOOTH).unwrap();
+        match run_pipeline(&pipeline, PipelineIntermediate::DataFrame(df)).unwrap() {
+            PipelineIntermediate::Signal(records) => {
+                assert_eq!(records.len(), 10);
+            }
+            PipelineIntermediate::DataFrame(_) | PipelineIntermediate::Complex(_) => {
+                panic!("Output should be a signal");
+            }
         }
     }
 }

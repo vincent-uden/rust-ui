@@ -5,18 +5,18 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::Vector,
     id,
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
-            text_field::TextFieldBuilder as _,
+            scrollable::ScrollableBuilder as _, text_field::TextFieldBuilder as _, DefaultAtom,
+            UiBuilder,
         },
+        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -25,8 +25,8 @@ use tracing::{error, info};
 use crate::{
     app::App,
     pipeline::{
-        DataFrame, PipelineIntermediate, Record, StepConfig,
         processing::{average, run_pipeline},
+        DataFrame, PipelineIntermediate, Record, StepConfig,
     },
 };
 
