@@ -716,7 +716,7 @@ where
                     if !points.is_empty() {
                         self.graph_r.bind_graph(
                             &points[0],
-                            Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
+                            Rect::from_points(Vector::new(0.0, -1.0), Vector::new(8.0, 1.0)),
                             Interpolation::Linear,
                             layout.size.into(),
                             0,

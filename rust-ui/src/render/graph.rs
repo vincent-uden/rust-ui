@@ -47,7 +47,7 @@ impl Interpolation {
 
             x += dx;
             j += 1;
-            while x > points[i + 1].x && i < (points.len() - 1) {
+            while i < (points.len() - 1) && x > points[i + 1].x && i < (points.len() - 1) {
                 i += 1;
             }
         }
@@ -332,23 +332,26 @@ mod tests {
             Vector::new(8.0, 0.0),
             Vector::new(9.0, 1.0),
         ];
+        // DBG: Limits were too small
         let limits = Rect {
             x0: Vector::new(0.0, -1.0),
-            x1: Vector::new(1.0, 1.0),
+            x1: Vector::new(8.0, 1.0),
         };
         let graph_size = Vector::new(100.0, 20.0);
         let texture_size = Vector::new(100, 20);
         let mut fake_buffer: Vec<f32> = vec![];
         fake_buffer.resize((texture_size.x * MAX_TRACES) as usize, 0.0);
 
+        // DBG: upper-idx is too small
         let (lower_idx, upper_idx) = binary_search_for_limits(&points, limits.x0.x, limits.x1.x);
-        interpolation.interpolate(
+        let points = interpolation.interpolate(
             &points[lower_idx..upper_idx],
             limits,
             graph_size.x as usize,
             &mut fake_buffer[0..(texture_size.x as usize)],
         );
 
+        assert!(points > 0, "There should be interpolated data");
         assert!(
             fake_buffer[1] > fake_buffer[0],
             "The sawtooth function is initially increasing. The interpolation should too"
