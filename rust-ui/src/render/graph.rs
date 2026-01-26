@@ -6,7 +6,7 @@ use tracing::{debug, info};
 
 use crate::{
     geometry::{Rect, Vector},
-    render::{Color, rect::vertices, renderer::visual_log},
+    render::{Color, graph, rect::vertices, renderer::visual_log},
     shader::Shader,
 };
 use anyhow::{Result, anyhow};
@@ -52,7 +52,7 @@ impl Interpolation {
             }
         }
 
-        i
+        j
     }
 }
 
@@ -162,10 +162,9 @@ impl GraphRenderer {
         let count = interpolation.interpolate(
             &points[lower_idx..upper_idx],
             limits,
-            graph_size.x as usize,
+            self.texture_size.x as usize, // The texture stretches to the graph quad automatically, thus we dont need to pass the graph bounds
             &mut fake_buffer[0..(self.texture_size.x as usize)],
         );
-        visual_log("count", format!("{count:?}"));
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
