@@ -168,12 +168,13 @@ impl GraphRenderer {
         let (lower_idx, upper_idx) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
         // DEBUG: The points passed in are correct. But the interpolation results in 0.0 everywhere in fake_buffer
         // The limits are determined correctly for the sawtooth debug function
-        interpolation.interpolate(
+        let count = interpolation.interpolate(
             &points[lower_idx..upper_idx],
             limits,
             graph_size.x as usize,
             &mut fake_buffer[0..(self.texture_size.x as usize)],
         );
+        debug!("Count: {:?}", count);
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);

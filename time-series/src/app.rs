@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell, rc::Rc, str::FromStr, sync::Arc};
+use std::{any::Any, cell::RefCell, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
 
 use glfw::Action;
 use modes::{Config, ModeStack};
@@ -59,15 +59,19 @@ impl App {
         }
     }
 
-    pub fn add_source(&mut self) {
+    pub fn add_source_dialog(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("CSV files", &["csv"])
             .pick_file()
         {
-            if let Ok(source) = DataSource::from_path(path) {
-                self.sources.borrow_mut().push(source.into());
-                self.pipeline_manager.pipelines.push(Pipeline::new());
-            }
+            self.add_source(path);
+        }
+    }
+
+    pub fn add_source(&mut self, path: PathBuf) {
+        if let Ok(source) = DataSource::from_path(path) {
+            self.sources.borrow_mut().push(source.into());
+            self.pipeline_manager.pipelines.push(Pipeline::new());
         }
     }
 
@@ -231,5 +235,24 @@ impl AppState for App {
         if self.focus.is_some() && !self.mode_stack.is_outermost(&AppMode::Typing) {
             self.mode_stack.push(AppMode::Typing);
         }
+    }
+}
+
+/// Test scenarios to speed up debugging
+impl App {
+    pub fn new_with_sawtooth_data_added() -> Self {
+        let mut out = Self::new();
+        out.add_source(
+            PathBuf::from_str("time-series/assets/test_csvs/sawtooth.csv")
+                .expect("sawtooth.csv must exist. Make sure cwd is the rust-ui workspace root"),
+        );
+        out.pipeline_manager.selected_source = Some(0);
+        out.add_step();
+        out.pipeline_manager.pipelines[0].steps[0] = StepConfig::PickColumns {
+            column_1: 0,
+            column_2: 1,
+        };
+        out.pipeline_manager.run();
+        out
     }
 }

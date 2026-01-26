@@ -5,18 +5,18 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::Vector,
     id,
     render::{
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            scrollable::ScrollableBuilder as _, text_field::TextFieldBuilder as _, DefaultAtom,
-            UiBuilder,
+            DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
+            text_field::TextFieldBuilder as _,
         },
-        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -25,8 +25,8 @@ use tracing::{error, info};
 use crate::{
     app::App,
     pipeline::{
-        processing::{average, run_pipeline},
         DataFrame, PipelineIntermediate, Record, StepConfig,
+        processing::{average, run_pipeline},
     },
 };
 
@@ -98,8 +98,7 @@ impl PipelineManagerUi {
             ]),
             b.ui("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Listeners {
                 on_left_mouse_up: Some(Arc::new(|state| {
-                    state.app_state.add_source();
-                    state.app_state.pipeline_manager.pipelines.push(Pipeline::new());
+                    state.app_state.add_source_dialog();
                 })),
                 ..Default::default()
             }, &[

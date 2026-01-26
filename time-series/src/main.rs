@@ -1,6 +1,7 @@
 use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use anyhow::Result;
+use clap::{Parser, arg};
 use glfw::Context;
 use rust_ui::{
     geometry::Vector,
@@ -16,6 +17,7 @@ use rust_ui::{
     },
     shader::{Shader, ShaderName},
 };
+use strum::EnumString;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::App;
@@ -27,11 +29,24 @@ mod pipeline;
 const TARGET_FPS: u64 = 60;
 const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 
+#[derive(Debug, EnumString, Clone, Copy)]
+pub enum Scenario {
+    Sawtooth,
+}
+
+#[derive(Parser)]
+struct Args {
+    #[arg(short, long)]
+    scenario: Option<Scenario>,
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stdout)
         .with_env_filter(EnvFilter::new("time_series,rust_ui"))
         .init();
+
+    let args = Args::parse();
 
     let (mut glfw, mut window, events) = init_open_gl(1600, 900, true, true);
 
@@ -54,7 +69,13 @@ fn main() -> Result<()> {
         Vector::new(window.get_size().0, window.get_size().1),
     );
 
-    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, graph_r, App::new());
+    let app_state = match args.scenario {
+        Some(s) => match s {
+            Scenario::Sawtooth => App::new_with_sawtooth_data_added(),
+        },
+        None => App::new(),
+    };
+    let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, graph_r, app_state);
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
