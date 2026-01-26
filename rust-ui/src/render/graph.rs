@@ -6,7 +6,7 @@ use tracing::{debug, info};
 
 use crate::{
     geometry::{Rect, Vector},
-    render::{Color, rect::vertices},
+    render::{Color, rect::vertices, renderer::visual_log},
     shader::Shader,
 };
 use anyhow::{Result, anyhow};
@@ -153,28 +153,19 @@ impl GraphRenderer {
         graph_size: Vector<f32>, // screen domain
         channel: usize,
     ) {
-        // - Determine which points are in the visible x-range (and just outside, since they're
-        //   needed for interpolation)
-        // - Calculate a height (by interpolation) for every pixel in the visual graph_size
-        // - Store these heights on the channel-th channel of the texture
-        // - Then (outside the scope of this function) a shader will draw the line graph
-        //
-        // To start off, I will just draw a flat line
         let mut fake_buffer: Vec<f32> = vec![];
         fake_buffer.resize((self.texture_size.x * MAX_TRACES) as usize, 0.0);
         self.active_traces = 1;
         self.limits[channel] = limits;
 
         let (lower_idx, upper_idx) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
-        // DEBUG: The points passed in are correct. But the interpolation results in 0.0 everywhere in fake_buffer
-        // The limits are determined correctly for the sawtooth debug function
         let count = interpolation.interpolate(
             &points[lower_idx..upper_idx],
             limits,
             graph_size.x as usize,
             &mut fake_buffer[0..(self.texture_size.x as usize)],
         );
-        debug!("Count: {:?}", count);
+        visual_log("count", format!("{count:?}"));
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);

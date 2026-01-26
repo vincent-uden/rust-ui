@@ -63,7 +63,12 @@ fn main() -> Result<()> {
     )
     .unwrap();
     let line_r = LineRenderer::new(line_shader);
-    let sprite_r = SpriteRenderer::new(Shader::empty(), SpriteAtlas::empty());
+    let sprite_atlas = SpriteAtlas::from_path(
+        &PathBuf::from_str("assets/atlas/icons.png").unwrap(),
+        &PathBuf::from_str("assets/atlas/icons.csv").unwrap(),
+    )
+    .unwrap();
+    let sprite_r = SpriteRenderer::new(Shader::empty(), sprite_atlas);
     let graph_r = GraphRenderer::new(
         graph_shader,
         Vector::new(window.get_size().0, window.get_size().1),
@@ -114,6 +119,15 @@ fn main() -> Result<()> {
                 }
                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
                     state.handle_key(key, scancode, action, modifiers);
+                    match key {
+                        glfw::Key::F12 => match action {
+                            glfw::Action::Release => {
+                                state.show_debug_layer = !state.show_debug_layer;
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
                 }
                 glfw::WindowEvent::Char(unicode) => {
                     state.handle_char(unicode as u32);
