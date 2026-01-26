@@ -2,7 +2,7 @@ use core::f32;
 use std::ffi::c_void;
 
 use gl::types::GLuint;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     geometry::{Rect, Vector},
@@ -166,6 +166,8 @@ impl GraphRenderer {
         self.limits[channel] = limits;
 
         let (lower_idx, upper_idx) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
+        // DEBUG: The points passed in are correct. But the interpolation results in 0.0 everywhere in fake_buffer
+        // The limits are determined correctly for the sawtooth debug function
         interpolation.interpolate(
             &points[lower_idx..upper_idx],
             limits,
@@ -268,25 +270,25 @@ mod tests {
     use crate::geometry::Vector;
 
     #[test]
-    fn test_single_point_inside_range() {
+    fn single_point_inside_range() {
         let points = vec![Vector::new(0.5, 1.0)];
         assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 0));
     }
 
     #[test]
-    fn test_points_at_exact_min_max() {
+    fn points_at_exact_min_max() {
         let points = vec![Vector::new(0.0, 1.0), Vector::new(1.0, 2.0)];
         assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 1));
     }
 
     #[test]
-    fn test_points_near_edges_with_epsilon() {
+    fn points_near_edges_with_epsilon() {
         let points = vec![Vector::new(0.000001, 1.0), Vector::new(0.999999, 2.0)];
         assert_eq!(binary_search_for_limits(&points, 0.0, 1.0), (0, 1));
     }
 
     #[test]
-    fn test_subset_in_middle() {
+    fn subset_in_middle() {
         let points = vec![
             Vector::new(-1.0, 0.0),
             Vector::new(0.5, 1.0),
@@ -296,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn test_full_range_covered() {
+    fn full_range_covered() {
         let points = vec![
             Vector::new(0.0, 0.0),
             Vector::new(0.5, 1.0),
@@ -306,12 +308,50 @@ mod tests {
     }
 
     #[test]
-    fn test_partial_coverage_fallback() {
+    fn partial_coverage_fallback() {
         let points = vec![
             Vector::new(0.0, 0.0),
             Vector::new(0.5, 1.0),
             Vector::new(1.0, 2.0),
         ];
         assert_eq!(binary_search_for_limits(&points, -10.0, 10.0), (0, 2));
+    }
+
+    #[test]
+    fn sawtooth_interpolation_produces_non_zero_points() {
+        let interpolation = Interpolation::Linear;
+        let points = vec![
+            Vector::new(0.0, 0.0),
+            Vector::new(1.0, 1.0),
+            Vector::new(2.0, 0.0),
+            Vector::new(3.0, 1.0),
+            Vector::new(4.0, 0.0),
+            Vector::new(5.0, 1.0),
+            Vector::new(6.0, 0.0),
+            Vector::new(7.0, 1.0),
+            Vector::new(8.0, 0.0),
+            Vector::new(9.0, 1.0),
+        ];
+        let limits = Rect {
+            x0: Vector::new(0.0, -1.0),
+            x1: Vector::new(1.0, 1.0),
+        };
+        let graph_size = Vector::new(100.0, 20.0);
+        let texture_size = Vector::new(100, 20);
+        let mut fake_buffer: Vec<f32> = vec![];
+        fake_buffer.resize((texture_size.x * MAX_TRACES) as usize, 0.0);
+
+        let (lower_idx, upper_idx) = binary_search_for_limits(&points, limits.x0.x, limits.x1.x);
+        interpolation.interpolate(
+            &points[lower_idx..upper_idx],
+            limits,
+            graph_size.x as usize,
+            &mut fake_buffer[0..(texture_size.x as usize)],
+        );
+
+        assert!(
+            fake_buffer[1] > fake_buffer[0],
+            "The sawtooth function is initially increasing. The interpolation should too"
+        );
     }
 }
