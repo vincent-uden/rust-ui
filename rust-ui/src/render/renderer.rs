@@ -71,6 +71,7 @@ where
     pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
     pub on_mouse_exit: Option<EventListener<T>>,
+    pub on_mouse_move: Option<EventListener<T>>,
     pub on_left_mouse_down: Option<EventListener<T>>,
     pub on_left_mouse_up: Option<EventListener<T>>,
     pub on_right_mouse_down: Option<EventListener<T>>,
@@ -112,6 +113,7 @@ where
             persistent_id: Default::default(),
             cursor_idx: Default::default(),
             graph_data: Default::default(),
+            on_mouse_move: Default::default(),
         }
     }
 }
@@ -595,6 +597,12 @@ where
                         && layer_idx >= self.mouse_hit_layer
                     {
                         self.pending_event_listeners.push(on_scroll.clone());
+                        self.mouse_hit_layer = layer_idx;
+                    }
+                    if let Some(on_move) = &ctx.on_mouse_move
+                        && self.mouse_pos != self.last_mouse_pos
+                    {
+                        self.pending_event_listeners.push(on_move.clone());
                         self.mouse_hit_layer = layer_idx;
                     }
 
