@@ -8,7 +8,7 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
-        renderer::{AppState, RenderLayout, flags},
+        renderer::{AppState, Listeners, RenderLayout, flags},
         widgets::{DefaultAtom, UiBuilder, UiData, text_field::TextFieldData},
     },
 };
@@ -16,7 +16,7 @@ use strum::EnumString;
 use tracing::{debug, error};
 
 use crate::{
-    graph_widget::GraphWidgetBuilder,
+    graph_widget::{GraphWidgetBuilder, GraphWidgetData},
     pipeline::{
         StepConfig,
         ui::{DataSource, Pipeline, PipelineManagerUi},
@@ -91,7 +91,20 @@ impl App {
                 ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
-                ui.graph_time_series("w-full h-full bg-slate-900", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                ui.div("flex-col gap-4 grow", &[
+                    ui.graph_time_series("w-full h-full bg-slate-900", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                    ui.div("flex-row grow gap-4 p-4", &[
+                        ui.text_button("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Text::new("Zoom fit", 16, COLOR_LIGHT), Listeners {
+                            on_left_mouse_up: Some(Arc::new(|state| {
+                                state.ui_builder.mutate_state(&id!("main_graph"), |w_state| {
+                                    let w_state: &mut GraphWidgetData<Self> = w_state.downcast_mut().unwrap();
+                                    w_state.limits = state.app_state.pipeline_manager.minimum_spanning_limits();
+                                });
+                            })),
+                            ..Default::default()
+                        }),
+                    ]),
+                ]),
                 self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),
         ]);

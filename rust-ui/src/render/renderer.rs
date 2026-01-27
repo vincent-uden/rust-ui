@@ -719,6 +719,14 @@ where
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
             if ctx.flags & flags::GRAPH != 0 {
                 if let Some(rc) = ctx.graph_data.upgrade() {
+                    let persistent_state: &mut GraphWidgetData<T> = if let Some(id) = ctx.persistent_id {
+                        // DELETE: === FUCK ===
+                        // We don't know the type of the persistent data here since it is defined
+                        // in another create. In order to solve this problem I actually need to
+                        // rework the renderer and introduce a dynamic dispatch renderer with "plugins"
+                        // DELETE: === FUCK ===
+                    } else {
+                    }
                     // TODO: Loop over traces
                     let points = (*rc).borrow();
                     if !points.is_empty() {

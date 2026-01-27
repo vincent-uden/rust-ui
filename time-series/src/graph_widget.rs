@@ -28,8 +28,9 @@ where
     T: AppState,
 {
     phantom: PhantomData<T>,
-    interaction: GraphInteraction,
-    limits: Rect<f32>,
+    pub interaction: GraphInteraction,
+    /// Graph limits, currently in data space
+    pub limits: Rect<f32>,
 }
 impl<T> fmt::Debug for GraphWidgetData<T>
 where
@@ -39,6 +40,7 @@ where
         f.debug_struct("GraphWidgetData")
             .field("phantom", &self.phantom)
             .field("interaction", &self.interaction)
+            .field("limits", &self.limits)
             .finish()
     }
 }
@@ -96,6 +98,7 @@ where
         context.on_middle_mouse_down = Some(Arc::new(move |state| {
             state.ui_builder.mutate_state(&id1, |w_state| {
                 let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                // TODO: Convert to data domain somehow
                 w_state.interaction = GraphInteraction::Panning {
                     pan_start: state.mouse_pos,
                     mouse_pos: state.mouse_pos,
@@ -106,6 +109,18 @@ where
         context.on_middle_mouse_up = Some(Arc::new(move |state| {
             state.ui_builder.mutate_state(&id1, |w_state| {
                 let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                match w_state.interaction {
+                    GraphInteraction::None => {}
+                    GraphInteraction::Panning {
+                        pan_start,
+                        mouse_pos,
+                    } => {
+                        // TODO: Convert to data domain somehow
+                        w_state.limits.x0 += mouse_pos - pan_start;
+                        w_state.limits.x1 += mouse_pos - pan_start;
+                    }
+                    GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
+                }
                 w_state.interaction = GraphInteraction::None;
             });
         }));

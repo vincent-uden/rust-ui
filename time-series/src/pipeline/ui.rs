@@ -8,7 +8,7 @@ use std::{
 use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
-    geometry::Vector,
+    geometry::{Rect, Vector},
     id,
     render::{
         COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
@@ -383,5 +383,31 @@ impl PipelineManagerUi {
                 }
             }
         }
+    }
+
+    /// Returns the smallest possible rect containing all points in all outputs
+    pub fn minimum_spanning_limits(&self) -> Rect<f32> {
+        let mut limits = Rect::default();
+        for output in &self.outputs {
+            match output {
+                PipelineIntermediate::Signal(records) => {
+                    for r in records {
+                        if r.x < limits.x0.x {
+                            limits.x0.x = r.x;
+                        } else if r.x > limits.x1.x {
+                            limits.x1.x = r.x;
+                        }
+                        if r.y < limits.x0.y {
+                            limits.x0.y = r.y;
+                        } else if r.y > limits.x1.y {
+                            limits.x1.y = r.y;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        limits.into()
     }
 }
