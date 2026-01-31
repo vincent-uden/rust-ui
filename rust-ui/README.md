@@ -120,3 +120,19 @@ struct UiState {
 
 let state = HashMap<String, UiState>;
 ```
+## A render "Plugin" system
+The goal isn't actually to write a plugin system, but just to allow for some way to render widgets with persistent data that isn't defined in the core `rust-ui` crate. As an example we have the graph widget I am building right now. In `time-series` we the `GraphWidgetData` which implements `UiData`. It contains cached data needed to display the graph. I can't downcast `&UiData` to `&GraphWidgetData` in `rust-ui` since it doesn't (and can't) depend on `time-series`.
+
+Why not move `GraphWidgetData` into `rust-ui`? It contains data types specific to `time-series`. While simple to fix for this case, moving everything to core doesn't generalize well. It might be easy for `time-series` but not for `cad-frontend`.
+
+The obvious solution is a trait
+```rust
+pub trait WidgetRenderer<T> where T: AppState {
+    fn render(id: &NodeId, ctx: &NodeContext<T>, state: HashMap<DefaultAtom, UiState<T>>) -> Result<(), Box<dyn Error>)>;
+}
+```
+where the trait method has to determine if it can actually render the widget it is attempting to render. This will however create a lot of redundant work for every non-standard widget. Ideally the widget would somehow know which trait object it is supposed to be rendered by. And this can't be determined at the compiletime of `rust-ui`. I think this would need some kind of reflection.
+
+`UiState` already uses reflection but `NodeContext` doesn't but would need to in order for the system to be able to render widgets without any persistent state. It feels like this is starting to become a lot of boilerplate. 
+
+Would it be possible for `UiState` to have this trait method instead? It can have an empty default implementation for widgets that don't need any special case rendering. I think so!
