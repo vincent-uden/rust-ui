@@ -83,8 +83,6 @@ where
     // Persistent state
     pub persistent_id: Option<DefaultAtom>,
     pub cursor_idx: Option<usize>,
-    // Move somewhere else? Can we simplify this in any way?
-    pub graph_data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
 }
 
 impl<T> Default for NodeContext<T>
@@ -112,7 +110,6 @@ where
             scissor: Default::default(),
             persistent_id: Default::default(),
             cursor_idx: Default::default(),
-            graph_data: Default::default(),
             on_mouse_move: Default::default(),
         }
     }
@@ -717,37 +714,12 @@ where
 
             // Drawing
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
-            if ctx.flags & flags::GRAPH != 0 {
-                if let Some(rc) = ctx.graph_data.upgrade() {
-                    let persistent_state: &mut GraphWidgetData<T> = if let Some(id) = ctx.persistent_id {
-                        // DELETE: === FUCK ===
-                        // We don't know the type of the persistent data here since it is defined
-                        // in another create. In order to solve this problem I actually need to
-                        // rework the renderer and introduce a dynamic dispatch renderer with "plugins"
-                        // DELETE: === FUCK ===
-                    } else {
-                    }
-                    // TODO: Loop over traces
-                    let points = (*rc).borrow();
-                    if !points.is_empty() {
-                        self.graph_r.bind_graph(
-                            &points[0],
-                            Rect::from_points(Vector::new(0.0, -1.0), Vector::new(7.9, 1.0)),
-                            Interpolation::Linear,
-                            layout.size.into(),
-                            0,
-                        );
-                    }
-                } else {
-                    self.graph_r.bind_graph(
-                        &[],
-                        Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
-                        Interpolation::Linear,
-                        layout.size.into(),
-                        0,
-                    );
-                }
-                self.graph_r.draw(0, bbox, COLOR_DANGER, COLOR_DANGER, 1.0);
+
+            if let Some(pid) = &ctx.persistent_id
+                && let Some(pstate) = self.ui_builder.accessing_state(pid)
+            {
+                let data = pstate.data.lock().unwrap();
+                data.custom_render(&id, ctx, layout, self, bbox);
             }
 
             if ctx.flags & flags::TEXT != 0 {

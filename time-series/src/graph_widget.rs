@@ -3,6 +3,8 @@ use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
+        COLOR_DANGER,
+        graph::Interpolation,
         renderer::{AppState, flags, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData},
     },
@@ -10,6 +12,7 @@ use rust_ui::{
 };
 use strum::EnumString;
 use taffy::NodeId;
+use tracing::debug;
 
 #[derive(Debug, Copy, Clone, EnumString, Default)]
 pub enum GraphInteraction {
@@ -31,6 +34,7 @@ where
     pub interaction: GraphInteraction,
     /// Graph limits, currently in data space
     pub limits: Rect<f32>,
+    pub graph_data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
 }
 impl<T> fmt::Debug for GraphWidgetData<T>
 where
@@ -53,13 +57,51 @@ where
             phantom: Default::default(),
             interaction: Default::default(),
             limits: Default::default(),
+            graph_data: Weak::new(),
         }
     }
 }
 
 impl<T> GraphWidgetData<T> where T: AppState {}
 
-impl<T> UiData<T> for GraphWidgetData<T> where T: AppState + 'static {}
+impl<T> UiData<T> for GraphWidgetData<T>
+where
+    T: AppState + 'static,
+{
+    fn custom_render(
+        &self,
+        id: &NodeId,
+        ctx: &rust_ui::render::renderer::NodeContext<T>,
+        layout: &taffy::Layout,
+        renderer: &mut rust_ui::render::renderer::Renderer<T>,
+        bbox: Rect<f32>,
+    ) {
+        if let Some(rc) = self.graph_data.upgrade() {
+            // TODO: Loop over traces
+            let points = (*rc).borrow();
+            if !points.is_empty() {
+                renderer.graph_r.bind_graph(
+                    &points[0],
+                    Rect::from_points(Vector::new(0.0, -1.0), Vector::new(7.9, 1.0)),
+                    Interpolation::Linear,
+                    layout.size.into(),
+                    0,
+                );
+            }
+        } else {
+            renderer.graph_r.bind_graph(
+                &[],
+                Rect::from_points(Vector::new(0.0, -1.0), Vector::new(1.0, 1.0)),
+                Interpolation::Linear,
+                layout.size.into(),
+                0,
+            );
+        }
+        renderer
+            .graph_r
+            .draw(0, bbox, COLOR_DANGER, COLOR_DANGER, 1.0);
+    }
+}
 
 pub trait GraphWidgetBuilder<T>
 where
@@ -88,12 +130,13 @@ where
             None => self.insert_state(id.clone(), GraphWidgetData::<T>::default()),
         };
         let mut guard = binding.data.lock().unwrap();
-        let _state: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
-        visual_log("", format!("{:#?}", _state));
+        let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
+        visual_log("", format!("{:#?}", pdata));
 
         let (style, mut context) = parse_style::<T>(style);
         context.flags |= flags::GRAPH;
-        context.graph_data = data;
+        context.persistent_id = Some(id.clone());
+        pdata.graph_data = data;
         let id1 = id.clone();
         context.on_middle_mouse_down = Some(Arc::new(move |state| {
             state.ui_builder.mutate_state(&id1, |w_state| {

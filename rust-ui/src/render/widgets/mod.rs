@@ -7,8 +7,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-use taffy::{NodeId, TaffyTree};
+use taffy::{Layout, NodeId, TaffyTree};
 
+use crate::geometry::Rect;
 use crate::render::renderer::{AppState, EventListener, Listeners, NodeContext, Renderer, flags};
 use crate::render::{COLOR_LIGHT, Text};
 use crate::style::parse_style;
@@ -28,6 +29,16 @@ where
     T: AppState,
 {
     fn run_event_listener(&mut self, name: &str, renderer: &mut T) {}
+    /// Some widgets need really fancy custom rendering. Those special widgets that do can do that here
+    fn custom_render(
+        &self,
+        id: &NodeId,
+        ctx: &NodeContext<T>,
+        layout: &Layout,
+        renderer: &mut Renderer<T>,
+        bbox: Rect<f32>,
+    ) {
+    }
 }
 
 impl<T> dyn UiData<T>
