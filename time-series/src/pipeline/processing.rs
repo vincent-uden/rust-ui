@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use peroxide::fuga::Statistics as _;
-use rustfft::{num_complex::Complex, FftDirection, FftPlanner};
+use rustfft::{FftDirection, FftPlanner, num_complex::Complex};
 
 use super::{PipelineIntermediate, Record, Signal, StepConfig};
 

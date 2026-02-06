@@ -17,9 +17,11 @@ use taffy::NodeId;
 pub enum GraphInteraction {
     #[default]
     None,
+    /// Panning stores coordinates in screen space for stable panning
+    /// even when data domain is changing (e.g., from new data arriving)
     Panning {
-        pan_start: Vector<f32>,
-        mouse_pos: Vector<f32>,
+        pan_start_screen: Vector<f32>,
+        mouse_pos_screen: Vector<f32>,
     },
     BoxZooming,
 }
@@ -75,6 +77,21 @@ where
             + (screen_pos.y - abs_bbox.x0.y) / abs_bbox.height()
                 * (self.limits.x1.y - self.limits.x0.y);
         Vector::new(x, y)
+    }
+
+    /// Convert screen delta to data delta
+    /// This is used for panning where we need to translate screen movement to data movement
+    pub fn screen_delta_to_data_delta(
+        &self,
+        screen_delta: Vector<f32>,
+        abs_bbox: Rect<f32>,
+    ) -> Vector<f32> {
+        let data_width = self.limits.x1.x - self.limits.x0.x;
+        let data_height = self.limits.x1.y - self.limits.x0.y;
+        let dx = screen_delta.x / abs_bbox.width() * data_width;
+        // Flip Y: screen Y increases downward, data Y increases upward
+        let dy = -screen_delta.y / abs_bbox.height() * data_height;
+        Vector::new(dx, dy)
     }
 }
 
@@ -163,35 +180,37 @@ where
         self.mutate_context(node_id, move |ctx| {
             let id1 = id.clone();
             ctx.on_middle_mouse_down = Some(Arc::new(move |state| {
-                let bbox = state.get_node_bbox(node_id1).unwrap_or(Rect::from_points(
+                // Store screen coordinates for stable panning
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    w_state.interaction = GraphInteraction::Panning {
+                        pan_start_screen: state.mouse_pos,
+                        mouse_pos_screen: state.mouse_pos,
+                    };
+                });
+            }));
+            let node_id2 = node_id;
+            let id1 = id.clone();
+            ctx.on_middle_mouse_up = Some(Arc::new(move |state| {
+                let bbox = state.get_node_bbox(node_id2).unwrap_or(Rect::from_points(
                     Vector::new(0.0, 0.0),
                     Vector::new(1.0, 1.0),
                 ));
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
-                    let data_pos = w_state.screen_to_data(state.mouse_pos, bbox);
-                    w_state.interaction = GraphInteraction::Panning {
-                        pan_start: data_pos,
-                        mouse_pos: data_pos,
-                    };
-                });
-            }));
-            let id1 = id.clone();
-            ctx.on_middle_mouse_up = Some(Arc::new(move |state| {
-                state.ui_builder.mutate_state(&id1, |w_state| {
-                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
                     match w_state.interaction {
                         GraphInteraction::None => {}
                         GraphInteraction::Panning {
-                            pan_start,
-                            mouse_pos,
+                            pan_start_screen,
+                            mouse_pos_screen,
                         } => {
-                            let delta = mouse_pos - pan_start;
-                            w_state.limits.x0.x -= delta.x;
-                            w_state.limits.x1.x -= delta.x;
-                            // Flip Y: dragging down (positive delta) should move limits up (positive)
-                            w_state.limits.x0.y += delta.y;
-                            w_state.limits.x1.y += delta.y;
+                            // Calculate delta in screen space, then convert to data space
+                            let screen_delta = mouse_pos_screen - pan_start_screen;
+                            let data_delta = w_state.screen_delta_to_data_delta(screen_delta, bbox);
+                            w_state.limits.x0.x -= data_delta.x;
+                            w_state.limits.x1.x -= data_delta.x;
+                            w_state.limits.x0.y -= data_delta.y;
+                            w_state.limits.x1.y -= data_delta.y;
                         }
                         GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
                     }
@@ -200,22 +219,18 @@ where
             }));
             let id1 = id.clone();
             ctx.on_mouse_move = Some(Arc::new(move |state| {
-                let bbox = state.get_node_bbox(node_id1).unwrap_or(Rect::from_points(
-                    Vector::new(0.0, 0.0),
-                    Vector::new(1.0, 1.0),
-                ));
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
                     match w_state.interaction {
                         GraphInteraction::None => {}
                         GraphInteraction::Panning {
-                            pan_start,
-                            mouse_pos: _,
+                            pan_start_screen,
+                            mouse_pos_screen: _,
                         } => {
-                            let data_pos = w_state.screen_to_data(state.mouse_pos, bbox);
+                            // Update mouse position in screen space
                             w_state.interaction = GraphInteraction::Panning {
-                                pan_start,
-                                mouse_pos: data_pos,
+                                pan_start_screen,
+                                mouse_pos_screen: state.mouse_pos,
                             };
                         }
                         GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
