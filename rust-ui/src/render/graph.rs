@@ -32,6 +32,7 @@ impl Interpolation {
         n: usize,
         out: &mut [f32],
     ) -> usize {
+        // FIX: There is some flickering if `points.len()` is much larger than `n`
         if points.is_empty() {
             return 0;
         }
@@ -195,18 +196,8 @@ impl GraphRenderer {
         }
     }
 
-    pub fn draw(
-        &self,
-        channel: i32,
-        rect: Rect<f32>,
-        bg_color: Color,
-        trace_color: Color,
-        edge_softness: f32,
-    ) {
+    pub fn draw(&self, channel: i32, rect: Rect<f32>, trace_color: Color, edge_softness: f32) {
         let _span = tracy_client::span!("Graph draw");
-        if bg_color == Color::new(0.0, 0.0, 0.0, 0.0) {
-            return;
-        }
         self.shader.use_shader();
         let mut model = glm::Mat4::identity();
         model *= &glm::translation(&glm::Vec3::new(-0.5, -0.5, 0.0));
@@ -224,8 +215,6 @@ impl GraphRenderer {
             &glm::Vec3::new(-edge_softness, -edge_softness, 0.0).component_div(&scale),
         );
         self.shader.set_uniform("model", &model);
-        let bg_color_vec = glm::make_vec4(&[bg_color.r, bg_color.g, bg_color.b, bg_color.a]);
-        self.shader.set_uniform("bgColor", &bg_color_vec);
         let trace_color_vec =
             glm::make_vec4(&[trace_color.r, trace_color.g, trace_color.b, trace_color.a]);
         self.shader.set_uniform("traceColor", &trace_color_vec);

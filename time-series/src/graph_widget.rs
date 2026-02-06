@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_DANGER,
+        COLOR_DANGER, COLOR_PRIMARY,
         graph::Interpolation,
         renderer::{AppState, NodeContext, Renderer, flags, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData},
@@ -118,9 +118,7 @@ where
                 0,
             );
         }
-        renderer
-            .graph_r
-            .draw(0, bbox, COLOR_DANGER, COLOR_DANGER, 1.0);
+        renderer.graph_r.draw(0, bbox, COLOR_PRIMARY, 1.0);
     }
 }
 

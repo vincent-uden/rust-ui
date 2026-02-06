@@ -18,7 +18,6 @@ out vec4 color;
 in vec2 fragCoord;
 
 uniform vec2 size; // The size on screen
-uniform vec4 bgColor;
 uniform vec4 traceColor;
 uniform sampler2D text;
 uniform float maxTraces;
@@ -73,5 +72,5 @@ void main() {
     float rightClip = 1.0 - smoothstep(xMaxScreen - 2.0, xMaxScreen, xScreen);
 
     alpha *= leftClip * rightClip;
-    color = vec4(1.0, 0.0, 0.0, alpha);
+    color = vec4(traceColor.rgb, alpha);
 }
