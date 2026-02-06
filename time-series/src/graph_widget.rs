@@ -5,7 +5,7 @@ use rust_ui::{
     render::{
         COLOR_DANGER,
         graph::Interpolation,
-        renderer::{AppState, flags, visual_log},
+        renderer::{AppState, NodeContext, Renderer, flags, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData},
     },
     style::parse_style,
@@ -45,6 +45,7 @@ where
             .field("phantom", &self.phantom)
             .field("interaction", &self.interaction)
             .field("limits", &self.limits)
+            .field("graph_data", &self.graph_data.upgrade().unwrap_or_default())
             .finish()
     }
 }
@@ -71,9 +72,9 @@ where
     fn custom_render(
         &self,
         id: &NodeId,
-        ctx: &rust_ui::render::renderer::NodeContext<T>,
+        ctx: &NodeContext<T>,
         layout: &taffy::Layout,
-        renderer: &mut rust_ui::render::renderer::Renderer<T>,
+        renderer: &mut Renderer<T>,
         bbox: Rect<f32>,
     ) {
         if let Some(rc) = self.graph_data.upgrade() {
@@ -82,7 +83,7 @@ where
             if !points.is_empty() {
                 renderer.graph_r.bind_graph(
                     &points[0],
-                    Rect::from_points(Vector::new(0.0, -1.0), Vector::new(7.9, 1.0)),
+                    self.limits,
                     Interpolation::Linear,
                     layout.size.into(),
                     0,

@@ -1,4 +1,5 @@
 pub use string_cache::DefaultAtom;
+use tracing::error;
 
 use std::any::Any;
 use std::borrow::Borrow;
@@ -196,10 +197,16 @@ where
         F: FnOnce(&mut dyn UiData<T>) -> R,
     {
         let mut state = self.state.borrow_mut();
-        state.get_mut(id).map(|state| {
-            let mut guard = state.data.lock().unwrap();
-            f(guard.as_mut())
-        })
+        match state.get_mut(id) {
+            Some(state) => {
+                let mut guard = state.data.lock().unwrap();
+                Some(f(guard.as_mut()))
+            }
+            None => {
+                error!("{} not found", id);
+                None
+            }
+        }
     }
 
     pub fn insert_state(&self, id: DefaultAtom, ui_state: impl UiData<T>) -> UiState<T> {

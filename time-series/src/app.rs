@@ -32,6 +32,7 @@ pub enum AppMode {
 #[derive(EnumString, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AppMessage {
     PopMode,
+    ZoomFit,
     Confirm,
 }
 
@@ -96,10 +97,7 @@ impl App {
                     ui.div("flex-row grow gap-4 p-4", &[
                         ui.text_button("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Text::new("Zoom fit", 16, COLOR_LIGHT), Listeners {
                             on_left_mouse_up: Some(Arc::new(|state| {
-                                state.ui_builder.mutate_state(&id!("main_graph"), |w_state| {
-                                    let w_state: &mut GraphWidgetData<Self> = w_state.downcast_mut().unwrap();
-                                    w_state.limits = state.app_state.pipeline_manager.minimum_spanning_limits();
-                                });
+                                state.app_state.handle_message(AppMessage::ZoomFit, &state.ui_builder);
                             })),
                             ..Default::default()
                         }),
@@ -122,6 +120,13 @@ impl App {
             AppMessage::PopMode => {
                 self.mode_stack.pop();
                 self.focus = None;
+            }
+            AppMessage::ZoomFit => {
+                let limits = self.pipeline_manager.minimum_spanning_limits();
+                ui.mutate_state(&id!("main_graph"), move |w_state| {
+                    let w_state: &mut GraphWidgetData<Self> = w_state.downcast_mut().unwrap();
+                    w_state.limits = limits;
+                });
             }
             // TODO: Think about how this should be communicated. I want the state change
             // localized at the UI. That requires notifying Renderer. Still the App might
@@ -253,7 +258,7 @@ impl AppState for App {
 
 /// Test scenarios to speed up debugging
 impl App {
-    pub fn new_with_sawtooth_data_added() -> Self {
+    pub fn new_with_sawtooth_data_added() -> (Self, Vec<AppMessage>) {
         let mut out = Self::new();
         out.add_source(
             PathBuf::from_str("time-series/assets/test_csvs/sawtooth.csv")
@@ -266,6 +271,6 @@ impl App {
             column_2: 1,
         };
         out.pipeline_manager.run();
-        out
+        (out, vec![AppMessage::ZoomFit])
     }
 }

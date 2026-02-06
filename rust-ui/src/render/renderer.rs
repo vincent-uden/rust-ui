@@ -274,7 +274,7 @@ where
             app_state: initial_state,
             show_debug_layer: false,
             debug_position: Vector::zero(),
-            debug_size: Vector::new(400.0, 200.0),
+            debug_size: Vector::new(400.0, 600.0),
             debug_cached_size: Vector::new(400.0, 200.0),
             debug_drag: MouseDragState::Released,
             debug_expanded: true,

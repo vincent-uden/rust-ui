@@ -74,13 +74,17 @@ fn main() -> Result<()> {
         Vector::new(window.get_size().0, window.get_size().1),
     );
 
-    let app_state = match args.scenario {
+    let (app_state, msgs) = match args.scenario {
         Some(s) => match s {
             Scenario::Sawtooth => App::new_with_sawtooth_data_added(),
         },
-        None => App::new(),
+        None => (App::new(), vec![]),
     };
     let mut state = Renderer::new(rect_r, text_r, line_r, sprite_r, graph_r, app_state);
+    state.update();
+    for msg in msgs {
+        state.app_state.handle_message(msg, &state.ui_builder);
+    }
 
     // Set up projection matrix for 2D rendering
     let projection = glm::ortho(0.0, state.width as f32, state.height as f32, 0.0, -1.0, 1.0);
