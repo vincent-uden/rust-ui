@@ -17,11 +17,9 @@ use taffy::NodeId;
 pub enum GraphInteraction {
     #[default]
     None,
-    /// Panning stores coordinates in screen space for stable panning
-    /// even when data domain is changing (e.g., from new data arriving)
     Panning {
         pan_start_screen: Vector<f32>,
-        mouse_pos_screen: Vector<f32>,
+        start_limits: Rect<f32>,
     },
     BoxZooming,
 }
@@ -68,19 +66,9 @@ impl<T> GraphWidgetData<T>
 where
     T: AppState,
 {
-    /// Convert screen coordinates to data domain coordinates using the provided bounding box
-    pub fn screen_to_data(&self, screen_pos: Vector<f32>, abs_bbox: Rect<f32>) -> Vector<f32> {
-        let x = self.limits.x0.x
-            + (screen_pos.x - abs_bbox.x0.x) / abs_bbox.width()
-                * (self.limits.x1.x - self.limits.x0.x);
-        let y = self.limits.x0.y
-            + (screen_pos.y - abs_bbox.x0.y) / abs_bbox.height()
-                * (self.limits.x1.y - self.limits.x0.y);
-        Vector::new(x, y)
-    }
-
-    /// Convert screen delta to data delta
-    /// This is used for panning where we need to translate screen movement to data movement
+    /// Converts a difference between two positions in screen space to a a difference in data space.
+    /// It only scales the vector *without* translating it, thus it *can't* be used on an absolute position.
+    /// Used for panning where we need to translate screen movement to data movement.
     pub fn screen_delta_to_data_delta(
         &self,
         screen_delta: Vector<f32>,
@@ -169,30 +157,35 @@ where
         context.persistent_id = Some(id.clone());
         pdata.graph_data = data;
 
-        // We need to get the node id first since it's needed to find the layout of the graph in the event listeners
+        // We need to get the node id before adding the event listeners since it's needed to find the layout of the graph in the event listeners
         let node_id = self
             .tree
             .borrow_mut()
             .new_leaf_with_context(style, context)
             .unwrap();
 
-        let node_id1 = node_id;
         self.mutate_context(node_id, move |ctx| {
             let id1 = id.clone();
             ctx.on_middle_mouse_down = Some(Arc::new(move |state| {
-                // Store screen coordinates for stable panning
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
                     w_state.interaction = GraphInteraction::Panning {
                         pan_start_screen: state.mouse_pos,
-                        mouse_pos_screen: state.mouse_pos,
+                        start_limits: w_state.limits,
                     };
                 });
             }));
-            let node_id2 = node_id;
             let id1 = id.clone();
             ctx.on_middle_mouse_up = Some(Arc::new(move |state| {
-                let bbox = state.get_node_bbox(node_id2).unwrap_or(Rect::from_points(
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    w_state.interaction = GraphInteraction::None;
+                });
+            }));
+            let node_id3 = node_id;
+            let id1 = id.clone();
+            ctx.on_mouse_move = Some(Arc::new(move |state| {
+                let bbox = state.get_node_bbox(node_id3).unwrap_or(Rect::from_points(
                     Vector::new(0.0, 0.0),
                     Vector::new(1.0, 1.0),
                 ));
@@ -202,35 +195,17 @@ where
                         GraphInteraction::None => {}
                         GraphInteraction::Panning {
                             pan_start_screen,
-                            mouse_pos_screen,
+                            start_limits: original_limits,
                         } => {
-                            // Calculate delta in screen space, then convert to data space
-                            let screen_delta = mouse_pos_screen - pan_start_screen;
+                            let screen_delta = state.mouse_pos - pan_start_screen;
                             let data_delta = w_state.screen_delta_to_data_delta(screen_delta, bbox);
-                            w_state.limits.x0.x -= data_delta.x;
-                            w_state.limits.x1.x -= data_delta.x;
-                            w_state.limits.x0.y -= data_delta.y;
-                            w_state.limits.x1.y -= data_delta.y;
-                        }
-                        GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
-                    }
-                    w_state.interaction = GraphInteraction::None;
-                });
-            }));
-            let id1 = id.clone();
-            ctx.on_mouse_move = Some(Arc::new(move |state| {
-                state.ui_builder.mutate_state(&id1, |w_state| {
-                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
-                    match w_state.interaction {
-                        GraphInteraction::None => {}
-                        GraphInteraction::Panning {
-                            pan_start_screen,
-                            mouse_pos_screen: _,
-                        } => {
-                            // Update mouse position in screen space
+                            w_state.limits.x0.x = original_limits.x0.x - data_delta.x;
+                            w_state.limits.x1.x = original_limits.x1.x - data_delta.x;
+                            w_state.limits.x0.y = original_limits.x0.y - data_delta.y;
+                            w_state.limits.x1.y = original_limits.x1.y - data_delta.y;
                             w_state.interaction = GraphInteraction::Panning {
                                 pan_start_screen,
-                                mouse_pos_screen: state.mouse_pos,
+                                start_limits: original_limits,
                             };
                         }
                         GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
@@ -245,8 +220,8 @@ where
 
 // Graph widget roadmap
 // - [/] Shader for rendering
-// - [ ] Pan/zoom control
-// - [/] Less points than pixels
+// - [/] Pan/zoom control
+// - [x] Less points than pixels
 // - [ ] More points than pixels
 // - [ ] Ticks
 // - [ ] Axis labels
