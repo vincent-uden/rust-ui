@@ -158,6 +158,7 @@ impl GraphRenderer {
         graph_size: Vector<f32>, // screen domain
         channel: usize,
     ) {
+        let _span = tracy_client::span!("Bind graph");
         let mut fake_buffer: Vec<f32> = vec![];
         fake_buffer.resize((self.texture_size.x * MAX_TRACES) as usize, 0.0);
         self.active_traces = 1;
@@ -202,6 +203,7 @@ impl GraphRenderer {
         trace_color: Color,
         edge_softness: f32,
     ) {
+        let _span = tracy_client::span!("Graph draw");
         if bg_color == Color::new(0.0, 0.0, 0.0, 0.0) {
             return;
         }

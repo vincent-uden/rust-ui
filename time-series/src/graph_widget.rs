@@ -96,6 +96,7 @@ where
         renderer: &mut Renderer<T>,
         bbox: Rect<f32>,
     ) {
+        let _span = tracy_client::span!("Graph widget render");
         if let Some(rc) = self.graph_data.upgrade() {
             // TODO: Loop over traces
             let points = (*rc).borrow();
@@ -145,13 +146,13 @@ where
         id: DefaultAtom,
         data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
     ) -> NodeId {
+        let _span = tracy_client::span!("graph_time_series");
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
             None => self.insert_state(id.clone(), GraphWidgetData::<T>::default()),
         };
         let mut guard = binding.data.lock().unwrap();
         let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
-        visual_log("", format!("{:#?}", pdata));
 
         let (style, mut context) = parse_style::<T>(style);
         context.flags |= flags::GRAPH;
@@ -233,7 +234,7 @@ where
 // - [x] Pan/zoom control
 // - [x] Less points than pixels
 // - [x] Clip data that is out of bounds
-// - [ ] More points than pixels
+// - [x] More points than pixels
 // - [ ] Ticks
 // - [ ] Axis labels
 // - [ ] Show cursor xy-coordinates in data domain

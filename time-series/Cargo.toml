@@ -13,6 +13,7 @@ taffy = "0.9.1"
 tracing = "0.1.41"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracy-client = { version = "0.18.2", default-features = false, features = ["enable"] }
 rust-ui = { path = "../rust-ui"}
 sysinfo = "0.37.0"
 rustfft = "6.4.1"

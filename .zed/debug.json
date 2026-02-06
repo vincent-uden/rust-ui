@@ -71,4 +71,21 @@
     "args": ["--scenario", "Sawtooth"],
     "sourceLanguages": ["rust"],
   },
+  {
+    "adapter": "CodeLLDB",
+    "label": "time-series voltage",
+    "build": {
+      "command": "cargo",
+      "args": ["build", "--bin", "time-series"],
+      "cwd": "/home/vincent/github/rust-ui",
+      "env": {
+        "RUSTC_TOOLCHAIN": "/home/vincent/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu",
+      },
+    },
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/target/debug/time-series",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "args": ["--scenario", "Voltage"],
+    "sourceLanguages": ["rust"],
+  },
 ]
