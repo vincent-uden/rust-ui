@@ -132,6 +132,18 @@ where
         id: DefaultAtom,
         data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
     ) -> NodeId;
+    fn y_axis(
+        &self,
+        style: &str,
+        graph_id: DefaultAtom,
+        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    ) -> NodeId;
+    fn x_axis(
+        &self,
+        style: &str,
+        graph_id: DefaultAtom,
+        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    ) -> NodeId;
 }
 
 impl<T> GraphWidgetBuilder<T> for UiBuilder<T>
@@ -224,6 +236,41 @@ where
         });
 
         node_id
+    }
+
+    fn y_axis(
+        &self,
+        style: &str,
+        graph_id: DefaultAtom,
+        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    ) -> NodeId {
+        let binding = match self.accessing_state(&graph_id) {
+            Some(s) => s,
+            None => self.insert_state(graph_id.clone(), GraphWidgetData::<T>::default()),
+        };
+        let mut guard = binding.data.lock().unwrap();
+        let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
+
+        self.div("bg-slate-900 w-20", &[])
+    }
+
+    fn x_axis(
+        &self,
+        style: &str,
+        graph_id: DefaultAtom,
+        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    ) -> NodeId {
+        let binding = match self.accessing_state(&graph_id) {
+            Some(s) => s,
+            None => self.insert_state(graph_id.clone(), GraphWidgetData::<T>::default()),
+        };
+        let mut guard = binding.data.lock().unwrap();
+        let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
+
+        self.div(
+            "pl-20 h-20 w-full",
+            &[self.div("bg-slate-900 h-20 w-full", &[])],
+        )
     }
 }
 

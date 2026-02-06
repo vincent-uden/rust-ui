@@ -93,7 +93,13 @@ impl App {
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
                 ui.div("flex-col gap-4 grow", &[
-                    ui.graph_time_series("w-full h-full", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                    ui.div("flex-col h-full", &[
+                        ui.div("flex-row grow", &[
+                            ui.y_axis("", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                            ui.graph_time_series("w-full h-full", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                        ]),
+                        ui.x_axis("", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                    ]),
                     ui.div("flex-row grow gap-4 p-4", &[
                         ui.text_button("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Text::new("Zoom fit", 16, COLOR_LIGHT), Listeners {
                             on_left_mouse_up: Some(Arc::new(|state| {
