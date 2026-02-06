@@ -1,15 +1,5 @@
 #version 330 core
 
-out vec4 color;
-in vec2 fragCoord;
-
-uniform vec2 size; // The size on screen
-uniform vec4 bgColor;
-uniform vec4 traceColor;
-uniform sampler2D text;
-uniform float maxTraces;
-uniform vec2 yLimits; // min_y, max_y
-
 //
 //                        max_y
 //         ------------------------------------
@@ -22,6 +12,16 @@ uniform vec2 yLimits; // min_y, max_y
 //                        min_y
 // x limits are determined by what is in the texture
 
+out vec4 color;
+in vec2 fragCoord;
+
+uniform vec2 size; // The size on screen
+uniform vec4 bgColor;
+uniform vec4 traceColor;
+uniform sampler2D text;
+uniform float maxTraces;
+uniform vec2 yLimits; // min_y, max_y
+
 const float lineWidth = 2.0;
 const float lineHalfWidth = lineWidth / 2.0;
 const float loopBound = ceil(lineHalfWidth) + 1.0;
@@ -29,12 +29,12 @@ const float loopBound = ceil(lineHalfWidth) + 1.0;
 // Params:
 // - x       : x normalized UV coordinates [0.0-1.0]
 // - channel : the channel or trace (0-indexed)
-float height(float x, int channel) {
-    return 1.0 - ((texture(text, vec2(x, channel / maxTraces)).r) - yLimits.x) / (yLimits.y - yLimits.x);
+float height(float x, float channel) {
+    return 1.0 - ((texture(text, vec2(x, (channel + 0.5) / maxTraces)).r) - yLimits.x) / (yLimits.y - yLimits.x);
 }
 
-float heightSS(float x, int channel) {
-    return (1.0 - ((texture(text, vec2(x / size.x, channel / maxTraces)).r) - yLimits.x) / (yLimits.y - yLimits.x)) * size.y;
+float heightSS(float x, float channel) {
+    return (1.0 - ((texture(text, vec2(x / size.x, (channel + 0.5) / maxTraces)).r) - yLimits.x) / (yLimits.y - yLimits.x)) * size.y;
 }
 
 vec2 uvToScreenSpace(vec2 coord) {
@@ -48,7 +48,7 @@ float distanceToLine(vec2 a, vec2 b, vec2 p) {
 }
 
 void main() {
-    int channel = 1;
+    float channel = 0;
     vec2 coord = uvToScreenSpace(fragCoord);
     float dist = lineHalfWidth + 1.0;
     vec2 previousPoint = vec2(coord.x - lineHalfWidth, heightSS(coord.x - lineHalfWidth, channel));
