@@ -12,6 +12,8 @@
 //                        min_y
 // x limits are determined by what is in the texture
 
+#define MAX_TRACES 10
+
 out vec4 color;
 in vec2 fragCoord;
 
@@ -21,6 +23,7 @@ uniform vec4 traceColor;
 uniform sampler2D text;
 uniform float maxTraces;
 uniform vec2 yLimits; // min_y, max_y
+uniform vec2 xLimits[MAX_TRACES];
 
 const float lineWidth = 2.0;
 const float lineHalfWidth = lineWidth / 2.0;
@@ -48,13 +51,13 @@ float distanceToLine(vec2 a, vec2 b, vec2 p) {
 }
 
 void main() {
-    float channel = 0;
+    int channel = 0;
     vec2 coord = uvToScreenSpace(fragCoord);
     float dist = lineHalfWidth + 1.0;
-    vec2 previousPoint = vec2(coord.x - lineHalfWidth, heightSS(coord.x - lineHalfWidth, channel));
+    vec2 previousPoint = vec2(coord.x - lineHalfWidth, heightSS(coord.x - lineHalfWidth, float(channel)));
 
     for (float i = -loopBound + 1.; i <= loopBound; i += 1.0) {
-        vec2 currentPoint = vec2(coord.x + i, heightSS(coord.x + i, channel));
+        vec2 currentPoint = vec2(coord.x + i, heightSS(coord.x + i, float(channel)));
         dist = min(dist, distanceToLine(previousPoint, currentPoint, coord));
         previousPoint = currentPoint;
     }
@@ -62,5 +65,8 @@ void main() {
     float alpha = clamp(lineHalfWidth + 0.5 - dist, 0., 1.);
     if (coord.y > heightSS(coord.x, channel)) alpha = max(alpha, mix(0.0, 0.3, 1.0 - fragCoord.y));
 
+    if (fragCoord.x < xLimits[channel].x || fragCoord.x > xLimits[channel].y) {
+        alpha = 0.0;
+    }
     color = vec4(1.0, 0.0, 0.0, alpha);
 }

@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use tracing::error;
 
 // Select shader directory based on target architecture
@@ -69,6 +69,14 @@ impl UniformValue for glm::Mat4 {
     fn set_uniform(location: gl::types::GLint, value: &Self) {
         unsafe {
             gl::UniformMatrix4fv(location, 1, 0, value.as_ptr());
+        }
+    }
+}
+
+impl<const N: usize> UniformValue for [glm::Vec2; N] {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform2fv(location, N as i32, value.as_ptr() as *const f32);
         }
     }
 }

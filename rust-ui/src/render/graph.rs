@@ -70,7 +70,8 @@ pub struct GraphRenderer {
     texture_size: Vector<i32>,
     /// The actual dimensions on the screen
     graph_size: Vector<f32>,
-    limits: [Rect<f32>; MAX_TRACES as usize],
+    viewport_limits: [Rect<f32>; MAX_TRACES as usize],
+    data_x_limits: [Vector<f32>; MAX_TRACES as usize],
     active_traces: usize,
 }
 
@@ -141,7 +142,8 @@ impl GraphRenderer {
             texture_id,
             texture_size: window_size,
             graph_size: Vector::zero(),
-            limits: [Rect::default(); MAX_TRACES as usize],
+            viewport_limits: [Rect::default(); MAX_TRACES as usize],
+            data_x_limits: [Vector::zero(); MAX_TRACES as usize],
             active_traces: 0,
         }
     }
@@ -150,8 +152,8 @@ impl GraphRenderer {
     /// graph (or a zoomed out view containing the entire graph), this is controlled by [limits].
     pub fn bind_graph(
         &mut self,
-        points: &[Vector<f32>], // data domain, sorted along the x axis
-        limits: Rect<f32>,      // data domain
+        points: &[Vector<f32>],     // data domain, sorted along the x axis
+        viewport_limits: Rect<f32>, // data domain
         interpolation: Interpolation,
         graph_size: Vector<f32>, // screen domain
         channel: usize,
@@ -159,15 +161,21 @@ impl GraphRenderer {
         let mut fake_buffer: Vec<f32> = vec![];
         fake_buffer.resize((self.texture_size.x * MAX_TRACES) as usize, 0.0);
         self.active_traces = 1;
-        self.limits[channel] = limits;
+        self.viewport_limits[channel] = viewport_limits;
 
-        let (lower_idx, upper_idx) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
+        let (lower_idx, upper_idx) =
+            binary_search_for_limits(points, viewport_limits.x0.x, viewport_limits.x1.x);
         interpolation.interpolate(
             &points[lower_idx..=upper_idx],
-            limits,
+            viewport_limits,
             self.texture_size.x as usize, // The texture stretches to the graph quad automatically, thus we dont need to pass the graph bounds
             &mut fake_buffer[0..(self.texture_size.x as usize)],
         );
+
+        self.data_x_limits.fill(Vector::zero());
+        self.data_x_limits[0].x = (points[0].x - viewport_limits.x0.x) / viewport_limits.width();
+        self.data_x_limits[0].y =
+            (points[points.len() - 1].x - viewport_limits.x0.x) / viewport_limits.width();
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
@@ -223,9 +231,17 @@ impl GraphRenderer {
         self.shader.set_uniform("size", &rect_size);
         self.shader.set_uniform("text", &0);
         self.shader.set_uniform("maxTraces", &(MAX_TRACES as f32));
-        let limits = self.limits[channel as usize];
+        let limits = self.viewport_limits[channel as usize];
         self.shader
             .set_uniform("yLimits", &glm::vec2(limits.x0.y, limits.x1.y));
+        let x_limits: [glm::Vec2; MAX_TRACES as usize] = std::array::from_fn(|i| {
+            if i < self.active_traces {
+                glm::vec2(self.data_x_limits[i].x, self.data_x_limits[i].y)
+            } else {
+                glm::vec2(0.0, 0.0)
+            }
+        });
+        self.shader.set_uniform("xLimits", &x_limits);
 
         unsafe {
             gl::ActiveTexture(gl::TEXTURE0);
