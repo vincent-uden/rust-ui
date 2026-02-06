@@ -12,6 +12,7 @@ use rust_ui::{
 };
 use strum::EnumString;
 use taffy::NodeId;
+use tracing::debug;
 
 #[derive(Debug, Copy, Clone, EnumString, Default)]
 pub enum GraphInteraction {
@@ -212,6 +213,15 @@ where
                     }
                 });
             }));
+            let id1 = id.clone();
+            ctx.on_scroll = Some(Arc::new(move |state| {
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    let width = w_state.limits.width();
+                    w_state.limits.x0.x += width * 0.1 * state.scroll_delta.y.signum();
+                    w_state.limits.x1.x -= width * 0.1 * state.scroll_delta.y.signum();
+                });
+            }));
         });
 
         node_id
@@ -220,7 +230,7 @@ where
 
 // Graph widget roadmap
 // - [/] Shader for rendering
-// - [/] Pan/zoom control
+// - [x] Pan/zoom control
 // - [x] Less points than pixels
 // - [ ] More points than pixels
 // - [ ] Ticks
