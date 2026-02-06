@@ -871,6 +871,48 @@ where
     pub fn set_focus(&mut self, focus: Option<DefaultAtom>) {
         self.app_state.set_focus(focus);
     }
+
+    /// Get the computed layout for a node by searching through all layers
+    pub fn get_node_layout(&self, node_id: NodeId) -> Option<&taffy::Layout> {
+        for layer in self.layers.iter() {
+            if let Ok(layout) = layer.tree.layout(node_id) {
+                return Some(layout);
+            }
+        }
+        None
+    }
+
+    /// Get the absolute bounding box for a node in screen coordinates
+    /// Returns None if the node is not found in any layer
+    pub fn get_node_bbox(&self, node_id: NodeId) -> Option<crate::geometry::Rect<f32>> {
+        for layer in self.layers.iter() {
+            if let Ok(layout) = layer.tree.layout(node_id) {
+                // Compute absolute position by walking up the tree
+                let mut abs_pos: taffy::Point<f32> = layout.location;
+                let mut current_id = node_id;
+
+                while let Some(parent_id) = layer.tree.parent(current_id) {
+                    if let Ok(parent_layout) = layer.tree.layout(parent_id) {
+                        abs_pos.x += parent_layout.location.x;
+                        abs_pos.y += parent_layout.location.y;
+                        current_id = parent_id;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Add layer root position offset
+                abs_pos.x += layer.root_pos.x;
+                abs_pos.y += layer.root_pos.y;
+
+                let size: Vector<f32> = layout.size.into();
+                let pos: Vector<f32> = abs_pos.into();
+
+                return Some(crate::geometry::Rect::from_pos_size(pos, size));
+            }
+        }
+        None
+    }
 }
 
 /// Helps taffy decide how big nodes containing text need to be.

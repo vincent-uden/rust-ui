@@ -12,7 +12,6 @@ use rust_ui::{
 };
 use strum::EnumString;
 use taffy::NodeId;
-use tracing::debug;
 
 #[derive(Debug, Copy, Clone, EnumString, Default)]
 pub enum GraphInteraction {
@@ -63,7 +62,21 @@ where
     }
 }
 
-impl<T> GraphWidgetData<T> where T: AppState {}
+impl<T> GraphWidgetData<T>
+where
+    T: AppState,
+{
+    /// Convert screen coordinates to data domain coordinates using the provided bounding box
+    pub fn screen_to_data(&self, screen_pos: Vector<f32>, abs_bbox: Rect<f32>) -> Vector<f32> {
+        let x = self.limits.x0.x
+            + (screen_pos.x - abs_bbox.x0.x) / abs_bbox.width()
+                * (self.limits.x1.x - self.limits.x0.x);
+        let y = self.limits.x0.y
+            + (screen_pos.y - abs_bbox.x0.y) / abs_bbox.height()
+                * (self.limits.x1.y - self.limits.x0.y);
+        Vector::new(x, y)
+    }
+}
 
 impl<T> UiData<T> for GraphWidgetData<T>
 where
@@ -71,8 +84,8 @@ where
 {
     fn custom_render(
         &self,
-        id: &NodeId,
-        ctx: &NodeContext<T>,
+        _id: &NodeId,
+        _ctx: &NodeContext<T>,
         layout: &taffy::Layout,
         renderer: &mut Renderer<T>,
         bbox: Rect<f32>,
@@ -138,60 +151,80 @@ where
         context.flags |= flags::GRAPH;
         context.persistent_id = Some(id.clone());
         pdata.graph_data = data;
-        let id1 = id.clone();
-        context.on_middle_mouse_down = Some(Arc::new(move |state| {
-            state.ui_builder.mutate_state(&id1, |w_state| {
-                let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
-                // TODO: Convert to data domain somehow
-                w_state.interaction = GraphInteraction::Panning {
-                    pan_start: state.mouse_pos,
-                    mouse_pos: state.mouse_pos,
-                };
-            });
-        }));
-        let id1 = id.clone();
-        context.on_middle_mouse_up = Some(Arc::new(move |state| {
-            state.ui_builder.mutate_state(&id1, |w_state| {
-                let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
-                match w_state.interaction {
-                    GraphInteraction::None => {}
-                    GraphInteraction::Panning {
-                        pan_start,
-                        mouse_pos,
-                    } => {
-                        // TODO: Convert to data domain somehow
-                        w_state.limits.x0 += mouse_pos - pan_start;
-                        w_state.limits.x1 += mouse_pos - pan_start;
-                    }
-                    GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
-                }
-                w_state.interaction = GraphInteraction::None;
-            });
-        }));
-        let id1 = id.clone();
-        context.on_mouse_move = Some(Arc::new(move |state| {
-            state.ui_builder.mutate_state(&id1, |w_state| {
-                let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
-                match w_state.interaction {
-                    GraphInteraction::None => {}
-                    GraphInteraction::Panning {
-                        pan_start,
-                        mouse_pos: _,
-                    } => {
-                        w_state.interaction = GraphInteraction::Panning {
-                            pan_start,
-                            mouse_pos: state.mouse_pos,
-                        };
-                    }
-                    GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
-                }
-            });
-        }));
 
-        self.tree
+        // We need to get the node id first since it's needed to find the layout of the graph in the event listeners
+        let node_id = self
+            .tree
             .borrow_mut()
             .new_leaf_with_context(style, context)
-            .unwrap()
+            .unwrap();
+
+        let node_id1 = node_id;
+        self.mutate_context(node_id, move |ctx| {
+            let id1 = id.clone();
+            ctx.on_middle_mouse_down = Some(Arc::new(move |state| {
+                let bbox = state.get_node_bbox(node_id1).unwrap_or(Rect::from_points(
+                    Vector::new(0.0, 0.0),
+                    Vector::new(1.0, 1.0),
+                ));
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    let data_pos = w_state.screen_to_data(state.mouse_pos, bbox);
+                    w_state.interaction = GraphInteraction::Panning {
+                        pan_start: data_pos,
+                        mouse_pos: data_pos,
+                    };
+                });
+            }));
+            let id1 = id.clone();
+            ctx.on_middle_mouse_up = Some(Arc::new(move |state| {
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    match w_state.interaction {
+                        GraphInteraction::None => {}
+                        GraphInteraction::Panning {
+                            pan_start,
+                            mouse_pos,
+                        } => {
+                            let delta = mouse_pos - pan_start;
+                            w_state.limits.x0.x -= delta.x;
+                            w_state.limits.x1.x -= delta.x;
+                            // Flip Y: dragging down (positive delta) should move limits up (positive)
+                            w_state.limits.x0.y += delta.y;
+                            w_state.limits.x1.y += delta.y;
+                        }
+                        GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
+                    }
+                    w_state.interaction = GraphInteraction::None;
+                });
+            }));
+            let id1 = id.clone();
+            ctx.on_mouse_move = Some(Arc::new(move |state| {
+                let bbox = state.get_node_bbox(node_id1).unwrap_or(Rect::from_points(
+                    Vector::new(0.0, 0.0),
+                    Vector::new(1.0, 1.0),
+                ));
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    match w_state.interaction {
+                        GraphInteraction::None => {}
+                        GraphInteraction::Panning {
+                            pan_start,
+                            mouse_pos: _,
+                        } => {
+                            let data_pos = w_state.screen_to_data(state.mouse_pos, bbox);
+                            w_state.interaction = GraphInteraction::Panning {
+                                pan_start,
+                                mouse_pos: data_pos,
+                            };
+                        }
+                        GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
+                    }
+                });
+            }));
+        });
+
+        node_id
     }
 }
 
