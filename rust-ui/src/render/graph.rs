@@ -9,10 +9,10 @@ use tracing::{debug, info};
 
 use crate::{
     geometry::{Rect, Vector},
-    render::{Color, graph, rect::vertices, renderer::visual_log},
+    render::{graph, rect::vertices, renderer::visual_log, Color},
     shader::Shader,
 };
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 const MAX_TRACES: i32 = 10;
 
@@ -162,8 +162,8 @@ impl GraphRenderer {
         self.limits[channel] = limits;
 
         let (lower_idx, upper_idx) = binary_search_for_limits(points, limits.x0.x, limits.x1.x);
-        let count = interpolation.interpolate(
-            &points[lower_idx..upper_idx],
+        interpolation.interpolate(
+            &points[lower_idx..=upper_idx],
             limits,
             self.texture_size.x as usize, // The texture stretches to the graph quad automatically, thus we dont need to pass the graph bounds
             &mut fake_buffer[0..(self.texture_size.x as usize)],

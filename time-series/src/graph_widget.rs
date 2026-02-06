@@ -232,6 +232,7 @@ where
 // - [/] Shader for rendering
 // - [x] Pan/zoom control
 // - [x] Less points than pixels
+// - [ ] Clip data that is out of bounds
 // - [ ] More points than pixels
 // - [ ] Ticks
 // - [ ] Axis labels
