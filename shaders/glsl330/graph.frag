@@ -65,8 +65,13 @@ void main() {
     float alpha = clamp(lineHalfWidth + 0.5 - dist, 0., 1.);
     if (coord.y > heightSS(coord.x, channel)) alpha = max(alpha, mix(0.0, 0.3, 1.0 - fragCoord.y));
 
-    if (fragCoord.x < xLimits[channel].x || fragCoord.x > xLimits[channel].y) {
-        alpha = 0.0;
-    }
+    float xScreen = fragCoord.x * size.x;
+    float xMinScreen = xLimits[channel].x * size.x;
+    float xMaxScreen = xLimits[channel].y * size.x;
+
+    float leftClip = smoothstep(xMinScreen, xMinScreen + 2.0, xScreen);
+    float rightClip = 1.0 - smoothstep(xMaxScreen - 2.0, xMaxScreen, xScreen);
+
+    alpha *= leftClip * rightClip;
     color = vec4(1.0, 0.0, 0.0, alpha);
 }

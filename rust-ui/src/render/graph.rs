@@ -9,10 +9,10 @@ use tracing::{debug, info};
 
 use crate::{
     geometry::{Rect, Vector},
-    render::{graph, rect::vertices, renderer::visual_log, Color},
+    render::{Color, graph, rect::vertices, renderer::visual_log},
     shader::Shader,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 const MAX_TRACES: i32 = 10;
 
