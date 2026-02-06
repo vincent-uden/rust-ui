@@ -32,6 +32,7 @@ const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TARGET_FPS);
 #[derive(Debug, EnumString, Clone, Copy)]
 pub enum Scenario {
     Sawtooth,
+    Voltage,
 }
 
 #[derive(Parser)]
@@ -77,6 +78,7 @@ fn main() -> Result<()> {
     let (app_state, msgs) = match args.scenario {
         Some(s) => match s {
             Scenario::Sawtooth => App::new_with_sawtooth_data_added(),
+            Scenario::Voltage => App::new_with_voltage_data_added(),
         },
         None => (App::new(), vec![]),
     };

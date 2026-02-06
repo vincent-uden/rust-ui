@@ -273,4 +273,20 @@ impl App {
         out.pipeline_manager.run();
         (out, vec![AppMessage::ZoomFit])
     }
+
+    pub fn new_with_voltage_data_added() -> (App, Vec<AppMessage>) {
+        let mut out = Self::new();
+        out.add_source(
+            PathBuf::from_str("time-series/assets/test_csvs/VOUT02.CSV")
+                .expect("VOUT02.CSV must exist. Make sure cwd is the rust-ui workspace root"),
+        );
+        out.pipeline_manager.selected_source = Some(0);
+        out.add_step();
+        out.pipeline_manager.pipelines[0].steps[0] = StepConfig::PickColumns {
+            column_1: 0,
+            column_2: 1,
+        };
+        out.pipeline_manager.run();
+        (out, vec![AppMessage::ZoomFit])
+    }
 }
