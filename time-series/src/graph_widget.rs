@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_DANGER, COLOR_PRIMARY, Text,
+        COLOR_DANGER, COLOR_PRIMARY, Text, TextAlignment,
         graph::Interpolation,
         renderer::{AppState, NodeContext, Renderer, flags, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData},
@@ -131,16 +131,18 @@ where
                 Vector::new(bbox.x0.x - 10.0, y),
                 Vector::new(bbox.x0.x, y),
                 COLOR_PRIMARY,
-                1.0,
+                2.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
+            let dy_data = self.limits.height() / ((self.y_ticks - 1) as f32);
+            let y_data = self.limits.x0.y + (i as f32) * dy_data;
 
             renderer.text_r.draw_on_line(
-                Text::new("Test", 12, COLOR_PRIMARY),
-                Vector::new(bbox.x0.x - 100.0, y),
+                Text::new(format!("{}", y_data), 12, COLOR_PRIMARY).aligned(TextAlignment::Right),
+                Vector::new(bbox.x0.x - 110.0, y - 8.0),
                 Size {
                     height: 12.0,
-                    width: 100.0,
+                    width: 90.0,
                 },
                 None,
             );

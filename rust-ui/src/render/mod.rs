@@ -59,11 +59,20 @@ impl Border {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub enum TextAlignment {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
 #[derive(Debug, Clone)]
 pub struct Text {
     pub text: String,
     pub font_size: u32,
     pub color: Color,
+    pub alignment: TextAlignment,
 }
 
 impl Default for Text {
@@ -72,6 +81,7 @@ impl Default for Text {
             text: Default::default(),
             font_size: 12,
             color: Color::new(0.0, 0.0, 0.0, 1.0),
+            alignment: Default::default(),
         }
     }
 }
@@ -82,7 +92,13 @@ impl Text {
             text: text.into(),
             font_size,
             color,
+            alignment: Default::default(),
         }
+    }
+
+    pub fn aligned(mut self, aligment: TextAlignment) -> Self {
+        self.alignment = aligment;
+        self
     }
 }
 

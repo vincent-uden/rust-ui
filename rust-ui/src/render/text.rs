@@ -4,11 +4,11 @@ use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
 use string_cache::DefaultAtom;
-use taffy::AvailableSpace;
+use taffy::{AvailableSpace, TextAlign};
 
 use crate::{
     geometry::Vector,
-    render::{Color, Text},
+    render::{Color, Text, TextAlignment},
     shader::Shader,
 };
 
@@ -595,6 +595,14 @@ impl TextRenderer {
             text.font_size,
             false,
         ) {
+            let aligment_offset = Vector::new(
+                match text.alignment {
+                    TextAlignment::Left => 0.0,
+                    TextAlignment::Center => (size.width - line.size.x) / 2.0,
+                    TextAlignment::Right => size.width - line.size.x,
+                },
+                0.0,
+            );
             let cursor_idx = cursor_idx
                 .filter(|&idx| {
                     line_start <= idx
@@ -615,7 +623,7 @@ impl TextRenderer {
             line_start += line.contents.len();
             self.draw_line(
                 draw_text,
-                position + line.position,
+                position + line.position + aligment_offset,
                 text.font_size,
                 &mut instances,
                 cursor_idx,
