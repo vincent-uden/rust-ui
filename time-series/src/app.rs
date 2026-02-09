@@ -88,17 +88,17 @@ impl App {
     pub fn base_layer(&self, window_size: Vector<f32>, ui: &UiBuilder<Self>) -> RenderLayout<Self> {
         #[cfg_attr(any(), rustfmt::skip)]
         let root = ui.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
-            ui.div("flex-row", &[
+            ui.div("flex-row pb-12", &[
                 ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
-                ui.div("flex-col gap-4 grow", &[
+                ui.div("flex-col gap-4 grow pr-32", &[
                     ui.div("flex-col h-full", &[
                         ui.div("flex-row grow", &[
-                            ui.y_axis("", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                            ui.y_axis(""),
                             ui.graph_time_series("w-full h-full", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
                         ]),
-                        ui.x_axis("", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                        ui.x_axis(""),
                     ]),
                     ui.div("flex-row grow gap-4 p-4", &[
                         ui.text_button("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Text::new("Zoom fit", 16, COLOR_LIGHT), Listeners {

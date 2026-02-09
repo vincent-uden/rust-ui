@@ -149,14 +149,41 @@ where
         }
         for i in 0..self.x_ticks {
             let dx = bbox.width() / ((self.x_ticks - 1) as f32);
+            let x = (i as f32) * dx + bbox.x0.x;
             renderer.line_r.draw(
-                Vector::new((i as f32) * dx + bbox.x0.x, bbox.x1.y),
-                Vector::new((i as f32) * dx + bbox.x0.x, bbox.x1.y + 10.0),
+                Vector::new(x, bbox.x1.y),
+                Vector::new(x, bbox.x1.y + 10.0),
                 COLOR_PRIMARY,
-                1.0,
+                2.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
+
+            let dx_data = self.limits.width() / ((self.x_ticks - 1) as f32);
+            let x_data = self.limits.x0.x + (i as f32) * dx_data;
+            renderer.text_r.draw_on_line(
+                Text::new(format!("{}", x_data), 12, COLOR_PRIMARY).aligned(TextAlignment::Center),
+                Vector::new(x - 45.0, bbox.x1.y + 12.0),
+                Size {
+                    height: 12.0,
+                    width: 90.0,
+                },
+                None,
+            );
         }
+        renderer.line_r.draw(
+            Vector::new(bbox.x0.x, bbox.x0.y),
+            Vector::new(bbox.x0.x, bbox.x1.y),
+            COLOR_PRIMARY,
+            2.0,
+            Vector::new(renderer.width as f32, renderer.height as f32),
+        );
+        renderer.line_r.draw(
+            Vector::new(bbox.x0.x, bbox.x1.y),
+            Vector::new(bbox.x1.x, bbox.x1.y),
+            COLOR_PRIMARY,
+            2.0,
+            Vector::new(renderer.width as f32, renderer.height as f32),
+        );
     }
 }
 
@@ -170,18 +197,10 @@ where
         id: DefaultAtom,
         data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
     ) -> NodeId;
-    fn y_axis(
-        &self,
-        style: &str,
-        graph_id: DefaultAtom,
-        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
-    ) -> NodeId;
-    fn x_axis(
-        &self,
-        style: &str,
-        graph_id: DefaultAtom,
-        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
-    ) -> NodeId;
+    /// Exists just to provide the space necessary to render the axes. Doesn't actually do anything
+    fn y_axis(&self, style: &str) -> NodeId;
+    /// Exists just to provide the space necessary to render the axes. Doesn't actually do anything
+    fn x_axis(&self, style: &str) -> NodeId;
 }
 
 impl<T> GraphWidgetBuilder<T> for UiBuilder<T>
@@ -276,36 +295,12 @@ where
         node_id
     }
 
-    fn y_axis(
-        &self,
-        style: &str,
-        graph_id: DefaultAtom,
-        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
-    ) -> NodeId {
-        let binding = match self.accessing_state(&graph_id) {
-            Some(s) => s,
-            None => self.insert_state(graph_id.clone(), GraphWidgetData::<T>::default()),
-        };
-        let mut guard = binding.data.lock().unwrap();
-        let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
-
+    fn y_axis(&self, _style: &str) -> NodeId {
         self.div("w-100", &[])
     }
 
-    fn x_axis(
-        &self,
-        style: &str,
-        graph_id: DefaultAtom,
-        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
-    ) -> NodeId {
-        let binding = match self.accessing_state(&graph_id) {
-            Some(s) => s,
-            None => self.insert_state(graph_id.clone(), GraphWidgetData::<T>::default()),
-        };
-        let mut guard = binding.data.lock().unwrap();
-        let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
-
-        self.div("pl-100 h-20 w-full", &[self.div("h-20 w-full", &[])])
+    fn x_axis(&self, _style: &str) -> NodeId {
+        self.div("pl-100 h-40 w-full", &[self.div("h-20 w-full", &[])])
     }
 }
 
@@ -315,7 +310,7 @@ where
 // - [x] Less points than pixels
 // - [x] Clip data that is out of bounds
 // - [x] More points than pixels
-// - [ ] Ticks
-// - [ ] Axis labels
+// - [x] Ticks
+// - [x] Axis labels
 // - [ ] Show cursor xy-coordinates in data domain
 // - [ ] Legend
