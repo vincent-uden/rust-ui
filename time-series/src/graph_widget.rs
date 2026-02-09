@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_DANGER, COLOR_PRIMARY,
+        COLOR_DANGER, COLOR_PRIMARY, Text,
         graph::Interpolation,
         renderer::{AppState, NodeContext, Renderer, flags, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData},
@@ -11,7 +11,7 @@ use rust_ui::{
     style::parse_style,
 };
 use strum::EnumString;
-use taffy::NodeId;
+use taffy::{NodeId, Size};
 use tracing::debug;
 
 #[derive(Debug, Copy, Clone, EnumString, Default)]
@@ -35,6 +35,8 @@ where
     /// Graph limits, currently in data space
     pub limits: Rect<f32>,
     pub graph_data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    pub x_ticks: i32,
+    pub y_ticks: i32,
 }
 impl<T> fmt::Debug for GraphWidgetData<T>
 where
@@ -59,6 +61,8 @@ where
             interaction: Default::default(),
             limits: Default::default(),
             graph_data: Weak::new(),
+            x_ticks: 5,
+            y_ticks: 5,
         }
     }
 }
@@ -119,6 +123,38 @@ where
             );
         }
         renderer.graph_r.draw(0, bbox, COLOR_PRIMARY, 1.0);
+
+        for i in 0..self.y_ticks {
+            let dy = bbox.height() / ((self.y_ticks - 1) as f32);
+            let y = (i as f32) * dy + bbox.x0.y;
+            renderer.line_r.draw(
+                Vector::new(bbox.x0.x - 10.0, y),
+                Vector::new(bbox.x0.x, y),
+                COLOR_PRIMARY,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+
+            renderer.text_r.draw_on_line(
+                Text::new("Test", 12, COLOR_PRIMARY),
+                Vector::new(bbox.x0.x - 100.0, y),
+                Size {
+                    height: 12.0,
+                    width: 100.0,
+                },
+                None,
+            );
+        }
+        for i in 0..self.x_ticks {
+            let dx = bbox.width() / ((self.x_ticks - 1) as f32);
+            renderer.line_r.draw(
+                Vector::new((i as f32) * dx + bbox.x0.x, bbox.x1.y),
+                Vector::new((i as f32) * dx + bbox.x0.x, bbox.x1.y + 10.0),
+                COLOR_PRIMARY,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+        }
     }
 }
 
@@ -251,7 +287,7 @@ where
         let mut guard = binding.data.lock().unwrap();
         let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
 
-        self.div("bg-slate-900 w-20", &[])
+        self.div("w-100", &[])
     }
 
     fn x_axis(
@@ -267,10 +303,7 @@ where
         let mut guard = binding.data.lock().unwrap();
         let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
 
-        self.div(
-            "pl-20 h-20 w-full",
-            &[self.div("bg-slate-900 h-20 w-full", &[])],
-        )
+        self.div("pl-100 h-20 w-full", &[self.div("h-20 w-full", &[])])
     }
 }
 
