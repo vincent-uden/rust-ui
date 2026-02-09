@@ -637,7 +637,7 @@ where
         Ok(())
     }
 
-    fn render_tree(
+    pub fn render_tree(
         &mut self,
         tree: &TaffyTree<NodeContext<T>>,
         root_node: NodeId,

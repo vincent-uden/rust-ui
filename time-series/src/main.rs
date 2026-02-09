@@ -112,10 +112,7 @@ fn main() -> Result<()> {
                     state.handle_mouse_button(button, action, modifiers);
                 }
                 glfw::WindowEvent::CursorPos(x, y) => {
-                    state.last_mouse_pos.x = state.mouse_pos.x;
-                    state.last_mouse_pos.y = state.mouse_pos.y;
-                    state.mouse_pos.x = x as f32;
-                    state.mouse_pos.y = y as f32;
+                    state.handle_mouse_position(Vector::new(x as f32, y as f32));
                 }
                 glfw::WindowEvent::FramebufferSize(width, height) => {
                     state.window_size((width, height));

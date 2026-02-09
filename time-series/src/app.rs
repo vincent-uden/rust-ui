@@ -46,6 +46,7 @@ pub struct App {
     pub focus: Option<DefaultAtom>,
     pub mode_stack: ModeStack<AppMode, AppMessage>,
     pub config: Config<AppMode, AppMessage, AppMessage>,
+    pub mouse_pos: Vector<f32>,
 }
 
 impl App {
@@ -57,6 +58,7 @@ impl App {
             focus: None,
             mode_stack: ModeStack::with_base(AppMode::Base),
             config: default_config(),
+            mouse_pos: Default::default(),
         }
     }
 
@@ -121,6 +123,37 @@ impl App {
         }
     }
 
+    pub fn tooltip_layer(
+        &self,
+        _window_size: Vector<f32>,
+        ui: &UiBuilder<Self>,
+    ) -> RenderLayout<Self> {
+        let binding = match ui.accessing_state(&id!("main_graph")) {
+            Some(s) => s,
+            None => ui.insert_state(id!("main_graph"), GraphWidgetData::<Self>::default()),
+        };
+        let mut guard = binding.data.lock().unwrap();
+        let data: &mut GraphWidgetData<Self> = guard.downcast_mut().unwrap();
+        let data_pos = data.screen_coord_to_data_coord(self.mouse_pos);
+
+        #[cfg_attr(any(), rustfmt::skip)]
+        let root = ui.div("bg-slate-700 rounded-8 flex-col w-200 px-12 pb-8 pt-6 gap-0 border-2 border-slate-500", &[
+            ui.text("", Text::new(format!("x: {}", data_pos.x), 12, COLOR_LIGHT)),
+            ui.text("", Text::new(format!("y: {}", data_pos.y), 12, COLOR_LIGHT)),
+        ]);
+
+        RenderLayout {
+            tree: ui.tree(),
+            root,
+            desired_size: taffy::Size {
+                width: taffy::AvailableSpace::MinContent,
+                height: taffy::AvailableSpace::MinContent,
+            },
+            root_pos: Vector::new(110.0, 40.0),
+            ..Default::default()
+        }
+    }
+
     pub fn handle_message(&mut self, msg: AppMessage, ui: &UiBuilder<Self>) -> Vec<String> {
         match msg {
             AppMessage::PopMode => {
@@ -162,7 +195,10 @@ impl AppState for App {
         window_size: rust_ui::geometry::Vector<f32>,
         ui: &UiBuilder<Self>,
     ) -> Vec<rust_ui::render::renderer::RenderLayout<Self>> {
-        vec![self.base_layer(window_size, ui)]
+        vec![
+            self.base_layer(window_size, ui),
+            self.tooltip_layer(window_size, ui),
+        ]
     }
 
     fn handle_key(
@@ -259,6 +295,10 @@ impl AppState for App {
         if self.focus.is_some() && !self.mode_stack.is_outermost(&AppMode::Typing) {
             self.mode_stack.push(AppMode::Typing);
         }
+    }
+
+    fn handle_mouse_position(&mut self, position: Vector<f32>, _delta: Vector<f32>) {
+        self.mouse_pos = position;
     }
 }
 

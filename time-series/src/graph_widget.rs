@@ -38,6 +38,7 @@ where
     pub x_ticks: i32,
     pub y_ticks: i32,
     pub mouse_pos: Option<Vector<f32>>,
+    pub last_bbox: RefCell<Rect<f32>>,
 }
 impl<T> fmt::Debug for GraphWidgetData<T>
 where
@@ -51,6 +52,7 @@ where
             .field("graph_data", &"[..]")
             .field("x_ticks", &self.x_ticks)
             .field("y_ticks", &self.y_ticks)
+            .field("last_bbox", &self.last_bbox)
             .finish()
     }
 }
@@ -67,6 +69,7 @@ where
             x_ticks: 7,
             y_ticks: 7,
             mouse_pos: None,
+            last_bbox: Default::default(),
         }
     }
 }
@@ -90,6 +93,13 @@ where
         let dy = -screen_delta.y / abs_bbox.height() * data_height;
         Vector::new(dx, dy)
     }
+
+    pub fn screen_coord_to_data_coord(&self, pos: Vector<f32>) -> Vector<f32> {
+        let last_bbox = self.last_bbox.borrow();
+        ((pos - last_bbox.x0).non_uniform_scaled(last_bbox.size().div_inverted()))
+            .non_uniform_scaled(self.limits.size())
+            + self.limits.x0
+    }
 }
 
 impl<T> UiData<T> for GraphWidgetData<T>
@@ -104,6 +114,8 @@ where
         renderer: &mut Renderer<T>,
         bbox: Rect<f32>,
     ) {
+        let mut last_bbox = self.last_bbox.borrow_mut();
+        *last_bbox = bbox;
         let _span = tracy_client::span!("Graph widget render");
         if let Some(rc) = self.graph_data.upgrade() {
             // TODO: Loop over traces
@@ -143,7 +155,7 @@ where
             let y_data = self.limits.x0.y + (i as f32) * dy_data;
 
             renderer.text_r.draw_on_line(
-                Text::new(format!("{}", y_data), 12, COLOR_PRIMARY).aligned(TextAlignment::Right),
+                Text::new(format!("{}", y_data), 12, COLOR_LIGHT).aligned(TextAlignment::Right),
                 Vector::new(bbox.x0.x - 110.0, y - 8.0),
                 Size {
                     height: 12.0,
@@ -166,7 +178,7 @@ where
             let dx_data = self.limits.width() / ((self.x_ticks - 1) as f32);
             let x_data = self.limits.x0.x + (i as f32) * dx_data;
             renderer.text_r.draw_on_line(
-                Text::new(format!("{}", x_data), 12, COLOR_PRIMARY).aligned(TextAlignment::Center),
+                Text::new(format!("{}", x_data), 12, COLOR_LIGHT).aligned(TextAlignment::Center),
                 Vector::new(x - 45.0, bbox.x1.y + 12.0),
                 Size {
                     height: 12.0,
@@ -338,5 +350,6 @@ where
 // - [x] More points than pixels
 // - [x] Ticks
 // - [x] Axis labels
-// - [ ] Show cursor xy-coordinates in data domain
-// - [ ] Legend
+// - [x] Show cursor xy-coordinates in data domain
+// - [ ] Trace selection
+// - [ ] Customizable colors for graph and ticks
