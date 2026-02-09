@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_DANGER, COLOR_PRIMARY, Text, TextAlignment,
+        COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SECONDARY, Text, TextAlignment,
         graph::Interpolation,
         renderer::{AppState, NodeContext, Renderer, flags, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData},
@@ -37,6 +37,7 @@ where
     pub graph_data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
     pub x_ticks: i32,
     pub y_ticks: i32,
+    pub mouse_pos: Option<Vector<f32>>,
 }
 impl<T> fmt::Debug for GraphWidgetData<T>
 where
@@ -47,7 +48,9 @@ where
             .field("phantom", &self.phantom)
             .field("interaction", &self.interaction)
             .field("limits", &self.limits)
-            .field("graph_data", &self.graph_data.upgrade().unwrap_or_default())
+            .field("graph_data", &"[..]")
+            .field("x_ticks", &self.x_ticks)
+            .field("y_ticks", &self.y_ticks)
             .finish()
     }
 }
@@ -61,8 +64,9 @@ where
             interaction: Default::default(),
             limits: Default::default(),
             graph_data: Weak::new(),
-            x_ticks: 5,
-            y_ticks: 5,
+            x_ticks: 7,
+            y_ticks: 7,
+            mouse_pos: None,
         }
     }
 }
@@ -124,6 +128,7 @@ where
         }
         renderer.graph_r.draw(0, bbox, COLOR_PRIMARY, 1.0);
 
+        // Axes
         for i in 0..self.y_ticks {
             let dy = bbox.height() / ((self.y_ticks - 1) as f32);
             let y = (i as f32) * dy + bbox.x0.y;
@@ -184,6 +189,26 @@ where
             2.0,
             Vector::new(renderer.width as f32, renderer.height as f32),
         );
+
+        // Tooltip
+        if let Some(mouse_pos) = self.mouse_pos
+            && matches!(self.interaction, GraphInteraction::None)
+        {
+            renderer.line_r.draw(
+                Vector::new(mouse_pos.x, bbox.x0.y),
+                Vector::new(mouse_pos.x, bbox.x1.y),
+                COLOR_SECONDARY,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+            renderer.line_r.draw(
+                Vector::new(bbox.x0.x, mouse_pos.y),
+                Vector::new(bbox.x1.x, mouse_pos.y),
+                COLOR_SECONDARY,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+        }
     }
 }
 
@@ -260,6 +285,7 @@ where
                 ));
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    w_state.mouse_pos = Some(state.mouse_pos);
                     match w_state.interaction {
                         GraphInteraction::None => {}
                         GraphInteraction::Panning {
