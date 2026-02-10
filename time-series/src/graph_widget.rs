@@ -3,16 +3,15 @@ use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_PRIMARY, COLOR_SECONDARY, Text, TextAlignment,
+        COLOR_LIGHT, COLOR_PRIMARY, Color, Text, TextAlignment,
         graph::Interpolation,
-        renderer::{AppState, NodeContext, Renderer, flags, visual_log},
+        renderer::{AppState, NodeContext, Renderer, flags},
         widgets::{DefaultAtom, UiBuilder, UiData},
     },
     style::parse_style,
 };
 use strum::EnumString;
 use taffy::{NodeId, Size};
-use tracing::debug;
 
 #[derive(Debug, Copy, Clone, EnumString, Default)]
 pub enum GraphInteraction {
@@ -39,6 +38,11 @@ where
     pub y_ticks: i32,
     pub mouse_pos: Option<Vector<f32>>,
     pub last_bbox: RefCell<Rect<f32>>,
+    // Axis colors (set by graph_with_axes container)
+    pub y_axis_tick_color: Color,
+    pub y_axis_label_color: Color,
+    pub x_axis_tick_color: Color,
+    pub x_axis_label_color: Color,
 }
 impl<T> fmt::Debug for GraphWidgetData<T>
 where
@@ -53,6 +57,10 @@ where
             .field("x_ticks", &self.x_ticks)
             .field("y_ticks", &self.y_ticks)
             .field("last_bbox", &self.last_bbox)
+            .field("y_axis_tick_color", &self.y_axis_tick_color)
+            .field("y_axis_label_color", &self.y_axis_label_color)
+            .field("x_axis_tick_color", &self.x_axis_tick_color)
+            .field("x_axis_label_color", &self.x_axis_label_color)
             .finish()
     }
 }
@@ -70,6 +78,10 @@ where
             y_ticks: 7,
             mouse_pos: None,
             last_bbox: Default::default(),
+            y_axis_tick_color: COLOR_PRIMARY,
+            y_axis_label_color: COLOR_LIGHT,
+            x_axis_tick_color: COLOR_PRIMARY,
+            x_axis_label_color: COLOR_LIGHT,
         }
     }
 }
@@ -109,7 +121,7 @@ where
     fn custom_render(
         &self,
         _id: &NodeId,
-        _ctx: &NodeContext<T>,
+        ctx: &NodeContext<T>,
         layout: &taffy::Layout,
         renderer: &mut Renderer<T>,
         bbox: Rect<f32>,
@@ -135,7 +147,10 @@ where
                 0,
             );
         }
-        renderer.graph_r.draw(0, bbox, COLOR_PRIMARY, 1.0);
+        let graph_color = ctx.text.color;
+        let tooltip_color = ctx.border.color;
+
+        renderer.graph_r.draw(0, bbox, graph_color, 1.0);
 
         // Axes
         for i in 0..self.y_ticks {
@@ -144,7 +159,7 @@ where
             renderer.line_r.draw(
                 Vector::new(bbox.x0.x - 10.0, y),
                 Vector::new(bbox.x0.x, y),
-                COLOR_PRIMARY,
+                self.y_axis_tick_color,
                 2.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
@@ -152,7 +167,8 @@ where
             let y_data = self.limits.x0.y + (i as f32) * dy_data;
 
             renderer.text_r.draw_on_line(
-                Text::new(format!("{}", y_data), 12, COLOR_LIGHT).aligned(TextAlignment::Right),
+                Text::new(format!("{}", y_data), 12, self.y_axis_label_color)
+                    .aligned(TextAlignment::Right),
                 Vector::new(bbox.x0.x - 110.0, y - 8.0),
                 Size {
                     height: 12.0,
@@ -167,7 +183,7 @@ where
             renderer.line_r.draw(
                 Vector::new(x, bbox.x1.y),
                 Vector::new(x, bbox.x1.y + 10.0),
-                COLOR_PRIMARY,
+                self.x_axis_tick_color,
                 2.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
@@ -175,7 +191,8 @@ where
             let dx_data = self.limits.width() / ((self.x_ticks - 1) as f32);
             let x_data = self.limits.x0.x + (i as f32) * dx_data;
             renderer.text_r.draw_on_line(
-                Text::new(format!("{}", x_data), 12, COLOR_LIGHT).aligned(TextAlignment::Center),
+                Text::new(format!("{}", x_data), 12, self.x_axis_label_color)
+                    .aligned(TextAlignment::Center),
                 Vector::new(x - 45.0, bbox.x1.y + 12.0),
                 Size {
                     height: 12.0,
@@ -187,14 +204,14 @@ where
         renderer.line_r.draw(
             Vector::new(bbox.x0.x, bbox.x0.y),
             Vector::new(bbox.x0.x, bbox.x1.y),
-            COLOR_PRIMARY,
+            self.y_axis_tick_color,
             2.0,
             Vector::new(renderer.width as f32, renderer.height as f32),
         );
         renderer.line_r.draw(
             Vector::new(bbox.x0.x, bbox.x1.y),
             Vector::new(bbox.x1.x, bbox.x1.y),
-            COLOR_PRIMARY,
+            self.x_axis_tick_color,
             2.0,
             Vector::new(renderer.width as f32, renderer.height as f32),
         );
@@ -206,14 +223,14 @@ where
             renderer.line_r.draw(
                 Vector::new(mouse_pos.x, bbox.x0.y),
                 Vector::new(mouse_pos.x, bbox.x1.y),
-                COLOR_SECONDARY,
+                tooltip_color,
                 1.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
             renderer.line_r.draw(
                 Vector::new(bbox.x0.x, mouse_pos.y),
                 Vector::new(bbox.x1.x, mouse_pos.y),
-                COLOR_SECONDARY,
+                tooltip_color,
                 1.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
@@ -225,50 +242,87 @@ pub trait GraphWidgetBuilder<T>
 where
     T: AppState,
 {
-    fn graph_time_series(
+    /// Creates a standalone graph widget. Should be used with graph_with_axes() container.
+    /// The returned node should not be added to the tree directly - pass it to graph_with_axes().
+    ///
+    /// Style mappings:
+    /// - `bg-*` = graph line color
+    /// - `hover:bg-*` = tooltip crosshair color
+    fn graph_widget(
         &self,
         style: &str,
         id: DefaultAtom,
         data: Weak<RefCell<Vec<Vector<f32>>>>,
     ) -> NodeId;
-    /// Exists just to provide the space necessary to render the axes. Doesn't actually do anything
+
+    /// Creates a y-axis spacer widget. Should be used with graph_with_axes() container.
+    /// The returned node should not be added to the tree directly - pass it to graph_with_axes().
+    ///
+    /// Style mappings:
+    /// - `border-*` = tick/axis line color
+    /// - `text-*` = label text color
     fn y_axis(&self, style: &str) -> NodeId;
-    /// Exists just to provide the space necessary to render the axes. Doesn't actually do anything
+
+    /// Creates an x-axis spacer widget. Should be used with graph_with_axes() container.
+    /// The returned node should not be added to the tree directly - pass it to graph_with_axes().
+    ///
+    /// Style mappings:
+    /// - `border-*` = tick/axis line color
+    /// - `text-*` = label text color
     fn x_axis(&self, style: &str) -> NodeId;
+
+    /// Creates a container that arranges graph_widget, y_axis, and x_axis in an L-shaped layout.
+    /// Extracts colors from the axis nodes and stores them in the graph's state.
+    ///
+    /// # Important
+    /// The graph, y_axis, and x_axis nodes must be orphan nodes (not yet added to the tree).
+    /// They will be reparented as children of the container.
+    fn graph_with_axes(
+        &self,
+        container_style: &str,
+        graph_id: DefaultAtom,
+        graph: NodeId,
+        y_axis: NodeId,
+        x_axis: NodeId,
+    ) -> NodeId;
 }
 
 impl<T> GraphWidgetBuilder<T> for UiBuilder<T>
 where
-    T: AppState,
+    T: AppState + 'static,
 {
-    fn graph_time_series(
+    fn graph_widget(
         &self,
         style: &str,
         id: DefaultAtom,
         data: Weak<RefCell<Vec<Vector<f32>>>>,
     ) -> NodeId {
-        let _span = tracy_client::span!("graph_time_series");
+        let _span = tracy_client::span!("graph_widget");
+
+        // Get or create graph state
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
             None => self.insert_state(id.clone(), GraphWidgetData::<T>::default()),
         };
         let mut guard = binding.data.lock().unwrap();
         let pdata: &mut GraphWidgetData<T> = guard.downcast_mut().unwrap();
+        pdata.graph_data = data;
+        drop(guard);
 
+        // Create graph widget
         let (style, mut context) = parse_style::<T>(style);
         context.flags |= flags::GRAPH;
         context.persistent_id = Some(id.clone());
-        pdata.graph_data = data;
-
-        // We need to get the node id before adding the event listeners since it's needed to find the layout of the graph in the event listeners
-        let node_id = self
+        let graph_node = self
             .tree
             .borrow_mut()
             .new_leaf_with_context(style, context)
             .unwrap();
 
-        self.mutate_context(node_id, move |ctx| {
-            let id1 = id.clone();
+        // Add event listeners to graph
+        let id_clone = id.clone();
+        self.mutate_context(graph_node, move |ctx| {
+            let id1 = id_clone.clone();
             ctx.on_middle_mouse_down = Some(Arc::new(move |state| {
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
@@ -278,20 +332,22 @@ where
                     };
                 });
             }));
-            let id1 = id.clone();
+            let id1 = id_clone.clone();
             ctx.on_middle_mouse_up = Some(Arc::new(move |state| {
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
                     w_state.interaction = GraphInteraction::None;
                 });
             }));
-            let node_id3 = node_id;
-            let id1 = id.clone();
+            let graph_node_id = graph_node;
+            let id1 = id_clone.clone();
             ctx.on_mouse_move = Some(Arc::new(move |state| {
-                let bbox = state.get_node_bbox(node_id3).unwrap_or(Rect::from_points(
-                    Vector::new(0.0, 0.0),
-                    Vector::new(1.0, 1.0),
-                ));
+                let bbox = state
+                    .get_node_bbox(graph_node_id)
+                    .unwrap_or(Rect::from_points(
+                        Vector::new(0.0, 0.0),
+                        Vector::new(1.0, 1.0),
+                    ));
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
                     w_state.mouse_pos = Some(state.mouse_pos);
@@ -316,7 +372,7 @@ where
                     }
                 });
             }));
-            let id1 = id.clone();
+            let id1 = id_clone.clone();
             ctx.on_scroll = Some(Arc::new(move |state| {
                 state.ui_builder.mutate_state(&id1, |w_state| {
                     let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
@@ -327,15 +383,73 @@ where
             }));
         });
 
-        node_id
+        graph_node
     }
 
-    fn y_axis(&self, _style: &str) -> NodeId {
-        self.div("w-100", &[])
+    fn y_axis(&self, style: &str) -> NodeId {
+        let compound_style = format!("w-100 {style}");
+        let (stl, ctx) = parse_style::<T>(&compound_style);
+        self.tree
+            .borrow_mut()
+            .new_leaf_with_context(stl, ctx)
+            .unwrap()
     }
 
-    fn x_axis(&self, _style: &str) -> NodeId {
-        self.div("pl-100 h-40 w-full", &[self.div("h-20 w-full", &[])])
+    fn x_axis(&self, style: &str) -> NodeId {
+        let compound_style = format!("h-40 pl-100 w-full {style}");
+        let (stl, ctx) = parse_style::<T>(&compound_style);
+        self.tree
+            .borrow_mut()
+            .new_leaf_with_context(stl, ctx)
+            .unwrap()
+    }
+
+    fn graph_with_axes(
+        &self,
+        container_style: &str,
+        graph_id: DefaultAtom,
+        graph: NodeId,
+        y_axis: NodeId,
+        x_axis: NodeId,
+    ) -> NodeId {
+        let _span = tracy_client::span!("graph_with_axes");
+
+        // Extract colors from axis nodes
+        let y_axis_tick_color;
+        let y_axis_label_color;
+        let x_axis_tick_color;
+        let x_axis_label_color;
+
+        {
+            let tree = self.tree.borrow();
+            let y_axis_ctx = tree
+                .get_node_context(y_axis)
+                .expect("y_axis node must exist in tree");
+            let x_axis_ctx = tree
+                .get_node_context(x_axis)
+                .expect("x_axis node must exist in tree");
+
+            y_axis_tick_color = y_axis_ctx.border.color;
+            y_axis_label_color = y_axis_ctx.text.color;
+            x_axis_tick_color = x_axis_ctx.border.color;
+            x_axis_label_color = x_axis_ctx.text.color;
+        }
+
+        // Store axis colors in graph state
+        self.mutate_state(&graph_id, |w_state| {
+            let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+            w_state.y_axis_tick_color = y_axis_tick_color;
+            w_state.y_axis_label_color = y_axis_label_color;
+            w_state.x_axis_tick_color = x_axis_tick_color;
+            w_state.x_axis_label_color = x_axis_label_color;
+        });
+
+        // Create container with flex-col layout
+        // Structure: flex-col [ flex-row [y_axis, graph], x_axis ]
+        let inner_row = self.div("flex-row grow", &[y_axis, graph]);
+        let container = self.div(container_style, &[inner_row, x_axis]);
+
+        container
     }
 }
 
@@ -348,5 +462,5 @@ where
 // - [x] Ticks
 // - [x] Axis labels
 // - [x] Show cursor xy-coordinates in data domain
-// - [ ] Trace selection
-// - [ ] Customizable colors for graph and ticks
+// - [x] Trace selection
+// - [x] Customizable colors for graph and ticks

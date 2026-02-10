@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
 
 use glfw::Action;
 use modes::{Config, ModeStack};
@@ -8,12 +8,12 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_LIGHT, Text,
-        renderer::{AppState, Listeners, RenderLayout, flags},
+        renderer::{AppState, Listeners, RenderLayout},
         widgets::{DefaultAtom, UiBuilder, UiData, text_field::TextFieldData},
     },
 };
 use strum::EnumString;
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::{
     graph_widget::{GraphWidgetBuilder, GraphWidgetData},
@@ -101,17 +101,21 @@ impl App {
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
                 ui.div("flex-col gap-4 grow pr-32", &[
-                    ui.div("flex-col h-full", &[
-                        ui.div("flex-row grow", &[
-                            ui.y_axis(""),
-                            ui.graph_time_series("w-full h-full", id!("main_graph"),
+                    {
+                        ui.graph_with_axes(
+                            "flex-col h-full",
+                            id!("main_graph"),
+                            ui.graph_widget(
+                                "w-full h-full text-white border-black",
+                                id!("main_graph"),
                                 Rc::downgrade(self.pipeline_manager.as_points
                                     .get(self.pipeline_manager.selected_source.unwrap_or(0))
                                     .unwrap_or(&Rc::new(RefCell::new(Vec::new())))),
                             ),
-                        ]),
-                        ui.x_axis(""),
-                    ]),
+                            ui.y_axis("border-slate-400 text-gray-300"),
+                            ui.x_axis("border-slate-400 text-gray-300"),
+                        )
+                    },
                     ui.div("flex-row grow gap-4 p-4", &[
                         ui.text_button("py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500", Text::new("Zoom fit", 16, COLOR_LIGHT), Listeners {
                             on_left_mouse_up: Some(Arc::new(|state| {
