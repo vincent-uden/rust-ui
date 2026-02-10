@@ -34,7 +34,7 @@ where
     pub interaction: GraphInteraction,
     /// Graph limits, currently in data space
     pub limits: Rect<f32>,
-    pub graph_data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+    pub graph_data: Weak<RefCell<Vec<Vector<f32>>>>,
     pub x_ticks: i32,
     pub y_ticks: i32,
     pub mouse_pos: Option<Vector<f32>>,
@@ -118,17 +118,14 @@ where
         *last_bbox = bbox;
         let _span = tracy_client::span!("Graph widget render");
         if let Some(rc) = self.graph_data.upgrade() {
-            // TODO: Loop over traces
             let points = (*rc).borrow();
-            if !points.is_empty() {
-                renderer.graph_r.bind_graph(
-                    &points[0],
-                    self.limits,
-                    Interpolation::Linear,
-                    layout.size.into(),
-                    0,
-                );
-            }
+            renderer.graph_r.bind_graph(
+                &points,
+                self.limits,
+                Interpolation::Linear,
+                layout.size.into(),
+                0,
+            );
         } else {
             renderer.graph_r.bind_graph(
                 &[],
@@ -232,7 +229,7 @@ where
         &self,
         style: &str,
         id: DefaultAtom,
-        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+        data: Weak<RefCell<Vec<Vector<f32>>>>,
     ) -> NodeId;
     /// Exists just to provide the space necessary to render the axes. Doesn't actually do anything
     fn y_axis(&self, style: &str) -> NodeId;
@@ -248,7 +245,7 @@ where
         &self,
         style: &str,
         id: DefaultAtom,
-        data: Weak<RefCell<Vec<Vec<Vector<f32>>>>>,
+        data: Weak<RefCell<Vec<Vector<f32>>>>,
     ) -> NodeId {
         let _span = tracy_client::span!("graph_time_series");
         let binding = match self.accessing_state(&id) {

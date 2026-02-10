@@ -98,7 +98,11 @@ impl App {
                     ui.div("flex-col h-full", &[
                         ui.div("flex-row grow", &[
                             ui.y_axis(""),
-                            ui.graph_time_series("w-full h-full", id!("main_graph"), Rc::downgrade(&self.pipeline_manager.as_points)),
+                            ui.graph_time_series("w-full h-full", id!("main_graph"), 
+                                Rc::downgrade(self.pipeline_manager.as_points
+                                    .get(self.pipeline_manager.selected_source.unwrap_or(0))
+                                    .unwrap_or(&Rc::new(RefCell::new(Vec::new())))),
+                            ),
                         ]),
                         ui.x_axis(""),
                     ]),

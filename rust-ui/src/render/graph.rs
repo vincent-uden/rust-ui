@@ -165,19 +165,24 @@ impl GraphRenderer {
         self.active_traces = 1;
         self.viewport_limits[channel] = viewport_limits;
 
-        let (lower_idx, upper_idx) =
-            binary_search_for_limits(points, viewport_limits.x0.x, viewport_limits.x1.x);
-        interpolation.interpolate(
-            &points[lower_idx..=upper_idx],
-            viewport_limits,
-            self.texture_size.x as usize, // The texture stretches to the graph quad automatically, thus we dont need to pass the graph bounds
-            &mut fake_buffer[0..(self.texture_size.x as usize)],
-        );
+        if !points.is_empty() {
+            let (lower_idx, upper_idx) =
+                binary_search_for_limits(points, viewport_limits.x0.x, viewport_limits.x1.x);
+            interpolation.interpolate(
+                &points[lower_idx..=upper_idx],
+                viewport_limits,
+                self.texture_size.x as usize, // The texture stretches to the graph quad automatically, thus we dont need to pass the graph bounds
+                &mut fake_buffer[0..(self.texture_size.x as usize)],
+            );
 
-        self.data_x_limits.fill(Vector::zero());
-        self.data_x_limits[0].x = (points[0].x - viewport_limits.x0.x) / viewport_limits.width();
-        self.data_x_limits[0].y =
-            (points[points.len() - 1].x - viewport_limits.x0.x) / viewport_limits.width();
+            self.data_x_limits.fill(Vector::zero());
+            self.data_x_limits[0].x =
+                (points[0].x - viewport_limits.x0.x) / viewport_limits.width();
+            self.data_x_limits[0].y =
+                (points[points.len() - 1].x - viewport_limits.x0.x) / viewport_limits.width();
+        } else {
+            self.data_x_limits.fill(Vector::zero());
+        }
 
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture_id);

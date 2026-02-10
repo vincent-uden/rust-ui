@@ -5,18 +5,18 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
-            text_field::TextFieldBuilder as _,
+            scrollable::ScrollableBuilder as _, text_field::TextFieldBuilder as _, DefaultAtom,
+            UiBuilder,
         },
+        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -25,8 +25,8 @@ use tracing::{error, info};
 use crate::{
     app::App,
     pipeline::{
-        DataFrame, PipelineIntermediate, Record, StepConfig,
         processing::{average, run_pipeline},
+        DataFrame, PipelineIntermediate, Record, StepConfig,
     },
 };
 
@@ -76,7 +76,7 @@ pub struct PipelineManagerUi {
     pub selected_source: Option<usize>,
     pub pipelines: Vec<Pipeline>,
     pub outputs: Vec<PipelineIntermediate>,
-    pub as_points: Rc<RefCell<Vec<Vec<Vector<f32>>>>>,
+    pub as_points: Vec<Rc<RefCell<Vec<Vector<f32>>>>>,
 }
 
 impl PipelineManagerUi {
@@ -86,7 +86,7 @@ impl PipelineManagerUi {
             selected_source: None,
             pipelines: Vec::new(),
             outputs: Vec::new(),
-            as_points: Rc::new(RefCell::new(Vec::new())),
+            as_points: Vec::new(),
         }
     }
 
@@ -366,20 +366,18 @@ impl PipelineManagerUi {
                 }
             }
         }
-        let mut as_points = self.as_points.borrow_mut();
-        as_points.clear();
+        self.as_points.clear();
         for output in &self.outputs {
             match output {
                 PipelineIntermediate::Signal(records) => {
-                    as_points.push(
-                        records
-                            .iter()
-                            .map(|r| Vector::new(r.x as f32, r.y as f32))
-                            .collect(),
-                    );
+                    let points: Vec<Vector<f32>> = records
+                        .iter()
+                        .map(|r| Vector::new(r.x as f32, r.y as f32))
+                        .collect();
+                    self.as_points.push(Rc::new(RefCell::new(points)));
                 }
                 PipelineIntermediate::Complex(_) | PipelineIntermediate::DataFrame(_) => {
-                    as_points.push(Vec::new());
+                    self.as_points.push(Rc::new(RefCell::new(Vec::new())));
                 }
             }
         }
