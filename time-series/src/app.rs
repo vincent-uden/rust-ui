@@ -74,7 +74,13 @@ impl App {
     pub fn add_source(&mut self, path: PathBuf) {
         if let Ok(source) = DataSource::from_path(path) {
             self.sources.borrow_mut().push(source.into());
-            self.pipeline_manager.pipelines.push(Pipeline::new());
+            let mut pipeline = Pipeline::new();
+            pipeline.push(StepConfig::PickColumns {
+                column_1: 0,
+                column_2: 1,
+            });
+            self.pipeline_manager.pipelines.push(pipeline);
+            self.pipeline_manager.run();
         }
     }
 
@@ -98,7 +104,7 @@ impl App {
                     ui.div("flex-col h-full", &[
                         ui.div("flex-row grow", &[
                             ui.y_axis(""),
-                            ui.graph_time_series("w-full h-full", id!("main_graph"), 
+                            ui.graph_time_series("w-full h-full", id!("main_graph"),
                                 Rc::downgrade(self.pipeline_manager.as_points
                                     .get(self.pipeline_manager.selected_source.unwrap_or(0))
                                     .unwrap_or(&Rc::new(RefCell::new(Vec::new())))),
@@ -316,11 +322,6 @@ impl App {
         );
         out.pipeline_manager.selected_source = Some(0);
         out.add_step();
-        out.pipeline_manager.pipelines[0].steps[0] = StepConfig::PickColumns {
-            column_1: 0,
-            column_2: 1,
-        };
-        out.pipeline_manager.run();
         (out, vec![AppMessage::ZoomFit])
     }
 
@@ -331,12 +332,6 @@ impl App {
                 .expect("VOUT02.CSV must exist. Make sure cwd is the rust-ui workspace root"),
         );
         out.pipeline_manager.selected_source = Some(0);
-        out.add_step();
-        out.pipeline_manager.pipelines[0].steps[0] = StepConfig::PickColumns {
-            column_1: 0,
-            column_2: 1,
-        };
-        out.pipeline_manager.run();
         (out, vec![AppMessage::ZoomFit])
     }
 }

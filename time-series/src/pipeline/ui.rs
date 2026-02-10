@@ -5,28 +5,28 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            scrollable::ScrollableBuilder as _, text_field::TextFieldBuilder as _, DefaultAtom,
-            UiBuilder,
+            DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
+            text_field::TextFieldBuilder as _,
         },
-        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
 use tracing::{error, info};
 
 use crate::{
-    app::App,
+    app::{App, AppMessage},
     pipeline::{
-        processing::{average, run_pipeline},
         DataFrame, PipelineIntermediate, Record, StepConfig,
+        processing::{average, run_pipeline},
     },
 };
 
@@ -152,6 +152,7 @@ impl PipelineManagerUi {
         b.ui("flex-row hover:bg-slate-600 py-2", Listeners {
             on_left_mouse_up: Some(Arc::new(move |state| {
                 state.app_state.pipeline_manager.selected_source = Some(idx);
+                state.app_state.handle_message(AppMessage::ZoomFit, &state.ui_builder);
             })),
             ..Default::default()
         }, &[
@@ -386,9 +387,9 @@ impl PipelineManagerUi {
     /// Returns the smallest possible rect containing all points in all outputs
     pub fn minimum_spanning_limits(&self) -> Rect<f32> {
         let mut limits = Rect::default();
-        for output in &self.outputs {
-            match output {
-                PipelineIntermediate::Signal(records) => {
+        self.selected_source
+            .map(|idx| match &self.outputs.get(idx) {
+                Some(PipelineIntermediate::Signal(records)) => {
                     for r in records {
                         if r.x < limits.x0.x {
                             limits.x0.x = r.x;
@@ -403,8 +404,7 @@ impl PipelineManagerUi {
                     }
                 }
                 _ => {}
-            }
-        }
+            });
 
         limits.into()
     }
