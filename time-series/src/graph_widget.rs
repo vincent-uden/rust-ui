@@ -247,7 +247,7 @@ where
     ///
     /// Style mappings:
     /// - `bg-*` = graph line color
-    /// - `hover:bg-*` = tooltip crosshair color
+    /// - `border-*` = tooltip crosshair color
     fn graph_widget(
         &self,
         style: &str,
@@ -452,15 +452,3 @@ where
         container
     }
 }
-
-// Graph widget roadmap
-// - [/] Shader for rendering
-// - [x] Pan/zoom control
-// - [x] Less points than pixels
-// - [x] Clip data that is out of bounds
-// - [x] More points than pixels
-// - [x] Ticks
-// - [x] Axis labels
-// - [x] Show cursor xy-coordinates in data domain
-// - [x] Trace selection
-// - [x] Customizable colors for graph and ticks
