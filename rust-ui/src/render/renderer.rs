@@ -12,7 +12,7 @@ use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use smol_str::SmolStr;
 use string_cache::DefaultAtom;
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
     geometry::{Rect, Vector},
@@ -65,7 +65,7 @@ where
     style: Style,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DelayedMarker {
     pub id: NodeId,
     pub z_index: usize,
@@ -498,12 +498,26 @@ where
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
             for marker in &layer.delayed_markers {
-                self.delayed_renders.push(DelayedRender {
-                    anchor: Anchor::TopLeft,
-                    ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
-                    pos: todo!("Find the attached to widget and get its position"),
-                    style: (*layer.tree.style(marker.id).unwrap()).clone(),
-                });
+                match self.ui_builder.node_id(&marker.attached_to) {
+                    Some(attached_to) => {
+                        // FIX: This only gets the relative position, not the absolute...
+                        // FIX: I guess I can implement a special tree traversal on renderer
+                        // FIX: which uses TaffyTree::parent to find the absolute position
+                        let layout = layer.tree.layout(attached_to).unwrap();
+                        self.delayed_renders.push(DelayedRender {
+                            anchor: Anchor::TopLeft,
+                            ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
+                            pos: todo!("Find the attached to widget and get its position"),
+                            style: (*layer.tree.style(marker.id).unwrap()).clone(),
+                        });
+                    }
+                    None => {
+                        error!(
+                            "Unable to find parent widget with persistent id {:?} for delayed marker {:?}",
+                            &marker.attached_to, &marker
+                        );
+                    }
+                }
             }
             let _ = self.collect_event_listeners(&layer.tree, layer.root, pos, i as i32);
         }

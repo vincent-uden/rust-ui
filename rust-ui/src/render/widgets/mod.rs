@@ -94,6 +94,7 @@ where
     /// ensure tracking of popup widgets.
     tree: RefCell<TaffyTree<NodeContext<T>>>,
     pub state: RefCell<HashMap<DefaultAtom, UiState<T>>>,
+    pub node_cache: RefCell<HashMap<DefaultAtom, NodeId>>,
     pub delayed_markers: RefCell<Vec<DelayedMarker>>,
 }
 
@@ -106,6 +107,7 @@ where
             frame: 0,
             tree: TaffyTree::new().into(),
             state: HashMap::new().into(),
+            node_cache: HashMap::new().into(),
             delayed_markers: vec![].into(),
         }
     }
@@ -126,6 +128,10 @@ where
                 attached_to: marker.attached_to.clone(),
                 anchor: marker.anchor,
             });
+        }
+        if let Some(pid) = &context.persistent_id {
+            let mut map = self.node_cache.borrow_mut();
+            map.insert(pid.clone(), id.clone());
         }
         tree.set_node_context(id, Some(context)).unwrap();
         id
@@ -251,14 +257,12 @@ where
 
     pub fn update(&mut self, frame: usize) {
         self.frame = frame;
-        self.prune_state_map();
-        let mut delayed = self.delayed_markers.borrow_mut();
-        delayed.clear();
-    }
-
-    fn prune_state_map(&self) {
         let mut state = self.state.borrow_mut();
         state.retain(|_, v| v.last_touched >= (self.frame - 1));
+        let mut delayed = self.delayed_markers.borrow_mut();
+        delayed.clear();
+        let mut map = self.node_cache.borrow_mut();
+        map.clear();
     }
 
     pub fn mutate_context<F>(&self, id: NodeId, f: F)
@@ -271,5 +275,10 @@ where
 
     pub fn delayed_ids(&self) -> Vec<DelayedMarker> {
         self.delayed_markers.replace(vec![])
+    }
+
+    pub fn node_id(&self, persistent_id: &DefaultAtom) -> Option<NodeId> {
+        let map = self.node_cache.borrow();
+        map.get(persistent_id).cloned()
     }
 }
