@@ -165,6 +165,12 @@ impl App {
                     COLOR_DANGER,
                 ),
             ));
+            if diff.x != 0.0 {
+                tooltip_info.push(ui.text(
+                    "",
+                    Text::new(format!("Slope: ({})", diff.y / diff.x), 12, COLOR_DANGER),
+                ));
+            }
         }
 
         #[cfg_attr(any(), rustfmt::skip)]
