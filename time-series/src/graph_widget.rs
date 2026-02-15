@@ -112,9 +112,10 @@ where
 
     pub fn screen_coord_to_data_coord(&self, pos: Vector<f32>) -> Vector<f32> {
         let last_bbox = self.last_bbox.borrow();
-        ((pos - last_bbox.x0).non_uniform_scaled(last_bbox.size().div_inverted()))
-            .non_uniform_scaled(self.limits.size())
-            + self.limits.x0
+        let normalized = (pos - last_bbox.x0).non_uniform_scaled(last_bbox.size().div_inverted());
+        // Invert Y: screen Y increases downward, data Y increases upward
+        let normalized = Vector::new(normalized.x, 1.0 - normalized.y);
+        normalized.non_uniform_scaled(self.limits.size()) + self.limits.x0
     }
 }
 
@@ -168,7 +169,7 @@ where
                 Vector::new(renderer.width as f32, renderer.height as f32),
             );
             let dy_data = self.limits.height() / ((self.y_ticks - 1) as f32);
-            let y_data = self.limits.x0.y + (i as f32) * dy_data;
+            let y_data = self.limits.x1.y - (i as f32) * dy_data;
 
             renderer.text_r.draw_on_line(
                 Text::new(format!("{}", y_data), 12, self.y_axis_label_color)
