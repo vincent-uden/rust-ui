@@ -136,3 +136,10 @@ where the trait method has to determine if it can actually render the widget it 
 `UiState` already uses reflection but `NodeContext` doesn't but would need to in order for the system to be able to render widgets without any persistent state. It feels like this is starting to become a lot of boilerplate. 
 
 Would it be possible for `UiState` to have this trait method instead? It can have an empty default implementation for widgets that don't need any special case rendering. I think so!
+
+## Overlays/popup
+Overlays in different layers is already easy to do. However one piece of UI which is currently really difficult to implement is a popup panel. These are used in menus at the top of the window and in selection widgets that pop up a list of options above the current layer.
+
+For `time-series` this could reasonable be solved with a popup in the middle of the screen similar to a command palette. However the list selection widget is common enough for me to actually solve this problem in the core library.
+
+The problem which makes the popup/popover difficult is that it needs to live in a different layer from its parent widget but being anchored to a position in that parents layer. I think this can be solved by creating post-poned list of things that actually have a z-index. These can be sorted and computed after all the regular layers.

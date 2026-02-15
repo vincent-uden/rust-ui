@@ -357,11 +357,10 @@ where
         let (style, mut context) = parse_style::<T>(style);
         context.flags |= flags::GRAPH;
         context.persistent_id = Some(id.clone());
-        let graph_node = self
-            .tree
-            .borrow_mut()
-            .new_leaf_with_context(style, context)
-            .unwrap();
+        let graph_node = {
+            let mut tree = self.borrow_tree();
+            self.new_leaf_with_context(&mut tree, style, context)
+        };
 
         // Add event listeners to graph
         let id_clone = id.clone();
@@ -459,19 +458,15 @@ where
     fn y_axis(&self, style: &str) -> NodeId {
         let compound_style = format!("w-100 {style}");
         let (stl, ctx) = parse_style::<T>(&compound_style);
-        self.tree
-            .borrow_mut()
-            .new_leaf_with_context(stl, ctx)
-            .unwrap()
+        let mut tree = self.borrow_tree();
+        self.new_leaf_with_context(&mut tree, stl, ctx)
     }
 
     fn x_axis(&self, style: &str) -> NodeId {
         let compound_style = format!("h-40 pl-100 w-full {style}");
         let (stl, ctx) = parse_style::<T>(&compound_style);
-        self.tree
-            .borrow_mut()
-            .new_leaf_with_context(stl, ctx)
-            .unwrap()
+        let mut tree = self.borrow_tree();
+        self.new_leaf_with_context(&mut tree, stl, ctx)
     }
 
     fn graph_with_axes(
@@ -491,7 +486,7 @@ where
         let x_axis_label_color;
 
         {
-            let tree = self.tree.borrow();
+            let tree = self.borrow_tree();
             let y_axis_ctx = tree
                 .get_node_context(y_axis)
                 .expect("y_axis node must exist in tree");

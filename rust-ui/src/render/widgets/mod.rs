@@ -3,15 +3,17 @@ use tracing::error;
 
 use std::any::Any;
 use std::borrow::Borrow;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-use taffy::{Layout, NodeId, TaffyTree};
+use taffy::{Layout, NodeId, Style, TaffyTree};
 
 use crate::geometry::Rect;
-use crate::render::renderer::{AppState, EventListener, Listeners, NodeContext, Renderer, flags};
+use crate::render::renderer::{
+    AppState, DelayedRender, EventListener, Listeners, NodeContext, Renderer, flags,
+};
 use crate::render::{COLOR_LIGHT, Text};
 use crate::style::parse_style;
 
@@ -87,9 +89,12 @@ where
     T: AppState,
 {
     /// The current frame number. Must be updated by the program running the [UiBuilder]
-    pub frame: usize,
-    pub tree: RefCell<TaffyTree<NodeContext<T>>>,
+    frame: usize,
+    /// Do **NOT** push to tree directly. Use [Uibuilder::new_leaf_with_context] instead to
+    /// ensure tracking of popup widgets.
+    tree: RefCell<TaffyTree<NodeContext<T>>>,
     pub state: RefCell<HashMap<DefaultAtom, UiState<T>>>,
+    pub delayed_ids: RefCell<Vec<NodeId>>,
 }
 
 impl<T> UiBuilder<T>
@@ -101,7 +106,24 @@ where
             frame: 0,
             tree: TaffyTree::new().into(),
             state: HashMap::new().into(),
+            delayed_ids: vec![].into(),
         }
+    }
+
+    /// Wrapper for [[taffy::TaffyTree::new_leaf_with_context]] that also tracks possible popup behaviour.
+    pub fn new_leaf_with_context(
+        &self,
+        tree: &mut TaffyTree<NodeContext<T>>,
+        style: Style,
+        context: NodeContext<T>,
+    ) -> NodeId {
+        let id = tree.new_leaf(style).unwrap();
+        if let Some(_) = &context.z_index {
+            let mut delayed = self.delayed_ids.borrow_mut();
+            delayed.push(id);
+        }
+        tree.set_node_context(id, Some(context)).unwrap();
+        id
     }
 
     pub fn ui<I, B>(&self, style: &str, listeners: Listeners<T>, children: I) -> NodeId
@@ -112,7 +134,7 @@ where
         let (style, mut context) = parse_style(style);
         context.set_listeners(listeners);
         let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        let parent = self.new_leaf_with_context(&mut tree, style, context);
         for child in children {
             tree.add_child(parent, *child.borrow()).unwrap();
         }
@@ -126,7 +148,7 @@ where
     {
         let (style, context) = parse_style(style);
         let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        let parent = self.new_leaf_with_context(&mut tree, style, context);
         for child in children {
             tree.add_child(parent, *child.borrow()).unwrap();
         }
@@ -138,7 +160,7 @@ where
         context.text = text;
         context.flags |= flags::TEXT;
         let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        let parent = self.new_leaf_with_context(&mut tree, style, context);
         return parent;
     }
 
@@ -147,7 +169,7 @@ where
         context.text = text;
         context.flags |= flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT;
         let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        let parent = self.new_leaf_with_context(&mut tree, style, context);
         return parent;
     }
 
@@ -157,14 +179,12 @@ where
         let mut inner_ctx = NodeContext::default();
         inner_ctx.text = text;
         inner_ctx.flags |= flags::TEXT;
-        let inner = tree
-            .new_leaf_with_context(taffy::Style::DEFAULT, inner_ctx)
-            .unwrap();
+        let inner = self.new_leaf_with_context(&mut tree, Style::DEFAULT, inner_ctx);
 
         let (style, mut outer_ctx) = parse_style(style);
-        let outer = tree.new_with_children(style, &[inner]).unwrap();
         outer_ctx.set_listeners(listeners);
-        tree.set_node_context(outer, Some(outer_ctx)).unwrap();
+        let outer = self.new_leaf_with_context(&mut tree, style, outer_ctx);
+        tree.add_child(outer, inner).unwrap();
         return outer;
     }
 
@@ -174,14 +194,8 @@ where
         context.sprite_key = sprite_key.into();
         context.set_listeners(listeners);
         let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
+        let parent = self.new_leaf_with_context(&mut tree, style, context);
         return parent;
-    }
-
-    pub fn extract_tree(
-        tree: RefCell<taffy::TaffyTree<NodeContext<T>>>,
-    ) -> taffy::TaffyTree<NodeContext<T>> {
-        tree.into_inner()
     }
 
     pub fn accessing_state(&self, id: &DefaultAtom) -> Option<UiState<T>> {
@@ -221,6 +235,11 @@ where
         state[&id].clone()
     }
 
+    pub fn borrow_tree<'a>(&'a self) -> RefMut<'a, TaffyTree<NodeContext<T>>> {
+        self.tree.borrow_mut()
+    }
+
+    /// **WARNING** this erases the tree from [Self].
     pub fn tree(&self) -> taffy::TaffyTree<NodeContext<T>> {
         self.tree.replace(TaffyTree::new())
     }
@@ -228,6 +247,8 @@ where
     pub fn update(&mut self, frame: usize) {
         self.frame = frame;
         self.prune_state_map();
+        let mut delayed = self.delayed_ids.borrow_mut();
+        delayed.clear();
     }
 
     fn prune_state_map(&self) {

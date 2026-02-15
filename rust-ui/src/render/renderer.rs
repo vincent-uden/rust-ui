@@ -54,6 +54,18 @@ pub mod flags {
 // TODO: Investigate if this can be changed to an FnOnce somehow
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
 
+#[derive(Default, Clone)]
+pub struct DelayedRender<T>
+where
+    T: AppState,
+{
+    anchor: Anchor,
+    ctx: NodeContext<T>,
+    pos: Vector<f32>,
+    style: Style,
+}
+
+#[derive(Clone)]
 /// Contains relevant information for a UI node in addition to the sizing and position information
 /// stored in [taffy::TaffyTree].
 pub struct NodeContext<T>
@@ -67,6 +79,7 @@ where
     pub text: Text,
     pub sprite_key: T::SpriteKey,
     pub offset: Vector<f32>,
+    pub z_index: Option<usize>,
     // Event listeners
     pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
@@ -98,6 +111,7 @@ where
             text: Default::default(),
             sprite_key: Default::default(),
             offset: Default::default(),
+            z_index: Default::default(),
             on_scroll: Default::default(),
             on_mouse_enter: Default::default(),
             on_mouse_exit: Default::default(),
@@ -237,6 +251,10 @@ where
     pub mouse_hit_layer: i32,
     /// The UI builder used for constructing layouts and managing widget state
     pub ui_builder: UiBuilder<T>,
+    /// Used to keep track of UI elements that should be drawn later than the layer they were specified in.
+    /// This needs to be stored in the renderer and not in the [UiBuilder] since it requires computed
+    /// positions.
+    pub delayed_renders: Vec<DelayedRender<T>>,
 }
 
 impl<T> Renderer<T>
@@ -281,6 +299,7 @@ where
             layers: Arc::new(vec![]),
             mouse_hit_layer: -1,
             ui_builder: UiBuilder::new(),
+            delayed_renders: vec![],
         }
     }
 
@@ -960,7 +979,7 @@ where
 /// Chooses a corner of the window or its center as the origin for a layer. Any offset provided
 /// from the anchor will be towards the middle of the screen, or towards the bottom right corner if
 /// anchored to the center.
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy)]
 pub enum Anchor {
     #[default]
     TopLeft,
