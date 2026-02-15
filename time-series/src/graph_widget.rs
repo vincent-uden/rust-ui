@@ -1,5 +1,6 @@
 use std::{cell::RefCell, fmt, marker::PhantomData, rc::Weak, sync::Arc};
 
+use glfw::ffi::VkResult_VK_ERROR_TOO_MANY_OBJECTS;
 use rust_ui::{
     geometry::{Rect, Vector},
     render::{
@@ -20,6 +21,9 @@ pub enum GraphInteraction {
     Panning {
         pan_start_screen: Vector<f32>,
         start_limits: Rect<f32>,
+    },
+    Measuring {
+        measure_start: Vector<f32>,
     },
     BoxZooming,
 }
@@ -216,7 +220,7 @@ where
             Vector::new(renderer.width as f32, renderer.height as f32),
         );
 
-        // Tooltip
+        // Crosshair
         if let Some(mouse_pos) = self.mouse_pos
             && matches!(self.interaction, GraphInteraction::None)
         {
@@ -230,6 +234,45 @@ where
             renderer.line_r.draw(
                 Vector::new(bbox.x0.x, mouse_pos.y),
                 Vector::new(bbox.x1.x, mouse_pos.y),
+                tooltip_color,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+        }
+        if let Some(mouse_pos) = self.mouse_pos
+            && let GraphInteraction::Measuring { measure_start } = self.interaction
+        {
+            renderer.line_r.draw(
+                Vector::new(mouse_pos.x, bbox.x0.y),
+                Vector::new(mouse_pos.x, bbox.x1.y),
+                tooltip_color,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+            renderer.line_r.draw(
+                Vector::new(bbox.x0.x, mouse_pos.y),
+                Vector::new(bbox.x1.x, mouse_pos.y),
+                tooltip_color,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+            renderer.line_r.draw(
+                Vector::new(measure_start.x, bbox.x0.y),
+                Vector::new(measure_start.x, bbox.x1.y),
+                tooltip_color,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+            renderer.line_r.draw(
+                Vector::new(bbox.x0.x, measure_start.y),
+                Vector::new(bbox.x1.x, measure_start.y),
+                tooltip_color,
+                1.0,
+                Vector::new(renderer.width as f32, renderer.height as f32),
+            );
+            renderer.line_r.draw(
+                Vector::new(mouse_pos.x, mouse_pos.y),
+                Vector::new(measure_start.x, measure_start.y),
                 tooltip_color,
                 1.0,
                 Vector::new(renderer.width as f32, renderer.height as f32),
@@ -369,6 +412,7 @@ where
                             };
                         }
                         GraphInteraction::BoxZooming => todo!("Box zooming is not implemented yet"),
+                        GraphInteraction::Measuring { measure_start } => {}
                     }
                 });
             }));
@@ -379,6 +423,31 @@ where
                     let width = w_state.limits.width();
                     w_state.limits.x0.x += width * 0.1 * state.scroll_delta.y.signum();
                     w_state.limits.x1.x -= width * 0.1 * state.scroll_delta.y.signum();
+                });
+            }));
+            let id1 = id_clone.clone();
+            ctx.on_left_mouse_down = Some(Arc::new(move |state| {
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    if let Some(mouse_pos) = w_state.mouse_pos
+                        && matches!(w_state.interaction, GraphInteraction::None)
+                    {
+                        w_state.interaction = GraphInteraction::Measuring {
+                            measure_start: mouse_pos,
+                        };
+                    }
+                });
+            }));
+            let id1 = id_clone.clone();
+            ctx.on_left_mouse_up = Some(Arc::new(move |state| {
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    if matches!(
+                        w_state.interaction,
+                        GraphInteraction::Measuring { measure_start: _ }
+                    ) {
+                        w_state.interaction = GraphInteraction::None;
+                    }
                 });
             }));
         });

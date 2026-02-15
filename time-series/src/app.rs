@@ -7,7 +7,7 @@ use rust_ui::{
     id,
     input::glfw_key_to_key_input,
     render::{
-        COLOR_LIGHT, Text,
+        COLOR_DANGER, COLOR_LIGHT, Text,
         renderer::{AppState, Listeners, RenderLayout},
         widgets::{DefaultAtom, UiBuilder, UiData, text_field::TextFieldData},
     },
@@ -16,7 +16,7 @@ use strum::EnumString;
 use tracing::error;
 
 use crate::{
-    graph_widget::{GraphWidgetBuilder, GraphWidgetData},
+    graph_widget::{GraphInteraction, GraphWidgetBuilder, GraphWidgetData},
     pipeline::{
         StepConfig,
         ui::{DataSource, Pipeline, PipelineManagerUi},
@@ -106,7 +106,7 @@ impl App {
                             "flex-col h-full",
                             id!("main_graph"),
                             ui.graph_widget(
-                                "w-full h-full text-white border-black",
+                                "w-full h-full text-white border-red-400",
                                 id!("main_graph"),
                                 Rc::downgrade(self.pipeline_manager.as_points
                                     .get(self.pipeline_manager.selected_source.unwrap_or(0))
@@ -149,12 +149,26 @@ impl App {
         let mut guard = binding.data.lock().unwrap();
         let data: &mut GraphWidgetData<Self> = guard.downcast_mut().unwrap();
         let data_pos = data.screen_coord_to_data_coord(self.mouse_pos);
-
-        #[cfg_attr(any(), rustfmt::skip)]
-        let root = ui.div("bg-slate-700 rounded-8 flex-col w-200 px-12 pb-8 pt-6 gap-0 border-2 border-slate-500", &[
+        let mut tooltip_info = vec![
             ui.text("", Text::new(format!("x: {}", data_pos.x), 12, COLOR_LIGHT)),
             ui.text("", Text::new(format!("y: {}", data_pos.y), 12, COLOR_LIGHT)),
-        ]);
+        ];
+
+        if let GraphInteraction::Measuring { measure_start } = data.interaction {
+            let start_pos = data.screen_coord_to_data_coord(measure_start);
+            let diff = data_pos - start_pos;
+            tooltip_info.push(ui.text(
+                "",
+                Text::new(
+                    format!("Measurement delta: ({}, {})", diff.x, diff.y),
+                    12,
+                    COLOR_DANGER,
+                ),
+            ));
+        }
+
+        #[cfg_attr(any(), rustfmt::skip)]
+        let root = ui.div("bg-slate-700 rounded-8 flex-col w-200 px-12 pb-8 pt-6 gap-0 border-2 border-slate-500", &tooltip_info);
 
         RenderLayout {
             tree: ui.tree(),
