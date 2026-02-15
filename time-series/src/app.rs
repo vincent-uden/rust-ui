@@ -131,6 +131,7 @@ impl App {
 
         RenderLayout {
             tree: ui.tree(),
+            delayed_markers: ui.delayed_ids(),
             root,
             desired_size: window_size.into(),
             ..Default::default()
@@ -178,6 +179,7 @@ impl App {
 
         RenderLayout {
             tree: ui.tree(),
+            delayed_markers: ui.delayed_ids(),
             root,
             desired_size: taffy::Size {
                 width: taffy::AvailableSpace::MinContent,

@@ -12,7 +12,7 @@ use taffy::{Layout, NodeId, Style, TaffyTree};
 
 use crate::geometry::Rect;
 use crate::render::renderer::{
-    AppState, DelayedRender, EventListener, Listeners, NodeContext, Renderer, flags,
+    AppState, DelayedMarker, DelayedRender, EventListener, Listeners, NodeContext, Renderer, flags,
 };
 use crate::render::{COLOR_LIGHT, Text};
 use crate::style::parse_style;
@@ -94,7 +94,7 @@ where
     /// ensure tracking of popup widgets.
     tree: RefCell<TaffyTree<NodeContext<T>>>,
     pub state: RefCell<HashMap<DefaultAtom, UiState<T>>>,
-    pub delayed_ids: RefCell<Vec<NodeId>>,
+    pub delayed_markers: RefCell<Vec<DelayedMarker>>,
 }
 
 impl<T> UiBuilder<T>
@@ -106,7 +106,7 @@ where
             frame: 0,
             tree: TaffyTree::new().into(),
             state: HashMap::new().into(),
-            delayed_ids: vec![].into(),
+            delayed_markers: vec![].into(),
         }
     }
 
@@ -118,9 +118,14 @@ where
         context: NodeContext<T>,
     ) -> NodeId {
         let id = tree.new_leaf(style).unwrap();
-        if let Some(_) = &context.z_index {
-            let mut delayed = self.delayed_ids.borrow_mut();
-            delayed.push(id);
+        if let Some(marker) = &context.delayed_marker {
+            let mut delayed = self.delayed_markers.borrow_mut();
+            delayed.push(DelayedMarker {
+                id,
+                z_index: marker.z_index,
+                attached_to: marker.attached_to.clone(),
+                anchor: marker.anchor,
+            });
         }
         tree.set_node_context(id, Some(context)).unwrap();
         id
@@ -247,7 +252,7 @@ where
     pub fn update(&mut self, frame: usize) {
         self.frame = frame;
         self.prune_state_map();
-        let mut delayed = self.delayed_ids.borrow_mut();
+        let mut delayed = self.delayed_markers.borrow_mut();
         delayed.clear();
     }
 
@@ -262,5 +267,9 @@ where
     {
         let mut tree = self.tree.borrow_mut();
         tree.get_node_context_mut(id).map(f);
+    }
+
+    pub fn delayed_ids(&self) -> Vec<DelayedMarker> {
+        self.delayed_markers.replace(vec![])
     }
 }

@@ -66,6 +66,13 @@ where
 }
 
 #[derive(Clone)]
+pub struct DelayedMarker {
+    pub id: NodeId,
+    pub z_index: usize,
+    pub attached_to: DefaultAtom,
+    pub anchor: Anchor,
+}
+
 /// Contains relevant information for a UI node in addition to the sizing and position information
 /// stored in [taffy::TaffyTree].
 pub struct NodeContext<T>
@@ -79,7 +86,7 @@ where
     pub text: Text,
     pub sprite_key: T::SpriteKey,
     pub offset: Vector<f32>,
-    pub z_index: Option<usize>,
+    pub delayed_marker: Option<DelayedMarker>,
     // Event listeners
     pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
@@ -98,6 +105,37 @@ where
     pub cursor_idx: Option<usize>,
 }
 
+impl<T> Clone for NodeContext<T>
+where
+    T: AppState,
+{
+    fn clone(&self) -> Self {
+        Self {
+            flags: self.flags.clone(),
+            bg_color: self.bg_color.clone(),
+            bg_color_hover: self.bg_color_hover.clone(),
+            border: self.border.clone(),
+            text: self.text.clone(),
+            sprite_key: self.sprite_key.clone(),
+            offset: self.offset.clone(),
+            delayed_marker: self.delayed_marker.clone(),
+            on_scroll: self.on_scroll.clone(),
+            on_mouse_enter: self.on_mouse_enter.clone(),
+            on_mouse_exit: self.on_mouse_exit.clone(),
+            on_mouse_move: self.on_mouse_move.clone(),
+            on_left_mouse_down: self.on_left_mouse_down.clone(),
+            on_left_mouse_up: self.on_left_mouse_up.clone(),
+            on_right_mouse_down: self.on_right_mouse_down.clone(),
+            on_right_mouse_up: self.on_right_mouse_up.clone(),
+            on_middle_mouse_down: self.on_middle_mouse_down.clone(),
+            on_middle_mouse_up: self.on_middle_mouse_up.clone(),
+            scissor: self.scissor.clone(),
+            persistent_id: self.persistent_id.clone(),
+            cursor_idx: self.cursor_idx.clone(),
+        }
+    }
+}
+
 impl<T> Default for NodeContext<T>
 where
     T: AppState,
@@ -111,7 +149,7 @@ where
             text: Default::default(),
             sprite_key: Default::default(),
             offset: Default::default(),
-            z_index: Default::default(),
+            delayed_marker: Default::default(),
             on_scroll: Default::default(),
             on_mouse_enter: Default::default(),
             on_mouse_exit: Default::default(),
@@ -459,6 +497,14 @@ where
                 Anchor::BottomRight => window_size - layer.root_pos - size,
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
+            for marker in &layer.delayed_markers {
+                self.delayed_renders.push(DelayedRender {
+                    anchor: Anchor::TopLeft,
+                    ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
+                    pos: todo!("Find the attached to widget and get its position"),
+                    style: (*layer.tree.style(marker.id).unwrap()).clone(),
+                });
+            }
             let _ = self.collect_event_listeners(&layer.tree, layer.root, pos, i as i32);
         }
         self.layers = layers.into();
@@ -872,6 +918,7 @@ where
 
         RenderLayout {
             tree: b.tree(),
+            delayed_markers: b.delayed_ids(),
             root,
             desired_size: Size {
                 width: AvailableSpace::Definite(self.debug_size.x),
@@ -999,6 +1046,7 @@ where
     pub root_pos: Vector<f32>,
     pub anchor: Anchor,
     pub scissor: bool,
+    pub delayed_markers: Vec<DelayedMarker>,
 }
 
 impl<T> Default for RenderLayout<T>
@@ -1013,6 +1061,7 @@ where
             root_pos: Vector::zero(),
             anchor: Anchor::default(),
             scissor: false,
+            delayed_markers: vec![],
         }
     }
 }

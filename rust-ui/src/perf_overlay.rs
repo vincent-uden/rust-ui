@@ -134,6 +134,7 @@ where
         RenderLayout {
             tree,
             root,
+            delayed_markers: Default::default(),
             desired_size: Size {
                 width: AvailableSpace::MaxContent,
                 height: AvailableSpace::MinContent,
