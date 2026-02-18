@@ -41,7 +41,11 @@ pub struct DataFrame {
 impl DataFrame {
     pub fn from_path(path: &Path) -> Result<Self> {
         let file = File::open(path).map_err(|_| anyhow!("Error opening file"))?;
-        Self::from_reader(file)
+        if let Some(ext) = path.extension() {
+            Self::from_reader(file)
+        } else {
+            Self::from_binary_format(file)
+        }
     }
 
     pub fn from_reader<R: Read>(mut reader: R) -> Result<Self> {

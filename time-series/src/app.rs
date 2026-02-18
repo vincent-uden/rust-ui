@@ -64,7 +64,7 @@ impl App {
 
     pub fn add_source_dialog(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
-            .add_filter("CSV files", &["csv"])
+            //.add_filter("CSV files", &["csv"])
             .pick_file()
         {
             self.add_source(path);
