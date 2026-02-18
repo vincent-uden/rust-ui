@@ -82,6 +82,38 @@ impl DataFrame {
         Ok(out)
     }
 
+    pub fn from_binary_format<R: Read>(mut reader: R) -> Result<Self> {
+        #[repr(C)]
+        struct Sample {
+            voltage: f32,
+            timestamp: u64,
+        }
+        let mut out = Self {
+            column_names: vec!["timestamp".into(), "voltage".into()],
+            columns: vec![vec![], vec![]],
+        };
+
+        let mut sample: Sample = unsafe { std::mem::zeroed() };
+        loop {
+            let buf = unsafe {
+                std::slice::from_raw_parts_mut(
+                    &mut sample as *mut Sample as *mut u8,
+                    size_of::<Sample>(),
+                )
+            };
+            match reader.read_exact(buf) {
+                Ok(()) => {
+                    out.columns[0].push(sample.timestamp as f64);
+                    out.columns[1].push(sample.voltage as f64);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        Ok(out)
+    }
+
     fn pick(&self, column_1: usize, column_2: usize) -> Signal {
         let mut out = vec![];
         for (x, y) in self.columns[column_1]
