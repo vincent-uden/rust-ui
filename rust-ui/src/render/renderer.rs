@@ -500,16 +500,21 @@ where
             for marker in &layer.delayed_markers {
                 match self.ui_builder.node_id(&marker.attached_to) {
                     Some(attached_to) => {
-                        // FIX: This only gets the relative position, not the absolute...
-                        // FIX: I guess I can implement a special tree traversal on renderer
-                        // FIX: which uses TaffyTree::parent to find the absolute position
-                        let layout = layer.tree.layout(attached_to).unwrap();
-                        self.delayed_renders.push(DelayedRender {
-                            anchor: Anchor::TopLeft,
-                            ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
-                            pos: todo!("Find the attached to widget and get its position"),
-                            style: (*layer.tree.style(marker.id).unwrap()).clone(),
-                        });
+                        if let Some(abs_pos) =
+                            Self::compute_absolute_position(&layer.tree, attached_to, pos)
+                        {
+                            self.delayed_renders.push(DelayedRender {
+                                anchor: marker.anchor,
+                                ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
+                                pos: abs_pos,
+                                style: (*layer.tree.style(marker.id).unwrap()).clone(),
+                            });
+                        } else {
+                            error!(
+                                "Unable to compute absolute position for widget with persistent id {:?} for delayed marker {:?}",
+                                &marker.attached_to, &marker
+                            );
+                        }
                     }
                     None => {
                         error!(
@@ -962,33 +967,42 @@ where
         None
     }
 
+    /// Compute the absolute position for a node in a layer by walking up the parent chain.
+    /// Returns None if the node is not found in the layer.
+    fn compute_absolute_position(
+        tree: &TaffyTree<NodeContext<T>>,
+        node_id: NodeId,
+        layer_root_pos: Vector<f32>,
+    ) -> Option<Vector<f32>> {
+        let layout = tree.layout(node_id).ok()?;
+        let mut abs_pos: taffy::Point<f32> = layout.location;
+        let mut current_id = node_id;
+
+        while let Some(parent_id) = tree.parent(current_id) {
+            if let Ok(parent_layout) = tree.layout(parent_id) {
+                abs_pos.x += parent_layout.location.x;
+                abs_pos.y += parent_layout.location.y;
+                current_id = parent_id;
+            } else {
+                break;
+            }
+        }
+
+        // Add layer root position offset
+        abs_pos.x += layer_root_pos.x;
+        abs_pos.y += layer_root_pos.y;
+
+        Some(abs_pos.into())
+    }
+
     /// Get the absolute bounding box for a node in screen coordinates
     /// Returns None if the node is not found in any layer
     pub fn get_node_bbox(&self, node_id: NodeId) -> Option<crate::geometry::Rect<f32>> {
         for layer in self.layers.iter() {
             if let Ok(layout) = layer.tree.layout(node_id) {
-                // Compute absolute position by walking up the tree
-                let mut abs_pos: taffy::Point<f32> = layout.location;
-                let mut current_id = node_id;
-
-                while let Some(parent_id) = layer.tree.parent(current_id) {
-                    if let Ok(parent_layout) = layer.tree.layout(parent_id) {
-                        abs_pos.x += parent_layout.location.x;
-                        abs_pos.y += parent_layout.location.y;
-                        current_id = parent_id;
-                    } else {
-                        break;
-                    }
-                }
-
-                // Add layer root position offset
-                abs_pos.x += layer.root_pos.x;
-                abs_pos.y += layer.root_pos.y;
-
+                let abs_pos = Self::compute_absolute_position(&layer.tree, node_id, layer.root_pos)?;
                 let size: Vector<f32> = layout.size.into();
-                let pos: Vector<f32> = abs_pos.into();
-
-                return Some(crate::geometry::Rect::from_pos_size(pos, size));
+                return Some(crate::geometry::Rect::from_pos_size(abs_pos, size));
             }
         }
         None

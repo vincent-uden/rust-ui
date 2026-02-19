@@ -34,3 +34,13 @@
 - Write unit tests in the same file in a `mod tests` submodule
 - Use `#[test]` attribute for test functions
 - Name tests to describe what they're testing
+
+## Status of the workspace
+- `rust-ui` is the core UI library which is being developed
+- `time-series` is the current demonstration program being worked on
+- `benchmarks` is an outdated demo program that is not expected to compile right now
+- `cad` contains core math and logic for a CAD kernel
+- `cad-frontend` is an outdated demo program that is not expected to compile right now
+- `demo` is an outdated demo program that is not expected to compile right now
+- `modes` is an input library
+- `nurbs` is an outdated demo program that is not expected to compile right now
