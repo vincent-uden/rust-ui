@@ -47,6 +47,7 @@ pub struct App {
     pub mode_stack: ModeStack<AppMode, AppMessage>,
     pub config: Config<AppMode, AppMessage, AppMessage>,
     pub mouse_pos: Vector<f32>,
+    pub test_popup_open: bool,
 }
 
 impl App {
@@ -59,6 +60,7 @@ impl App {
             mode_stack: ModeStack::with_base(AppMode::Base),
             config: default_config(),
             mouse_pos: Default::default(),
+            test_popup_open: false,
         }
     }
 
@@ -97,7 +99,16 @@ impl App {
         #[cfg_attr(any(), rustfmt::skip)]
         let root = ui.div("w-full h-full flex-col bg-slate-700 p-4 gap-4", &[
             ui.div("flex-row pb-12", &[
-                ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT))
+                ui.text("", Text::new("Time series explorer", 16, COLOR_LIGHT)),
+                ui.div("w-30", &[]),
+                ui.ui("", Listeners {
+                    on_left_mouse_up: Some(Arc::new(|state| { state.app_state.test_popup_open = !state.app_state.test_popup_open })),
+                    ..Default::default()
+                }, &[
+                    ui.marker("hover:bg-slate-900", id!("popup0"), &[
+                        ui.text("", Text::new("Popuptest", 16, COLOR_LIGHT)),
+                    ]),
+                ])
             ]),
             ui.div("flex-row grow gap-4 h-full", &[
                 ui.div("flex-col gap-4 grow pr-32", &[
@@ -128,6 +139,14 @@ impl App {
                 self.pipeline_manager.generate_layout(ui, &self.focus),
             ]),
         ]);
+
+        if self.test_popup_open {
+            ui.popup(
+                "bg-slate-800 rounded-8 p-8 border-slate-500 border-2 translate-y-20",
+                id!("popup0"),
+                &[ui.text("", Text::new("I am the popup!", 16, COLOR_LIGHT))],
+            );
+        }
 
         RenderLayout {
             tree: ui.tree(),

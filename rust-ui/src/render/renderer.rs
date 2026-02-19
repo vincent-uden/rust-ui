@@ -54,15 +54,32 @@ pub mod flags {
 // TODO: Investigate if this can be changed to an FnOnce somehow
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
 
-#[derive(Default, Clone)]
 pub struct DelayedRender<T>
 where
     T: AppState,
 {
+    id: NodeId,
     anchor: Anchor,
     ctx: NodeContext<T>,
     pos: Vector<f32>,
     style: Style,
+    layer_idx: usize,
+}
+
+impl<T> Clone for DelayedRender<T>
+where
+    T: AppState,
+{
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            anchor: self.anchor,
+            ctx: self.ctx.clone(),
+            pos: self.pos,
+            style: self.style.clone(),
+            layer_idx: self.layer_idx,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -503,11 +520,35 @@ where
                         if let Some(abs_pos) =
                             Self::compute_absolute_position(&layer.tree, attached_to, pos)
                         {
+                            layer
+                                .tree
+                                .compute_layout_with_measure(
+                                    marker.id,
+                                    Size {
+                                        width: AvailableSpace::MaxContent,
+                                        height: AvailableSpace::MaxContent,
+                                    },
+                                    |known_dimensions,
+                                     available_space,
+                                     _node_id,
+                                     node_context,
+                                     _style| {
+                                        measure_function(
+                                            known_dimensions,
+                                            available_space,
+                                            node_context,
+                                            &mut self.text_r,
+                                        )
+                                    },
+                                )
+                                .unwrap();
                             self.delayed_renders.push(DelayedRender {
+                                id: marker.id,
                                 anchor: marker.anchor,
                                 ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
                                 pos: abs_pos,
                                 style: (*layer.tree.style(marker.id).unwrap()).clone(),
+                                layer_idx: i,
                             });
                         } else {
                             error!(
@@ -558,6 +599,25 @@ where
                 self.disable_scissor();
             }
         }
+
+        let delayed_renders = self.delayed_renders.clone();
+        for delayed in delayed_renders.iter() {
+            let layer = &layers[delayed.layer_idx];
+            let size: Vector<f32> = layer.tree.layout(layer.root).unwrap().size.into();
+            let pos = match delayed.anchor {
+                Anchor::TopLeft => delayed.pos,
+                Anchor::TopRight => {
+                    Vector::new(window_size.x - delayed.pos.x - size.x, delayed.pos.y)
+                }
+                Anchor::BottomLeft => {
+                    Vector::new(delayed.pos.x, window_size.y - delayed.pos.y - size.y)
+                }
+                Anchor::BottomRight => window_size - delayed.pos - size,
+                Anchor::Center => (window_size - size).scaled(0.5) + delayed.pos,
+            };
+            let _ = self.render_tree(&layer.tree, delayed.id, pos);
+        }
+        self.delayed_renders.clear();
     }
 
     fn collect_event_listeners(
@@ -1000,7 +1060,8 @@ where
     pub fn get_node_bbox(&self, node_id: NodeId) -> Option<crate::geometry::Rect<f32>> {
         for layer in self.layers.iter() {
             if let Ok(layout) = layer.tree.layout(node_id) {
-                let abs_pos = Self::compute_absolute_position(&layer.tree, node_id, layer.root_pos)?;
+                let abs_pos =
+                    Self::compute_absolute_position(&layer.tree, node_id, layer.root_pos)?;
                 let size: Vector<f32> = layout.size.into();
                 return Some(crate::geometry::Rect::from_pos_size(abs_pos, size));
             }

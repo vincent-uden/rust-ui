@@ -12,7 +12,8 @@ use taffy::{Layout, NodeId, Style, TaffyTree};
 
 use crate::geometry::Rect;
 use crate::render::renderer::{
-    AppState, DelayedMarker, DelayedRender, EventListener, Listeners, NodeContext, Renderer, flags,
+    Anchor, AppState, DelayedMarker, DelayedRender, EventListener, Listeners, NodeContext,
+    Renderer, flags,
 };
 use crate::render::{COLOR_LIGHT, Text};
 use crate::style::parse_style;
@@ -120,6 +121,21 @@ where
         context: NodeContext<T>,
     ) -> NodeId {
         let id = tree.new_leaf(style).unwrap();
+        self.set_node_context(id, tree, context);
+        id
+    }
+
+    /// Wrapper for [[taffy::TaffyTree::new_leaf]], might track important state later
+    pub fn new_leaf(&self, tree: &mut TaffyTree<NodeContext<T>>, style: Style) -> NodeId {
+        tree.new_leaf(style).unwrap()
+    }
+
+    pub fn set_node_context(
+        &self,
+        id: NodeId,
+        tree: &mut TaffyTree<NodeContext<T>>,
+        context: NodeContext<T>,
+    ) {
         if let Some(marker) = &context.delayed_marker {
             let mut delayed = self.delayed_markers.borrow_mut();
             delayed.push(DelayedMarker {
@@ -134,7 +150,6 @@ where
             map.insert(pid.clone(), id.clone());
         }
         tree.set_node_context(id, Some(context)).unwrap();
-        id
     }
 
     pub fn ui<I, B>(&self, style: &str, listeners: Listeners<T>, children: I) -> NodeId
@@ -209,6 +224,42 @@ where
         return parent;
     }
 
+    pub fn marker<I, B>(&self, style: &str, id: DefaultAtom, children: I) -> NodeId
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<NodeId>,
+    {
+        let (style, mut context) = parse_style(style);
+        context.persistent_id = Some(id);
+        let mut tree = self.tree.borrow_mut();
+        let parent = self.new_leaf_with_context(&mut tree, style, context);
+        for child in children {
+            tree.add_child(parent, *child.borrow()).unwrap();
+        }
+        return parent;
+    }
+
+    pub fn popup<I, B>(&self, style: &str, attached_to: DefaultAtom, children: I) -> NodeId
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<NodeId>,
+    {
+        let (style, mut context) = parse_style(style);
+        let mut tree = self.tree.borrow_mut();
+        let parent = self.new_leaf(&mut tree, style);
+        context.delayed_marker = Some(DelayedMarker {
+            id: parent,
+            z_index: 0,
+            attached_to,
+            anchor: Anchor::TopLeft,
+        });
+        self.set_node_context(parent, &mut tree, context);
+        for child in children {
+            tree.add_child(parent, *child.borrow()).unwrap();
+        }
+        return parent;
+    }
+
     pub fn accessing_state(&self, id: &DefaultAtom) -> Option<UiState<T>> {
         let mut state = self.state.borrow_mut();
         if let Some(state) = state.get_mut(id) {
@@ -273,6 +324,7 @@ where
         tree.get_node_context_mut(id).map(f);
     }
 
+    /// **WARNING** this erases the delayed markers from [Self].
     pub fn delayed_ids(&self) -> Vec<DelayedMarker> {
         self.delayed_markers.replace(vec![])
     }
