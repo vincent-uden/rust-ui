@@ -19,6 +19,7 @@ use crate::render::{COLOR_LIGHT, Text};
 use crate::style::parse_style;
 
 pub mod scrollable;
+pub mod select;
 pub mod text_field;
 
 #[macro_export]
