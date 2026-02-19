@@ -14,7 +14,9 @@ use rust_ui::{
         COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder, scrollable::ScrollableBuilder as _,
+            DefaultAtom, UiBuilder,
+            scrollable::ScrollableBuilder as _,
+            select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
         },
     },
@@ -318,6 +320,11 @@ impl PipelineManagerUi {
             ),
             b.div("h-4", &[]),
         ];
+        inner.extend_from_slice(&[b.select(
+            id!("step-select-{step_id}"),
+            &["One", "Two", "Three"],
+            None,
+        )]);
         inner.extend_from_slice(step_types);
         inner.extend_from_slice(&[b.div("h-4", &[]), form]);
 
