@@ -1,31 +1,21 @@
-use core::fmt;
-use std::{
-    any::Any,
-    borrow::Borrow,
-    cell::{RefCell, RefMut},
-    collections::HashMap,
-    rc::Weak,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
-use smol_str::SmolStr;
 use string_cache::DefaultAtom;
 use tracing::{debug, error};
 
 use crate::{
-    geometry::{Rect, Vector},
+    geometry::Vector,
     render::{
-        Border, COLOR_DANGER, COLOR_LIGHT, Color, Text,
-        graph::{GraphRenderer, Interpolation},
+        Border, COLOR_LIGHT, Color, Text,
+        graph::GraphRenderer,
         line::LineRenderer,
         rect::RectRenderer,
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
         widgets::{UiBuilder, scrollable::ScrollableBuilder},
     },
-    style::parse_style,
 };
 use taffy::prelude::*;
 
@@ -59,6 +49,7 @@ where
     T: AppState,
 {
     id: NodeId,
+    attached_to: NodeId,
     anchor: Anchor,
     ctx: NodeContext<T>,
     pos: Vector<f32>,
@@ -73,6 +64,7 @@ where
     fn clone(&self) -> Self {
         Self {
             id: self.id,
+            attached_to: self.attached_to,
             anchor: self.anchor,
             ctx: self.ctx.clone(),
             pos: self.pos,
@@ -544,6 +536,7 @@ where
                                 .unwrap();
                             self.delayed_renders.push(DelayedRender {
                                 id: marker.id,
+                                attached_to,
                                 anchor: marker.anchor,
                                 ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
                                 pos: abs_pos,
@@ -612,17 +605,20 @@ where
         let delayed_renders = self.delayed_renders.clone();
         for delayed in delayed_renders.iter() {
             let layer = &layers[delayed.layer_idx];
-            let size: Vector<f32> = layer.tree.layout(layer.root).unwrap().size.into();
+            let attached = layer.tree.layout(delayed.attached_to).unwrap();
+            let size = layer.tree.layout(delayed.id).unwrap().size;
             let pos = match delayed.anchor {
-                Anchor::TopLeft => delayed.pos,
-                Anchor::TopRight => {
-                    Vector::new(window_size.x - delayed.pos.x - size.x, delayed.pos.y)
-                }
-                Anchor::BottomLeft => {
-                    Vector::new(delayed.pos.x, window_size.y - delayed.pos.y - size.y)
-                }
-                Anchor::BottomRight => window_size - delayed.pos - size,
-                Anchor::Center => (window_size - size).scaled(0.5) + delayed.pos,
+                Anchor::TopLeft => Vector::new(delayed.pos.x, delayed.pos.y + attached.size.height),
+                Anchor::TopRight => Vector::new(
+                    attached.size.width - size.width,
+                    delayed.pos.y + attached.size.height,
+                ),
+                Anchor::BottomLeft => Vector::new(delayed.pos.x, delayed.pos.y - size.height),
+                Anchor::BottomRight => Vector::new(
+                    attached.size.width - size.width,
+                    delayed.pos.y - size.height,
+                ),
+                Anchor::Center => delayed.pos + Vector::new(size.width / 2.0, size.height / 2.0),
             };
             let _ = self.render_tree(&layer.tree, delayed.id, pos);
         }
