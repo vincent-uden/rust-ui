@@ -144,7 +144,16 @@ impl App {
             ui.popup(
                 "bg-slate-800 rounded-8 p-8 border-slate-500 border-2 translate-y-20",
                 id!("popup0"),
-                &[ui.text("", Text::new("I am the popup!", 16, COLOR_LIGHT))],
+                &[ui.ui(
+                    "",
+                    Listeners {
+                        on_left_mouse_down: Some(Arc::new(|state| {
+                            state.app_state.test_popup_open = false
+                        })),
+                        ..Default::default()
+                    },
+                    &[ui.text("", Text::new("I am the popup!", 16, COLOR_LIGHT))],
+                )],
             );
         }
 
