@@ -550,6 +550,15 @@ where
                                 style: (*layer.tree.style(marker.id).unwrap()).clone(),
                                 layer_idx: i,
                             });
+                            // Collect event listeners for the delayed render BEFORE the main layer
+                            // so that popups can occlude elements below them.
+                            // Use a higher layer index to ensure popups take precedence.
+                            let _ = self.collect_event_listeners(
+                                &layer.tree,
+                                marker.id,
+                                abs_pos,
+                                i as i32 + 1,
+                            );
                         } else {
                             error!(
                                 "Unable to compute absolute position for widget with persistent id {:?} for delayed marker {:?}",
@@ -694,6 +703,7 @@ where
                     if let Some(on_mouse_up) = &ctx.on_left_mouse_up
                         && !self.mouse_left_down
                         && self.mouse_left_was_down
+                        && layer_idx >= self.mouse_hit_layer
                     {
                         self.pending_event_listeners.push(on_mouse_up.clone());
                     }
@@ -708,6 +718,7 @@ where
                     if let Some(on_mouse_up) = &ctx.on_right_mouse_up
                         && !self.mouse_right_down
                         && self.mouse_right_was_down
+                        && layer_idx >= self.mouse_hit_layer
                     {
                         self.pending_event_listeners.push(on_mouse_up.clone());
                     }
@@ -722,6 +733,7 @@ where
                     if let Some(on_mouse_up) = &ctx.on_middle_mouse_up
                         && !self.mouse_middle_down
                         && self.mouse_middle_was_down
+                        && layer_idx >= self.mouse_hit_layer
                     {
                         self.pending_event_listeners.push(on_mouse_up.clone());
                     }
