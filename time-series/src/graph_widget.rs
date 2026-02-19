@@ -382,6 +382,23 @@ where
                     w_state.interaction = GraphInteraction::None;
                 });
             }));
+            let id1 = id_clone.clone();
+            ctx.on_right_mouse_down = Some(Arc::new(move |state| {
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    w_state.interaction = GraphInteraction::Panning {
+                        pan_start_screen: state.mouse_pos,
+                        start_limits: w_state.limits,
+                    };
+                });
+            }));
+            let id1 = id_clone.clone();
+            ctx.on_right_mouse_up = Some(Arc::new(move |state| {
+                state.ui_builder.mutate_state(&id1, |w_state| {
+                    let w_state: &mut GraphWidgetData<T> = w_state.downcast_mut().unwrap();
+                    w_state.interaction = GraphInteraction::None;
+                });
+            }));
             let graph_node_id = graph_node;
             let id1 = id_clone.clone();
             ctx.on_mouse_move = Some(Arc::new(move |state| {
