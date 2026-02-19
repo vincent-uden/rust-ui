@@ -1,7 +1,13 @@
 use anyhow::{Result, anyhow};
 use rustfft::num_complex::Complex;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, hash::Hash, io::BufReader, path::Path};
+use std::{
+    fs::File,
+    hash::Hash,
+    io::{Cursor, Read},
+    path::Path,
+    str::FromStr,
+};
 use strum::{Display, EnumString};
 
 pub mod processing;
@@ -35,10 +41,21 @@ pub struct DataFrame {
 impl DataFrame {
     pub fn from_path(path: &Path) -> Result<Self> {
         let file = File::open(path).map_err(|_| anyhow!("Error opening file"))?;
-        let reader = BufReader::new(file);
+        if let Some(ext) = path.extension() {
+            Self::from_reader(file)
+        } else {
+            Self::from_binary_format(file)
+        }
+    }
+
+    pub fn from_reader<R: Read>(mut reader: R) -> Result<Self> {
+        let mut contents = String::new();
+        reader.read_to_string(&mut contents)?;
+
         let mut rdr = csv::ReaderBuilder::new()
             .comment(Some(b'#'))
-            .from_reader(reader);
+            .from_reader(contents.as_bytes());
+
         let mut out = DataFrame::default();
         for h in rdr.headers()? {
             out.column_names.push(h.to_string());
@@ -69,6 +86,38 @@ impl DataFrame {
         Ok(out)
     }
 
+    pub fn from_binary_format<R: Read>(mut reader: R) -> Result<Self> {
+        #[repr(C)]
+        struct Sample {
+            voltage: f32,
+            timestamp: u64,
+        }
+        let mut out = Self {
+            column_names: vec!["timestamp".into(), "voltage".into()],
+            columns: vec![vec![], vec![]],
+        };
+
+        let mut sample: Sample = unsafe { std::mem::zeroed() };
+        loop {
+            let buf = unsafe {
+                std::slice::from_raw_parts_mut(
+                    &mut sample as *mut Sample as *mut u8,
+                    size_of::<Sample>(),
+                )
+            };
+            match reader.read_exact(buf) {
+                Ok(()) => {
+                    out.columns[0].push(sample.timestamp as f64);
+                    out.columns[1].push(sample.voltage as f64);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        Ok(out)
+    }
+
     fn pick(&self, column_1: usize, column_2: usize) -> Signal {
         let mut out = vec![];
         for (x, y) in self.columns[column_1]
@@ -78,6 +127,14 @@ impl DataFrame {
             out.push(Record { x: *x, y: *y });
         }
         out
+    }
+}
+
+impl FromStr for DataFrame {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Self::from_reader(Cursor::new(s))
     }
 }
 
@@ -299,6 +356,32 @@ impl PartialEq for StepConfig {
                 StepConfig::ScaleAxis { axis: _, factor: _ },
             ) => true,
             _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::pipeline::processing::run_pipeline;
+
+    use super::*;
+
+    const SAWTOOTH: &str = include_str!("../../assets/test_csvs/sawtooth.csv");
+
+    #[test]
+    fn extract_coordinates_from_sawtooth() {
+        let pipeline = vec![StepConfig::PickColumns {
+            column_1: 0,
+            column_2: 1,
+        }];
+        let df = DataFrame::from_str(SAWTOOTH).unwrap();
+        match run_pipeline(&pipeline, PipelineIntermediate::DataFrame(df)).unwrap() {
+            PipelineIntermediate::Signal(records) => {
+                assert_eq!(records.len(), 10);
+            }
+            PipelineIntermediate::DataFrame(_) | PipelineIntermediate::Complex(_) => {
+                panic!("Output should be a signal");
+            }
         }
     }
 }

@@ -62,6 +62,7 @@ where
                         text: "Performance stats".into(),
                         font_size: 18,
                         color: Color::new(1.0, 1.0, 1.0, 1.0),
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
@@ -80,6 +81,7 @@ where
                         ),
                         font_size: 14,
                         color: Color::new(1.0, 1.0, 1.0, 1.0),
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
@@ -95,6 +97,7 @@ where
                         text: format!("RAM: {:.2} MB", self.ram_usage / 1_000_000,),
                         font_size: 14,
                         color: Color::new(1.0, 1.0, 1.0, 1.0),
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
@@ -131,6 +134,7 @@ where
         RenderLayout {
             tree,
             root,
+            delayed_markers: Default::default(),
             desired_size: Size {
                 width: AvailableSpace::MaxContent,
                 height: AvailableSpace::MinContent,

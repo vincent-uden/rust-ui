@@ -73,6 +73,14 @@ impl UniformValue for glm::Mat4 {
     }
 }
 
+impl<const N: usize> UniformValue for [glm::Vec2; N] {
+    fn set_uniform(location: gl::types::GLint, value: &Self) {
+        unsafe {
+            gl::Uniform2fv(location, N as i32, value.as_ptr() as *const f32);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ShaderName {
     Line,
@@ -81,6 +89,7 @@ pub enum ShaderName {
     Mesh,
     Sprite,
     Pick,
+    Graph,
 }
 
 impl ShaderName {
@@ -93,6 +102,7 @@ impl ShaderName {
             ShaderName::Mesh => Self::to_paths("mesh"),
             ShaderName::Sprite => Self::to_paths("sprite"),
             ShaderName::Pick => Self::to_paths("picking"),
+            ShaderName::Graph => Self::to_paths("graph"),
         }
     }
 
@@ -101,6 +111,18 @@ impl ShaderName {
             PathBuf::from(format!("{}/{}.vs", SHADER_DIR, name)),
             PathBuf::from(format!("{}/{}.frag", SHADER_DIR, name)),
         )
+    }
+
+    pub fn all() -> Vec<ShaderName> {
+        vec![
+            ShaderName::Line,
+            ShaderName::Text,
+            ShaderName::Rect,
+            ShaderName::Mesh,
+            ShaderName::Sprite,
+            ShaderName::Pick,
+            ShaderName::Graph,
+        ]
     }
 }
 
@@ -277,20 +299,16 @@ mod tests {
     }
 
     #[test]
-    fn can_load_rectangle_rendering_shader() {
-        #[cfg(target_arch = "aarch64")]
-        let vertex_src = include_str!("../../shaders/gles300/rounded_rect.vs");
-        #[cfg(target_arch = "aarch64")]
-        let frag_src = include_str!("../../shaders/gles300/rounded_rect.frag");
-
-        #[cfg(not(target_arch = "aarch64"))]
-        let vertex_src = include_str!("../../shaders/glsl330/rounded_rect.vs");
-        #[cfg(not(target_arch = "aarch64"))]
-        let frag_src = include_str!("../../shaders/glsl330/rounded_rect.frag");
-
+    fn can_load_all_shaders() {
         let _window = init_window();
-
-        let shader = Shader::compile_shader(vertex_src, frag_src, None);
-        assert!(shader.is_ok(), "Shader should compile successfully");
+        for name in ShaderName::all() {
+            match Shader::new_from_name(&name) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Failed to compile shader: {:?} with error: {}", name, e);
+                    panic!();
+                }
+            }
+        }
     }
 }

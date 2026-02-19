@@ -111,4 +111,35 @@ Since I don't have inheritance to work with, I guess I would need to build an en
 
 Ryan Fleury uses a global HashMap for all his persistent state which is keyed by a special text string syntax. This is really clever, but a global HashMap is not very Rusty. We can pass it down to every single ui function. Ryan seems to be doing that for his arena allocator, so why not pass the state HashMap? I'd need some kind of refcell to hold the hashmap and other related state in the renderer I guess. Or should it live in the app state? App state for now, renderer later if possible.
 
-Having the UiBuilder in the `rust-ui` crate would pose some problems with extensibility though.
+How would that HashMap work? I'm guessing Ryan just throws in a void pointer to an arena-allocated piece of memory. Then, based on what sort of UI element he's using he can cast that pointer to an actual struct pointer. Since the arena is heap memory I guess my equivalent would be a 
+```rust
+struct UiState {
+    last_touched: usize,
+    data: Box<dyn Any>,
+}
+
+let state = HashMap<String, UiState>;
+```
+## A render "Plugin" system
+The goal isn't actually to write a plugin system, but just to allow for some way to render widgets with persistent data that isn't defined in the core `rust-ui` crate. As an example we have the graph widget I am building right now. In `time-series` we the `GraphWidgetData` which implements `UiData`. It contains cached data needed to display the graph. I can't downcast `&UiData` to `&GraphWidgetData` in `rust-ui` since it doesn't (and can't) depend on `time-series`.
+
+Why not move `GraphWidgetData` into `rust-ui`? It contains data types specific to `time-series`. While simple to fix for this case, moving everything to core doesn't generalize well. It might be easy for `time-series` but not for `cad-frontend`.
+
+The obvious solution is a trait
+```rust
+pub trait WidgetRenderer<T> where T: AppState {
+    fn render(id: &NodeId, ctx: &NodeContext<T>, state: HashMap<DefaultAtom, UiState<T>>) -> Result<(), Box<dyn Error>)>;
+}
+```
+where the trait method has to determine if it can actually render the widget it is attempting to render. This will however create a lot of redundant work for every non-standard widget. Ideally the widget would somehow know which trait object it is supposed to be rendered by. And this can't be determined at the compiletime of `rust-ui`. I think this would need some kind of reflection.
+
+`UiState` already uses reflection but `NodeContext` doesn't but would need to in order for the system to be able to render widgets without any persistent state. It feels like this is starting to become a lot of boilerplate. 
+
+Would it be possible for `UiState` to have this trait method instead? It can have an empty default implementation for widgets that don't need any special case rendering. I think so!
+
+## Overlays/popup
+Overlays in different layers is already easy to do. However one piece of UI which is currently really difficult to implement is a popup panel. These are used in menus at the top of the window and in selection widgets that pop up a list of options above the current layer.
+
+For `time-series` this could reasonable be solved with a popup in the middle of the screen similar to a command palette. However the list selection widget is common enough for me to actually solve this problem in the core library.
+
+The problem which makes the popup/popover difficult is that it needs to live in a different layer from its parent widget but being anchored to a position in that parents layer. I think this can be solved by creating post-poned list of things that actually have a z-index. These can be sorted and computed after all the regular layers.

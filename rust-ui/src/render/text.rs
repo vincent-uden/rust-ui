@@ -4,11 +4,11 @@ use anyhow::{Result, anyhow};
 use freetype as ft;
 use gl::types::GLuint;
 use string_cache::DefaultAtom;
-use taffy::AvailableSpace;
+use taffy::{AvailableSpace, TextAlign};
 
 use crate::{
     geometry::Vector,
-    render::{Color, Text},
+    render::{Color, Text, TextAlignment},
     shader::Shader,
 };
 
@@ -49,6 +49,8 @@ pub struct FontAtlas {
     line_height: i32,
     line_cache: Vec<(DefaultAtom, (Vec<CharacterInstance>, Vec<Vector<f32>>))>,
     size_cache: HashMap<DefaultAtom, Vector<f32>>,
+    max_ascent: f32,
+    max_descent: f32,
 }
 
 #[derive(Debug)]
@@ -197,9 +199,9 @@ impl TextRenderer {
         })
     }
 
-    fn get_or_create_atlas(&mut self, font_size: u32) -> &mut FontAtlas {
+    fn get_or_create_atlas(&mut self, font_size: u32) -> Result<&mut FontAtlas> {
         if let Some(idx) = self.atlases.iter().position(|(fs, _)| *fs == font_size) {
-            return &mut self.atlases[idx].1;
+            return Ok(&mut self.atlases[idx].1);
         }
         let atlas_size = Vector::new(512, 512);
         let mut texture_id: GLuint = 0;
@@ -226,6 +228,13 @@ impl TextRenderer {
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
 
+        self.ft_face.set_pixel_sizes(0, font_size)?;
+        let units_per_em = self.ft_face.em_size() as f32;
+        let ascender = self.ft_face.ascender() as f32;
+        let descender = self.ft_face.descender() as f32;
+        let max_ascent = (ascender / units_per_em) * font_size as f32;
+        let max_descent = (-descender / units_per_em) * font_size as f32;
+
         let new_atlas = FontAtlas {
             texture_id,
             size: atlas_size,
@@ -235,13 +244,15 @@ impl TextRenderer {
             line_height: 0,
             line_cache: Vec::new(),
             size_cache: HashMap::new(),
+            max_ascent,
+            max_descent,
         };
         self.atlases.push((font_size, new_atlas));
-        &mut self.atlases.last_mut().unwrap().1
+        Ok(&mut self.atlases.last_mut().unwrap().1)
     }
 
     fn load_character(&mut self, character: char, font_size: u32) -> Result<Character> {
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size)?;
 
         for (c, char_info) in &atlas.characters {
             if *c == character {
@@ -265,7 +276,7 @@ impl TextRenderer {
         let buffer_ptr = bitmap.buffer().as_ptr();
         let buffer_empty = bitmap.buffer().is_empty();
 
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size)?;
 
         // Check if we need to move to next line
         if atlas.current_x + glyph_width + 2 > atlas.size.x {
@@ -325,8 +336,8 @@ impl TextRenderer {
         &mut self,
         text: &str,
         font_size: u32,
-        scale: f32,
     ) -> (Vec<CharacterInstance>, Vec<Vector<f32>>) {
+        let scale = 1.0;
         let mut instances = Vec::new();
         let mut base_positions = Vec::new();
         let size = self.measure_text_size(text, font_size);
@@ -362,20 +373,12 @@ impl TextRenderer {
         (instances, base_positions)
     }
 
-    /// Draws a single line of text
-    pub fn draw_line(
+    fn compute_line(
         &mut self,
         text: &str,
-        position: Vector<f32>,
         font_size: u32,
-        scale: f32,
-        instances: &mut Vec<CharacterInstance>,
-    ) {
-        if text.is_empty() {
-            return;
-        }
-        self.get_or_create_atlas(font_size);
-
+    ) -> &(Vec<CharacterInstance>, Vec<Vector<f32>>) {
+        self.get_or_create_atlas(font_size).ok();
         if self
             .atlases
             .iter()
@@ -383,13 +386,25 @@ impl TextRenderer {
             .and_then(|(_, atlas)| atlas.line_cache.iter().find(|(k, _)| k == text))
             .is_none()
         {
-            let instances = self.compute_glyph_positions(text, font_size, scale);
-            let atlas = self.get_or_create_atlas(font_size);
-            atlas.line_cache.push((DefaultAtom::from(text), instances));
+            let instances = self.compute_glyph_positions(text, font_size);
+            if let Ok(atlas) = self.get_or_create_atlas(font_size) {
+                atlas.line_cache.push((DefaultAtom::from(text), instances));
+            }
         }
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
+        &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1
+    }
 
-        let atlas = self.get_or_create_atlas(font_size);
-        let cached = &atlas.line_cache.iter().find(|(k, _)| k == text).unwrap().1;
+    /// Draws a single line of text
+    pub fn draw_line(
+        &mut self,
+        text: &str,
+        position: Vector<f32>,
+        font_size: u32,
+        instances: &mut Vec<CharacterInstance>,
+        cursor_idx: Option<usize>,
+    ) {
+        let cached = self.compute_line(text, font_size);
         // This can be avoided by changing cache from Vec<(CharacterInstance, [f32;2])> to
         // (Vec<CharacterInstance>, Vec<[f32;2]>). Or at least the extra allocation. Still the
         // bottleneck is probably the amount of draw calls
@@ -399,6 +414,44 @@ impl TextRenderer {
             inst.position[1] = (base_position.y + position.y).floor();
             instances.push(inst);
         }
+
+        if let Some(cursor_idx) = cursor_idx {
+            let (cursor_inst, _) = self.compute_glyph_positions("|", font_size);
+            let cursor_pos = self.cursor_pos(text, position, font_size, cursor_idx);
+            let mut cursor_inst = cursor_inst[0];
+            cursor_inst.position[0] = cursor_pos.x;
+            cursor_inst.position[1] = cursor_pos.y;
+            instances.push(cursor_inst);
+        }
+    }
+
+    pub fn cursor_pos(
+        &mut self,
+        text: &str,
+        position: Vector<f32>,
+        font_size: u32,
+        cursor_idx: usize,
+    ) -> Vector<f32> {
+        if text.is_empty() {
+            return Vector::zero();
+        }
+
+        let cached = self.compute_line(text, font_size);
+        let cursor_pos = if cursor_idx == 0 {
+            cached.1[0]
+        } else if cursor_idx == text.len() {
+            let line_width: f32 = text
+                .chars()
+                .map(|c| {
+                    self.load_character(c, font_size)
+                        .map_or(0.0, |ch| ch.advance)
+                })
+                .sum();
+            Vector::new(line_width, 0.0)
+        } else {
+            cached.1[cursor_idx - 1] + Vector::new(cached.0[cursor_idx - 1].size[0], 0.0)
+        };
+        Vector::new(cursor_pos.x + position.x, cursor_pos.y + position.y)
     }
 
     fn commit_drawing(&self, instances: &mut Vec<CharacterInstance>, font_size: u32, color: Color) {
@@ -443,22 +496,45 @@ impl TextRenderer {
         text: Text,
         position: Vector<f32>,
         size: taffy::geometry::Size<f32>,
+        cursor_idx: Option<usize>,
     ) {
         let mut instances = vec![];
+        let mut line_start = 0;
+        let text_str = text.text.clone();
+        let text_len = text_str.len();
         for line in self.layout_text(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
                 height: AvailableSpace::Definite(size.height),
             },
-            text.text,
+            text_str.clone(),
             text.font_size,
+            true,
         ) {
+            let cursor_idx = cursor_idx
+                .filter(|&idx| {
+                    line_start <= idx
+                        && (idx <= line_start + line.contents.len() || idx == text_len)
+                })
+                .map(|idx| {
+                    if idx == text_len {
+                        line.contents.len()
+                    } else {
+                        idx - line_start
+                    }
+                });
+            let draw_text = if cursor_idx == Some(line.contents.len()) && text_len > line_start {
+                &text_str[line_start..]
+            } else {
+                &line.contents
+            };
+            line_start += line.contents.len();
             self.draw_line(
-                &line.contents,
+                draw_text,
                 position + line.position,
                 text.font_size,
-                1.0,
                 &mut instances,
+                cursor_idx,
             );
         }
         self.commit_drawing(&mut instances, text.font_size, text.color);
@@ -471,8 +547,10 @@ impl TextRenderer {
         text: Text,
         position: Vector<f32>,
         size: taffy::geometry::Size<f32>,
+        cursor_idx: Option<usize>,
     ) {
         let mut instances = vec![];
+        let mut line_start = 0;
         for line in self.layout_text_explicit(
             taffy::Size {
                 width: AvailableSpace::Definite(size.width),
@@ -481,20 +559,87 @@ impl TextRenderer {
             text.text,
             text.font_size,
         ) {
+            let cursor_idx = cursor_idx
+                .filter(|&idx| line_start <= idx && idx < line_start + line.contents.len())
+                .map(|idx| idx - line_start);
+            line_start += line.contents.len();
             self.draw_line(
                 &line.contents,
                 position + line.position,
                 text.font_size,
-                1.0,
                 &mut instances,
+                cursor_idx,
+            );
+        }
+        self.commit_drawing(&mut instances, text.font_size, text.color);
+    }
+
+    /// Draws text without any wrapping
+    pub fn draw_on_line(
+        &mut self,
+        text: Text,
+        position: Vector<f32>,
+        size: taffy::geometry::Size<f32>,
+        cursor_idx: Option<usize>,
+    ) {
+        let mut instances = vec![];
+        let mut line_start = 0;
+        let text_str = text.text.clone();
+        let text_len = text_str.len();
+        for line in self.layout_text(
+            taffy::Size {
+                width: AvailableSpace::Definite(size.width),
+                height: AvailableSpace::Definite(size.height),
+            },
+            text_str.clone(),
+            text.font_size,
+            false,
+        ) {
+            let aligment_offset = Vector::new(
+                match text.alignment {
+                    TextAlignment::Left => 0.0,
+                    TextAlignment::Center => (size.width - line.size.x) / 2.0,
+                    TextAlignment::Right => size.width - line.size.x,
+                },
+                0.0,
+            );
+            let cursor_idx = cursor_idx
+                .filter(|&idx| {
+                    line_start <= idx
+                        && (idx <= line_start + line.contents.len() || idx == text_len)
+                })
+                .map(|idx| {
+                    if idx == text_len {
+                        line.contents.len()
+                    } else {
+                        idx - line_start
+                    }
+                });
+            let draw_text = if cursor_idx == Some(line.contents.len()) && text_len > line_start {
+                &text_str[line_start..]
+            } else {
+                &line.contents
+            };
+            line_start += line.contents.len();
+            self.draw_line(
+                draw_text,
+                position + line.position + aligment_offset,
+                text.font_size,
+                &mut instances,
+                cursor_idx,
             );
         }
         self.commit_drawing(&mut instances, text.font_size, text.color);
     }
 
     fn measure_text_size(&mut self, text: &str, font_size: u32) -> Vector<f32> {
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
+        let max_ascent = atlas.max_ascent;
+        let max_descent = atlas.max_descent;
+        let height = max_ascent + max_descent;
+
         if text.is_empty() {
-            return Vector::new(0.0, font_size as f32);
+            return Vector::new(0.0, height);
         }
 
         let key = DefaultAtom::from(text);
@@ -505,23 +650,16 @@ impl TextRenderer {
         }
 
         let mut width: f32 = 0.0;
-        let mut max_ascent: f32 = 0.0;
-        let mut max_descent: f32 = 0.0;
-
         for c in text.chars() {
-            let loaded = self.load_character(c, font_size).unwrap();
-            width += loaded.advance;
-            max_ascent = max_ascent.max(loaded.ascent);
-            max_descent = max_descent.max(loaded.descent);
-        }
-
-        let mut height = max_ascent + max_descent;
-        if height == 0.0 {
-            height = font_size as f32; // Fallback if no height data
+            let ch = match self.load_character(c, font_size) {
+                Ok(ch) => ch,
+                Err(_) => continue,
+            };
+            width += ch.advance;
         }
 
         let size = Vector::new(width, height);
-        let atlas = self.get_or_create_atlas(font_size);
+        let atlas = self.get_or_create_atlas(font_size).unwrap();
         atlas.size_cache.insert(key, size);
         size
     }
@@ -534,6 +672,7 @@ impl TextRenderer {
         available_space: taffy::geometry::Size<taffy::style::AvailableSpace>,
         text: String,
         font_size: u32,
+        wrap: bool,
     ) -> Vec<TextLine> {
         let mut out = vec![];
 
@@ -551,6 +690,7 @@ impl TextRenderer {
                     AvailableSpace::MaxContent => 9999.0,
                 })
                 && !current_line.is_empty()
+                && wrap
             {
                 let size = self.measure_text_size(&current_line, font_size);
                 out.push(TextLine {
@@ -570,6 +710,12 @@ impl TextRenderer {
                 position: Vector::new(0.0, y),
                 size: self.measure_text_size(&current_line, font_size),
                 contents: current_line.clone(),
+            });
+        } else if out.is_empty() {
+            out.push(TextLine {
+                position: Vector::new(0.0, y),
+                size: Vector::new(0.0, font_size as f32 * 1.2),
+                contents: String::new(),
             });
         }
 

@@ -3148,6 +3148,7 @@ name = "time-series"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "csv",
  "gl",
  "glfw",
@@ -3159,13 +3160,13 @@ dependencies = [
  "rust-ui",
  "rustfft",
  "serde",
- "smol_str",
  "strum",
  "sysinfo",
  "taffy",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
+ "tracy-client",
 ]
 
 [[package]]

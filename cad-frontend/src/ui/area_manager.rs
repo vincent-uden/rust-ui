@@ -248,7 +248,10 @@ mod tests {
         manager.split_area(Vector::new(718.0, 391.0), BoundaryOrientation::Vertical);
         manager.collapse_boundary(Vector::new(500.0, 442.0));
 
-        assert!(manager.bdry_map.len() == 1, "There should be 1 boundary left");
+        assert!(
+            manager.bdry_map.len() == 1,
+            "There should be 1 boundary left"
+        );
         let bdry = &manager.bdry_map[BoundaryId(1)];
         assert!(
             bdry.side1 == vec![AreaId(0)],

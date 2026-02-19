@@ -1,7 +1,7 @@
-use std::fmt::Debug;
 use enum_variant_type::EnumVariantType;
 use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 use crate::registry::RegId;
 

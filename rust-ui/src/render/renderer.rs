@@ -1,40 +1,77 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap, sync::Arc};
+use core::fmt;
+use std::{
+    any::Any,
+    borrow::Borrow,
+    cell::{RefCell, RefMut},
+    collections::HashMap,
+    rc::Weak,
+    sync::{Arc, Mutex},
+};
 
 use dashmap::DashMap;
 use glfw::{Action, Key, Modifiers, MouseButton, Scancode};
 use smol_str::SmolStr;
 use string_cache::DefaultAtom;
+use tracing::{debug, error};
 
 use crate::{
-    geometry::Vector,
+    geometry::{Rect, Vector},
     render::{
-        Border, COLOR_LIGHT, Color, Text,
+        Border, COLOR_DANGER, COLOR_LIGHT, Color, Text,
+        graph::{GraphRenderer, Interpolation},
         line::LineRenderer,
         rect::RectRenderer,
         sprite::{SpriteKey, SpriteRenderer},
         text::{TextRenderer, total_size},
+        widgets::{UiBuilder, scrollable::ScrollableBuilder},
     },
     style::parse_style,
 };
 use taffy::prelude::*;
 
-type Flag = u8;
+type Flag = u16;
 
 #[cfg_attr(any(), rustfmt::skip)]
 pub mod flags {
     use super::Flag;
     /// Enables text drawing in a node
-    pub const TEXT: Flag                 = 0b00000001;
-    pub const HOVER_BG: Flag             = 0b00000010;
-    pub const EXPLICIT_TEXT_LAYOUT: Flag = 0b00000100;
-    pub const SPRITE: Flag               = 0b00001000;
+    pub const TEXT: Flag                 = 1 << 0;
+    pub const HOVER_BG: Flag             = 1 << 1;
+    pub const EXPLICIT_TEXT_LAYOUT: Flag = 1 << 2;
+    pub const SPRITE: Flag               = 1 << 3;
     /// Changes how the limits of offsets work to act as a scoll bar
-    pub const SCROLL_BAR: Flag           = 0b00010000;
+    pub const SCROLL_BAR: Flag           = 1 << 4;
     /// Changes how the limits of offsets work to act as content being scrolled
-    pub const SCROLL_CONTENT: Flag       = 0b00100000;
+    pub const SCROLL_CONTENT: Flag       = 1 << 5;
+    /// Should text scroll to keep the cursor position visible
+    pub const TEXT_SCROLL: Flag          = 1 << 6;
+    /// Force text onto a single line (no wrapping). Not compatible with [EXPLICIT_TEXT_LAYOUT]
+    pub const TEXT_SINGLE_LINE: Flag     = 1 << 7;
+    /// Should the rectangle be used to render a (line) graph
+    pub const GRAPH: Flag                = 1 << 8;
 }
 
+// TODO: Investigate if this can be changed to an FnOnce somehow
 pub type EventListener<T> = Arc<dyn Fn(&mut Renderer<T>)>;
+
+#[derive(Default, Clone)]
+pub struct DelayedRender<T>
+where
+    T: AppState,
+{
+    anchor: Anchor,
+    ctx: NodeContext<T>,
+    pos: Vector<f32>,
+    style: Style,
+}
+
+#[derive(Clone, Debug)]
+pub struct DelayedMarker {
+    pub id: NodeId,
+    pub z_index: usize,
+    pub attached_to: DefaultAtom,
+    pub anchor: Anchor,
+}
 
 /// Contains relevant information for a UI node in addition to the sizing and position information
 /// stored in [taffy::TaffyTree].
@@ -43,18 +80,18 @@ where
     T: AppState,
 {
     pub flags: Flag,
-    // Colors
     pub bg_color: Color,
     pub bg_color_hover: Color,
-    // Border
     pub border: Border,
     pub text: Text,
     pub sprite_key: T::SpriteKey,
     pub offset: Vector<f32>,
+    pub delayed_marker: Option<DelayedMarker>,
     // Event listeners
     pub on_scroll: Option<EventListener<T>>,
     pub on_mouse_enter: Option<EventListener<T>>,
     pub on_mouse_exit: Option<EventListener<T>>,
+    pub on_mouse_move: Option<EventListener<T>>,
     pub on_left_mouse_down: Option<EventListener<T>>,
     pub on_left_mouse_up: Option<EventListener<T>>,
     pub on_right_mouse_down: Option<EventListener<T>>,
@@ -63,6 +100,40 @@ where
     pub on_middle_mouse_up: Option<EventListener<T>>,
     // Clipping
     pub scissor: bool,
+    // Persistent state
+    pub persistent_id: Option<DefaultAtom>,
+    pub cursor_idx: Option<usize>,
+}
+
+impl<T> Clone for NodeContext<T>
+where
+    T: AppState,
+{
+    fn clone(&self) -> Self {
+        Self {
+            flags: self.flags.clone(),
+            bg_color: self.bg_color.clone(),
+            bg_color_hover: self.bg_color_hover.clone(),
+            border: self.border.clone(),
+            text: self.text.clone(),
+            sprite_key: self.sprite_key.clone(),
+            offset: self.offset.clone(),
+            delayed_marker: self.delayed_marker.clone(),
+            on_scroll: self.on_scroll.clone(),
+            on_mouse_enter: self.on_mouse_enter.clone(),
+            on_mouse_exit: self.on_mouse_exit.clone(),
+            on_mouse_move: self.on_mouse_move.clone(),
+            on_left_mouse_down: self.on_left_mouse_down.clone(),
+            on_left_mouse_up: self.on_left_mouse_up.clone(),
+            on_right_mouse_down: self.on_right_mouse_down.clone(),
+            on_right_mouse_up: self.on_right_mouse_up.clone(),
+            on_middle_mouse_down: self.on_middle_mouse_down.clone(),
+            on_middle_mouse_up: self.on_middle_mouse_up.clone(),
+            scissor: self.scissor.clone(),
+            persistent_id: self.persistent_id.clone(),
+            cursor_idx: self.cursor_idx.clone(),
+        }
+    }
 }
 
 impl<T> Default for NodeContext<T>
@@ -78,6 +149,7 @@ where
             text: Default::default(),
             sprite_key: Default::default(),
             offset: Default::default(),
+            delayed_marker: Default::default(),
             on_scroll: Default::default(),
             on_mouse_enter: Default::default(),
             on_mouse_exit: Default::default(),
@@ -88,6 +160,9 @@ where
             on_middle_mouse_down: Default::default(),
             on_middle_mouse_up: Default::default(),
             scissor: Default::default(),
+            persistent_id: Default::default(),
+            cursor_idx: Default::default(),
+            on_mouse_move: Default::default(),
         }
     }
 }
@@ -165,6 +240,8 @@ pub struct Renderer<T>
 where
     T: AppState,
 {
+    /// The current frame number
+    pub frame: usize,
     /// The window width
     pub width: u32,
     /// The window height
@@ -191,6 +268,7 @@ where
     pub text_r: TextRenderer,
     pub line_r: LineRenderer,
     pub sprite_r: SpriteRenderer<T::SpriteKey>,
+    pub graph_r: GraphRenderer,
     /// Event listeners which have been triggered and are waiting to be called
     pending_event_listeners: Vec<EventListener<T>>,
     hover_states: HashMap<NodeId, bool>,
@@ -203,13 +281,18 @@ where
     pub debug_position: Vector<f32>,
     pub debug_size: Vector<f32>,
     pub debug_cached_size: Vector<f32>,
-    pub debug_scroll: f32,
     pub debug_drag: MouseDragState,
     pub debug_expanded: bool,
     layers: Arc<Vec<RenderLayout<T>>>,
     // --- Event capture
     /// Has the mouse hit any ui elements in a layer? This is the layer in which it happened
     pub mouse_hit_layer: i32,
+    /// The UI builder used for constructing layouts and managing widget state
+    pub ui_builder: UiBuilder<T>,
+    /// Used to keep track of UI elements that should be drawn later than the layer they were specified in.
+    /// This needs to be stored in the renderer and not in the [UiBuilder] since it requires computed
+    /// positions.
+    pub delayed_renders: Vec<DelayedRender<T>>,
 }
 
 impl<T> Renderer<T>
@@ -221,9 +304,11 @@ where
         text_renderer: TextRenderer,
         line_renderer: LineRenderer,
         sprite_renderer: SpriteRenderer<T::SpriteKey>,
+        graph_renderer: GraphRenderer,
         initial_state: T,
     ) -> Self {
         Self {
+            frame: 0,
             width: 1000,
             height: 800,
             mouse_left_down: false,
@@ -239,18 +324,20 @@ where
             text_r: text_renderer,
             line_r: line_renderer,
             sprite_r: sprite_renderer,
+            graph_r: graph_renderer,
             pending_event_listeners: vec![],
             hover_states: HashMap::new(),
             app_state: initial_state,
             show_debug_layer: false,
             debug_position: Vector::zero(),
-            debug_size: Vector::new(400.0, 200.0),
+            debug_size: Vector::new(400.0, 600.0),
             debug_cached_size: Vector::new(400.0, 200.0),
-            debug_scroll: 0.0,
             debug_drag: MouseDragState::Released,
             debug_expanded: true,
             layers: Arc::new(vec![]),
             mouse_hit_layer: -1,
+            ui_builder: UiBuilder::new(),
+            delayed_renders: vec![],
         }
     }
 
@@ -293,6 +380,8 @@ where
     /// any)*
     pub fn update(&mut self) {
         let _span = tracy_client::span!("App update");
+        self.frame += 1;
+        self.ui_builder.update(self.frame);
         self.mouse_hit_layer = -1;
 
         match self.debug_drag {
@@ -304,6 +393,7 @@ where
             _ => {}
         }
 
+        self.app_state.update();
         self.compute_layout();
         self.run_event_listeners();
     }
@@ -316,7 +406,13 @@ where
         action: Action,
         modifiers: Modifiers,
     ) {
-        self.app_state.handle_key(key, scancode, action, modifiers);
+        self.app_state
+            .handle_key(key, scancode, action, modifiers, &self.ui_builder);
+    }
+
+    /// Passes character input to application state
+    pub fn handle_char(&mut self, unicode: u32) {
+        self.app_state.handle_char(unicode, &self.ui_builder);
     }
 
     /// Passes mouse button events to the application state
@@ -331,19 +427,19 @@ where
                 self.mouse_left_down =
                     action == glfw::Action::Press || action == glfw::Action::Repeat;
                 self.app_state
-                    .handle_mouse_button(button, action, modifiers);
+                    .handle_mouse_button(button, action, modifiers, &self.ui_builder);
             }
             MouseButton::Button2 => {
                 self.mouse_right_down =
                     action == glfw::Action::Press || action == glfw::Action::Repeat;
                 self.app_state
-                    .handle_mouse_button(button, action, modifiers);
+                    .handle_mouse_button(button, action, modifiers, &self.ui_builder);
             }
             MouseButton::Button3 => {
                 self.mouse_middle_down =
                     action == glfw::Action::Press || action == glfw::Action::Repeat;
                 self.app_state
-                    .handle_mouse_button(button, action, modifiers);
+                    .handle_mouse_button(button, action, modifiers, &self.ui_builder);
             }
             _ => {}
         }
@@ -365,7 +461,9 @@ where
 
     fn compute_layout(&mut self) {
         let window_size = Vector::new(self.width as f32, self.height as f32);
-        let mut layers = self.app_state.generate_layout(window_size);
+        let mut layers = self
+            .app_state
+            .generate_layout(window_size, &self.ui_builder);
 
         if self.show_debug_layer {
             layers.push(self.debug_layer());
@@ -399,6 +497,28 @@ where
                 Anchor::BottomRight => window_size - layer.root_pos - size,
                 Anchor::Center => (window_size - size).scaled(0.5) + layer.root_pos,
             };
+            for marker in &layer.delayed_markers {
+                match self.ui_builder.node_id(&marker.attached_to) {
+                    Some(attached_to) => {
+                        // FIX: This only gets the relative position, not the absolute...
+                        // FIX: I guess I can implement a special tree traversal on renderer
+                        // FIX: which uses TaffyTree::parent to find the absolute position
+                        let layout = layer.tree.layout(attached_to).unwrap();
+                        self.delayed_renders.push(DelayedRender {
+                            anchor: Anchor::TopLeft,
+                            ctx: (*layer.tree.get_node_context(marker.id).unwrap()).clone(),
+                            pos: todo!("Find the attached to widget and get its position"),
+                            style: (*layer.tree.style(marker.id).unwrap()).clone(),
+                        });
+                    }
+                    None => {
+                        error!(
+                            "Unable to find parent widget with persistent id {:?} for delayed marker {:?}",
+                            &marker.attached_to, &marker
+                        );
+                    }
+                }
+            }
             let _ = self.collect_event_listeners(&layer.tree, layer.root, pos, i as i32);
         }
         self.layers = layers.into();
@@ -447,9 +567,32 @@ where
         let mut current_scissor: Option<crate::geometry::Rect<f32>>;
         while let Some((id, parent_pos)) = to_render.pop() {
             let layout = tree.layout(id)?;
-            let abs_pos = layout.location + parent_pos;
             let default_ctx = &NodeContext::default();
             let ctx = tree.get_node_context(id).unwrap_or(default_ctx);
+
+            let mut abs_pos = layout.location + parent_pos;
+
+            if ctx.flags & flags::SCROLL_BAR != 0 {
+                if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
+                    abs_pos.y += lerp(
+                        0.0,
+                        parent_bbox.size.height - layout.size.height,
+                        ctx.offset.y,
+                    );
+                }
+            } else if ctx.flags & flags::SCROLL_CONTENT != 0 {
+                if let Some(Ok(parent_bbox)) = tree.parent(id).map(|pid| tree.layout(pid)) {
+                    if layout.content_size.height > parent_bbox.size.height {
+                        abs_pos.y -= lerp(
+                            0.0,
+                            layout.content_size.height - parent_bbox.size.height,
+                            ctx.offset.y,
+                        );
+                    }
+                }
+            } else {
+                abs_pos = abs_pos + ctx.offset.into();
+            }
 
             // Traverse trail to find parent
             while trail.last().is_some() && tree.parent(id) != trail.last().map(|x| x.0) {
@@ -532,6 +675,12 @@ where
                         self.pending_event_listeners.push(on_scroll.clone());
                         self.mouse_hit_layer = layer_idx;
                     }
+                    if let Some(on_move) = &ctx.on_mouse_move
+                        && self.mouse_pos != self.last_mouse_pos
+                    {
+                        self.pending_event_listeners.push(on_move.clone());
+                        self.mouse_hit_layer = layer_idx;
+                    }
 
                     // Even if no event listener is registered, an element with text, an icon or a
                     // background colour should occlude anything behind it. Eventually all this should
@@ -567,7 +716,7 @@ where
         Ok(())
     }
 
-    fn render_tree(
+    pub fn render_tree(
         &mut self,
         tree: &TaffyTree<NodeContext<T>>,
         root_node: NodeId,
@@ -596,10 +745,9 @@ where
                 trail.push((id, Some((abs_pos.into(), layout.size.into()))));
                 self.enable_scissor_for_layer(abs_pos.into(), layout.size.into());
             } else {
-                if let Some((_, scissor)) =
+                if let Some((_, Some(scissor))) =
                     trail.iter().rev().find(|(_, scissor)| scissor.is_some())
                 {
-                    let scissor = scissor.unwrap();
                     self.enable_scissor_for_layer(scissor.0, scissor.1);
                 }
                 trail.push((id, None));
@@ -614,7 +762,7 @@ where
                     );
                 }
             } else if ctx.flags & flags::SCROLL_CONTENT != 0 {
-                if let Some(parent_bbox) = tree.parent(id).map(|pid| tree.layout(pid).unwrap()) {
+                if let Some(Ok(parent_bbox)) = tree.parent(id).map(|pid| tree.layout(pid)) {
                     if layout.content_size.height > parent_bbox.size.height {
                         abs_pos.y -= lerp(
                             0.0,
@@ -646,31 +794,61 @@ where
             // Drawing
             self.rect_r.draw(bbox, bg_color, ctx.border, 1.0);
 
+            if let Some(pid) = &ctx.persistent_id
+                && let Some(pstate) = self.ui_builder.accessing_state(pid)
+            {
+                let data = pstate.data.lock().unwrap();
+                data.custom_render(&id, ctx, layout, self, bbox);
+            }
+
             if ctx.flags & flags::TEXT != 0 {
-                if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT == 0 {
-                    self.text_r.draw_in_box(
-                        ctx.text.clone(),
-                        Vector::new(
-                            abs_pos.x + layout.padding.left,
-                            abs_pos.y + layout.padding.top,
-                        ),
-                        Size {
-                            width: layout.size.width - layout.padding.left - layout.padding.right,
-                            height: layout.size.height - layout.padding.top - layout.padding.bottom,
-                        },
-                    );
-                } else {
+                let mut text_pos = Vector::new(
+                    abs_pos.x + layout.padding.left,
+                    abs_pos.y + layout.padding.top,
+                );
+                let text_size = Size {
+                    width: layout.size.width - layout.padding.left - layout.padding.right,
+                    height: layout.size.height - layout.padding.top - layout.padding.bottom,
+                };
+                if ctx.flags & flags::TEXT_SCROLL != 0 {
+                    if let Some(Ok(parent_layout)) = tree.parent(id).map(|pid| tree.layout(pid)) {
+                        self.enable_scissor_for_layer(parent_pos.into(), parent_layout.size.into());
+                        if let Some(cursor_idx) = ctx.cursor_idx {
+                            let cursor_pos = self.text_r.cursor_pos(
+                                &ctx.text.text,
+                                Vector::zero(),
+                                ctx.text.font_size,
+                                cursor_idx,
+                            );
+                            if cursor_pos.x > parent_layout.size.width {
+                                text_pos.x += parent_layout.size.width - cursor_pos.x - 10.0;
+                            }
+                        }
+                    }
+                }
+                if ctx.flags & flags::EXPLICIT_TEXT_LAYOUT != 0 {
                     self.text_r.draw_in_box_explicit(
                         ctx.text.clone(),
-                        Vector::new(
-                            abs_pos.x + layout.padding.left,
-                            abs_pos.y + layout.padding.top,
-                        ),
-                        Size {
-                            width: layout.size.width - layout.padding.left - layout.padding.right,
-                            height: layout.size.height - layout.padding.top - layout.padding.bottom,
-                        },
+                        text_pos,
+                        text_size,
+                        ctx.cursor_idx,
                     );
+                } else {
+                    if ctx.flags & flags::TEXT_SINGLE_LINE != 0 {
+                        self.text_r.draw_on_line(
+                            ctx.text.clone(),
+                            text_pos,
+                            text_size,
+                            ctx.cursor_idx,
+                        );
+                    } else {
+                        self.text_r.draw_in_box(
+                            ctx.text.clone(),
+                            text_pos,
+                            text_size,
+                            ctx.cursor_idx,
+                        );
+                    }
                 }
             }
             if ctx.flags & flags::SPRITE != 0 {
@@ -705,10 +883,7 @@ where
     }
 
     fn debug_layer(&self) -> RenderLayout<T> {
-        let tree: taffy::TaffyTree<NodeContext<T>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-
-        let b = UiBuilder::new(&tree);
+        let b = &self.ui_builder;
         let mut entries = vec![];
         for key_value in DEBUG_MAP.iter() {
             let key = key_value.key();
@@ -740,9 +915,7 @@ where
         if self.debug_expanded {
             #[cfg_attr(any(), rustfmt::skip)]
             children.extend(&[
-                b.scrollable("grow", self.debug_scroll, Arc::new(|state| {
-                    state.debug_scroll = (state.debug_scroll - state.scroll_delta.y.signum() * 0.2).clamp(0.0, 1.0);
-                }), &entries),
+                b.scrollable(DefaultAtom::from("debug_scroll"), "grow", entries),
                 b.div("flex-row",
                     &[
                         b.sprite("w-30 h-30", "HandleLeft", resize_listener),
@@ -758,7 +931,8 @@ where
         );
 
         RenderLayout {
-            tree: tree.into_inner(),
+            tree: b.tree(),
+            delayed_markers: b.delayed_ids(),
             root,
             desired_size: Size {
                 width: AvailableSpace::Definite(self.debug_size.x),
@@ -772,6 +946,52 @@ where
             anchor: Anchor::TopRight,
             scissor: true,
         }
+    }
+
+    pub fn set_focus(&mut self, focus: Option<DefaultAtom>) {
+        self.app_state.set_focus(focus);
+    }
+
+    /// Get the computed layout for a node by searching through all layers
+    pub fn get_node_layout(&self, node_id: NodeId) -> Option<&taffy::Layout> {
+        for layer in self.layers.iter() {
+            if let Ok(layout) = layer.tree.layout(node_id) {
+                return Some(layout);
+            }
+        }
+        None
+    }
+
+    /// Get the absolute bounding box for a node in screen coordinates
+    /// Returns None if the node is not found in any layer
+    pub fn get_node_bbox(&self, node_id: NodeId) -> Option<crate::geometry::Rect<f32>> {
+        for layer in self.layers.iter() {
+            if let Ok(layout) = layer.tree.layout(node_id) {
+                // Compute absolute position by walking up the tree
+                let mut abs_pos: taffy::Point<f32> = layout.location;
+                let mut current_id = node_id;
+
+                while let Some(parent_id) = layer.tree.parent(current_id) {
+                    if let Ok(parent_layout) = layer.tree.layout(parent_id) {
+                        abs_pos.x += parent_layout.location.x;
+                        abs_pos.y += parent_layout.location.y;
+                        current_id = parent_id;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Add layer root position offset
+                abs_pos.x += layer.root_pos.x;
+                abs_pos.y += layer.root_pos.y;
+
+                let size: Vector<f32> = layout.size.into();
+                let pos: Vector<f32> = abs_pos.into();
+
+                return Some(crate::geometry::Rect::from_pos_size(pos, size));
+            }
+        }
+        None
     }
 }
 
@@ -801,6 +1021,7 @@ where
                 available_space,
                 ctx.text.text.clone(),
                 ctx.text.font_size,
+                true,
             );
             total_size(&lines).into()
         } else {
@@ -819,7 +1040,7 @@ where
 /// Chooses a corner of the window or its center as the origin for a layer. Any offset provided
 /// from the anchor will be towards the middle of the screen, or towards the bottom right corner if
 /// anchored to the center.
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy)]
 pub enum Anchor {
     #[default]
     TopLeft,
@@ -839,6 +1060,7 @@ where
     pub root_pos: Vector<f32>,
     pub anchor: Anchor,
     pub scissor: bool,
+    pub delayed_markers: Vec<DelayedMarker>,
 }
 
 impl<T> Default for RenderLayout<T>
@@ -853,147 +1075,41 @@ where
             root_pos: Vector::zero(),
             anchor: Anchor::default(),
             scissor: false,
+            delayed_markers: vec![],
         }
     }
 }
 
-pub trait AppState: Sized {
+pub trait AppState: Sized + 'static {
     type SpriteKey: crate::render::sprite::SpriteKey;
 
-    fn generate_layout(&mut self, window_size: Vector<f32>) -> Vec<RenderLayout<Self>>;
+    fn generate_layout(
+        &mut self,
+        window_size: Vector<f32>,
+        ui: &UiBuilder<Self>,
+    ) -> Vec<RenderLayout<Self>>;
     fn handle_key(
         &mut self,
         _key: Key,
         _scancode: Scancode,
         _action: Action,
         _modifiers: Modifiers,
+        _ui: &UiBuilder<Self>,
     ) {
     }
+    fn handle_char(&mut self, _unicode: u32, _ui: &UiBuilder<Self>) {}
     fn handle_mouse_button(
         &mut self,
         _button: MouseButton,
         _action: Action,
         _modifiers: Modifiers,
+        _ui: &UiBuilder<Self>,
     ) {
     }
     fn handle_mouse_position(&mut self, _position: Vector<f32>, _delta: Vector<f32>) {}
     fn handle_mouse_scroll(&mut self, _scroll_delta: Vector<f32>) {}
-}
-
-pub struct UiBuilder<'a, T>
-where
-    T: AppState,
-{
-    tree: &'a RefCell<TaffyTree<NodeContext<T>>>,
-}
-
-impl<'a, T> UiBuilder<'a, T>
-where
-    T: AppState,
-{
-    pub fn new(tree: &'a RefCell<TaffyTree<NodeContext<T>>>) -> Self {
-        Self { tree }
-    }
-
-    pub fn ui<I, B>(&self, style: &str, listeners: Listeners<T>, children: I) -> NodeId
-    where
-        I: IntoIterator<Item = B>,
-        B: Borrow<NodeId>,
-    {
-        let (style, mut context) = parse_style(style);
-        context.set_listeners(listeners);
-        let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
-        for child in children {
-            tree.add_child(parent, *child.borrow()).unwrap();
-        }
-        return parent;
-    }
-
-    pub fn div<I, B>(&self, style: &str, children: I) -> NodeId
-    where
-        I: IntoIterator<Item = B>,
-        B: Borrow<NodeId>,
-    {
-        let (style, context) = parse_style(style);
-        let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
-        for child in children {
-            tree.add_child(parent, *child.borrow()).unwrap();
-        }
-        return parent;
-    }
-
-    pub fn text(&self, style: &str, text: Text) -> NodeId {
-        let (style, mut context) = parse_style(style);
-        context.text = text;
-        context.flags |= flags::TEXT;
-        let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
-        return parent;
-    }
-
-    pub fn text_explicit(&self, style: &str, text: Text) -> NodeId {
-        let (style, mut context) = parse_style(style);
-        context.text = text;
-        context.flags |= flags::TEXT | flags::EXPLICIT_TEXT_LAYOUT;
-        let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
-        return parent;
-    }
-
-    /// Scroll height is in percent. Thus if items are added, scrolling is preserved
-    pub fn scrollable(
-        &self,
-        style: &str,
-        scroll_height: f32,
-        update_scroll: EventListener<T>,
-        children: impl IntoIterator<Item = &'a NodeId>,
-    ) -> NodeId {
-        let scrollbar = {
-            let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) =
-                parse_style("w-full bg-zinc-700 hover:bg-zinc-600 h-32 scroll-bar rounded-4");
-            ctx.offset.y = scroll_height;
-            tree.new_leaf_with_context(stl, ctx).unwrap()
-        };
-        let scroll_content = {
-            let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) = parse_style("flex-col scroll-content");
-            ctx.offset.y = scroll_height;
-            let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
-            for child in children {
-                tree.add_child(parent, *child).unwrap();
-            }
-            parent
-        };
-
-        // I am not 100% sure why the overflow-clip has to be this far out, but it works here
-        #[cfg_attr(any(), rustfmt::skip)]
-        self.ui(&format!("{} flex-row overflow-clip", style), Listeners::default(), &[
-            self.ui("grow", Listeners {
-                on_scroll: Some(update_scroll),
-                ..Default::default()
-            }, &[scroll_content]),
-            self.div("w-8", &[scrollbar]),
-        ])
-    }
-
-    pub fn sprite(&self, style: &str, sprite_key: &str, listeners: Listeners<T>) -> NodeId {
-        let (style, mut context) = parse_style(style);
-        context.flags |= flags::SPRITE;
-        context.sprite_key = sprite_key.into();
-        context.set_listeners(listeners);
-        let mut tree = self.tree.borrow_mut();
-        let parent = tree.new_leaf_with_context(style, context).unwrap();
-        return parent;
-    }
-
-    pub fn extract_tree(
-        tree: RefCell<taffy::TaffyTree<NodeContext<T>>>,
-    ) -> taffy::TaffyTree<NodeContext<T>> {
-        tree.into_inner()
-    }
+    fn update(&mut self) {}
+    fn set_focus(&mut self, _focus: Option<DefaultAtom>) {}
 }
 
 pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
@@ -1002,10 +1118,8 @@ pub fn lerp(start: f32, end: f32, normalized: f32) -> f32 {
 
 #[cfg(test)]
 pub mod tests {
-    use std::cell::RefCell;
-
     use super::*;
-    use crate::render::renderer::{AppState, NodeContext};
+    use crate::render::{renderer::AppState, widgets::UiBuilder};
 
     #[derive(Default)]
     struct DummyState {}
@@ -1016,6 +1130,7 @@ pub mod tests {
         fn generate_layout(
             &mut self,
             _: crate::geometry::Vector<f32>,
+            _ui: &UiBuilder<Self>,
         ) -> Vec<crate::render::renderer::RenderLayout<Self>> {
             todo!()
         }
@@ -1023,9 +1138,7 @@ pub mod tests {
 
     #[test]
     pub fn ui_shorthand_doesnt_deadlock() {
-        let tree: taffy::TaffyTree<NodeContext<DummyState>> = taffy::TaffyTree::new();
-        let tree = RefCell::new(tree);
-        let b = UiBuilder::new(&tree);
+        let b = UiBuilder::<DummyState>::new();
         b.ui("", Listeners::default(), &[b.div("", &[]), b.div("", &[])]);
     }
 }

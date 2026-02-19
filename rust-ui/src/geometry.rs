@@ -297,3 +297,12 @@ where
         }
     }
 }
+
+impl From<Rect<f64>> for Rect<f32> {
+    fn from(value: Rect<f64>) -> Self {
+        Rect {
+            x0: Vector::new(value.x0.x as f32, value.x0.y as f32),
+            x1: Vector::new(value.x1.x as f32, value.x1.y as f32),
+        }
+    }
+}

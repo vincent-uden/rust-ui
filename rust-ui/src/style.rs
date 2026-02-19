@@ -764,6 +764,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::render::widgets::UiBuilder;
+
     use super::*;
 
     #[derive(Default)]
@@ -775,6 +777,7 @@ mod tests {
         fn generate_layout(
             &mut self,
             _: crate::geometry::Vector<f32>,
+            _ui: &UiBuilder<Self>,
         ) -> Vec<crate::render::renderer::RenderLayout<Self>> {
             todo!()
         }
