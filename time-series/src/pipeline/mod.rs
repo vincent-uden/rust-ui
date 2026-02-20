@@ -165,7 +165,9 @@ pub enum PipelineIntermediate {
     Complex(Vec<Complex<f64>>),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, EnumString, Default)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, EnumString, Default, Display, PartialEq, Eq,
+)]
 pub enum AxisSelection {
     #[default]
     X,

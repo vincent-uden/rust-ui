@@ -27,7 +27,7 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        DataFrame, PipelineIntermediate, Record, StepConfig,
+        AxisSelection, DataFrame, PipelineIntermediate, Record, StepConfig,
         processing::{average, run_pipeline},
     },
 };
@@ -190,8 +190,8 @@ impl PipelineManagerUi {
     ) -> NodeId {
         #[cfg_attr(any(), rustfmt::skip)]
         let form = match cfg {
-            StepConfig::Average => todo!(),
-            StepConfig::Variance => todo!(),
+            StepConfig::Average => b.div("", &[]),
+            StepConfig::Variance => b.div("", &[]),
             StepConfig::SmoothSignal { window } => b.div(
                 "flex-col gap-4",
                 &[b.text_field(
@@ -207,20 +207,73 @@ impl PipelineManagerUi {
                     })),
                 )],
             ),
-            StepConfig::SmoothReals { window } => todo!(),
-            StepConfig::AbsoluteValueOfReals => todo!(),
-            StepConfig::FourierTransform => todo!(),
-            StepConfig::InverseFourierTransform => todo!(),
-            StepConfig::PostFFTFormatting => todo!(),
-            StepConfig::SkipFirstEntry => todo!(),
-            StepConfig::SkipFirstComplexEntry => todo!(),
-            StepConfig::Normalize => todo!(),
-            StepConfig::BandpassFilter { middle, half_width } => todo!(),
+            StepConfig::SmoothReals { window } => b.div(
+                "flex-col gap-4",
+                &[
+                    b.text("", Text::new("Window size", 12, COLOR_LIGHT)),
+                    b.text_field(
+                        id!("cfg-{step_id}-smoothing-reals"),
+                        focused_id,
+                        Some(Arc::new(move |app, data| {
+                            if let Ok(new_window) = data.contents.parse() {
+                                app.pipeline_manager.set_cfg_step(
+                                    StepConfig::SmoothReals { window: new_window },
+                                    step_idx,
+                                );
+                            }
+                        })),
+                    ),
+                ],
+            ),
+            StepConfig::AbsoluteValueOfReals => b.div("", &[]),
+            StepConfig::FourierTransform => b.div("", &[]),
+            StepConfig::InverseFourierTransform => b.div("", &[]),
+            StepConfig::PostFFTFormatting => b.div("", &[]),
+            StepConfig::SkipFirstEntry => b.div("", &[]),
+            StepConfig::SkipFirstComplexEntry => b.div("", &[]),
+            StepConfig::Normalize => b.div("", &[]),
+            StepConfig::BandpassFilter { middle, half_width } => b.div(
+                "flex-col gap-4",
+                &[
+                    b.text("", Text::new("Middle frequency", 12, COLOR_LIGHT)),
+                    b.text_field(
+                        id!("cfg-{step_id}-bp-middle"),
+                        focused_id,
+                        Some(Arc::new(move |app, data| {
+                            if let Ok(new_middle) = data.contents.parse() {
+                                app.pipeline_manager.set_cfg_step(
+                                    StepConfig::BandpassFilter {
+                                        middle: new_middle,
+                                        half_width,
+                                    },
+                                    step_idx,
+                                );
+                            }
+                        })),
+                    ),
+                    b.text("", Text::new("Half width", 12, COLOR_LIGHT)),
+                    b.text_field(
+                        id!("cfg-{step_id}-bp-width"),
+                        focused_id,
+                        Some(Arc::new(move |app, data| {
+                            if let Ok(new_width) = data.contents.parse() {
+                                app.pipeline_manager.set_cfg_step(
+                                    StepConfig::BandpassFilter {
+                                        middle,
+                                        half_width: new_width,
+                                    },
+                                    step_idx,
+                                );
+                            }
+                        })),
+                    ),
+                ],
+            ),
             StepConfig::CurrentCalculator {
-                capacitance,
-                x1,
-                x2,
-            } => todo!(),
+                capacitance: _,
+                x1: _,
+                x2: _,
+            } => b.text("", Text::new("Current calculator (not implemented)", 12, COLOR_LIGHT)),
             StepConfig::PickColumns { column_1, column_2 } => {
                 let available: Vec<_> = self
                     .available_columns()
@@ -272,30 +325,97 @@ impl PipelineManagerUi {
                 controls.extend_from_slice(&available);
                 b.div("flex-col gap-4", &controls)
             }
-            StepConfig::ScaleAxis { axis, factor } => todo!(),
-            StepConfig::LogAxis { axis, base } => todo!(),
-        };
-
-        let mut inner = vec![
-            b.div(
-                "flex-row gap-4",
+            StepConfig::ScaleAxis { axis, factor } => b.div(
+                "flex-col gap-4",
                 &[
+                    b.text("", Text::new("Axis", 12, COLOR_LIGHT)),
                     b.select(
-                        id!("step-select-{step_id}"),
-                        Some(cfg.clone()),
-                        &StepConfig::all(),
+                        id!("cfg-{step_id}-scale-axis"),
+                        Some(axis),
+                        &[AxisSelection::X, AxisSelection::Y],
                         Some(Arc::new(move |app, _, selected| {
-                            app.pipeline_manager.set_cfg_step(*selected, step_idx);
+                            app.pipeline_manager.set_cfg_step(
+                                StepConfig::ScaleAxis {
+                                    axis: *selected,
+                                    factor,
+                                },
+                                step_idx,
+                            );
                         })),
                     ),
-                    #[cfg_attr(any(), rustfmt::skip)]
+                    b.text("", Text::new("Factor", 12, COLOR_LIGHT)),
+                    b.text_field(
+                        id!("cfg-{step_id}-scale-factor"),
+                        focused_id,
+                        Some(Arc::new(move |app, data| {
+                            if let Ok(new_factor) = data.contents.parse() {
+                                app.pipeline_manager.set_cfg_step(
+                                    StepConfig::ScaleAxis {
+                                        axis,
+                                        factor: new_factor,
+                                    },
+                                    step_idx,
+                                );
+                            }
+                        })),
+                    ),
+                ],
+            ),
+            StepConfig::LogAxis { axis, base } => b.div(
+                "flex-col gap-4",
+                &[
+                    b.text("", Text::new("Axis", 12, COLOR_LIGHT)),
+                    b.select(
+                        id!("cfg-{step_id}-log-axis"),
+                        Some(axis),
+                        &[AxisSelection::X, AxisSelection::Y],
+                        Some(Arc::new(move |app, _, selected| {
+                            app.pipeline_manager.set_cfg_step(
+                                StepConfig::LogAxis {
+                                    axis: *selected,
+                                    base,
+                                },
+                                step_idx,
+                            );
+                        })),
+                    ),
+                    b.text("", Text::new("Base", 12, COLOR_LIGHT)),
+                    b.text_field(
+                        id!("cfg-{step_id}-log-base"),
+                        focused_id,
+                        Some(Arc::new(move |app, data| {
+                            if let Ok(new_base) = data.contents.parse() {
+                                app.pipeline_manager.set_cfg_step(
+                                    StepConfig::LogAxis {
+                                        axis,
+                                        base: new_base,
+                                    },
+                                    step_idx,
+                                );
+                            }
+                        })),
+                    ),
+                ],
+            ),
+        };
+
+        let mut inner = vec![b.div(
+            "flex-row gap-4",
+            &[
+                b.select(
+                    id!("step-select-{step_id}"),
+                    Some(cfg.clone()),
+                    &StepConfig::all(),
+                    Some(Arc::new(move |app, _, selected| {
+                        app.pipeline_manager.set_cfg_step(*selected, step_idx);
+                    })),
+                ),
+                #[cfg_attr(any(), rustfmt::skip)]
                     Self::text_button(b, Text::new("X", 18, COLOR_DANGER), Arc::new(move |state| {
                         state.app_state.pipeline_manager.remove_step(step_idx);
                     })),
-                ],
-            ),
-            b.div("h-4", &[]),
-        ];
+            ],
+        )];
         inner.extend_from_slice(&[b.div("h-4", &[]), form]);
 
         #[cfg_attr(any(), rustfmt::skip)]
