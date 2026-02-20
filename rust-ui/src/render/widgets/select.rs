@@ -125,10 +125,15 @@ where
         );
         let children: Vec<_> = options
             .iter()
-            .map(|opt| self.text("", Text::new(format!("{opt}"), 12, COLOR_LIGHT)))
+            .map(|opt| {
+                self.text(
+                    "hover:bg-slate-800",
+                    Text::new(format!("{opt}"), 12, COLOR_LIGHT),
+                )
+            })
             .collect();
         if state.open {
-            self.popup("bg-slate-900 flex-col flex-col", id.clone(), &children);
+            self.popup("bg-slate-900 flex-col flex-col p-4", id.clone(), &children);
         }
         out
     }
