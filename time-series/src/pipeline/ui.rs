@@ -276,58 +276,26 @@ impl PipelineManagerUi {
             StepConfig::LogAxis { axis, base } => todo!(),
         };
 
-        let step_types = &[
-            b.text_button(
-                "flex-row hover:bg-slate-600 py-2",
-                Text::new("Pick columns", 12, COLOR_LIGHT),
-                Listeners {
-                    on_left_mouse_down: Some(Arc::new(move |state| {
-                        state.app_state.pipeline_manager.set_cfg_step(
-                            StepConfig::PickColumns {
-                                column_1: 0,
-                                column_2: 1,
-                            },
-                            step_idx,
-                        );
-                    })),
-                    ..Default::default()
-                },
-            ),
-            b.text_button(
-                "flex-row hover:bg-slate-600 py-2",
-                Text::new("Smooth signal", 12, COLOR_LIGHT),
-                Listeners {
-                    on_left_mouse_down: Some(Arc::new(move |state| {
-                        state
-                            .app_state
-                            .pipeline_manager
-                            .set_cfg_step(StepConfig::SmoothSignal { window: 10 }, step_idx);
-                    })),
-                    ..Default::default()
-                },
-            ),
-        ];
         let mut inner = vec![
             b.div(
                 "flex-row gap-4",
                 &[
-                    b.text("grow", Text::new(format!("{cfg}"), 14, COLOR_LIGHT)),
+                    b.select(
+                        id!("step-select-{step_id}"),
+                        Some(cfg.clone()),
+                        &StepConfig::all(),
+                        Some(Arc::new(move |app, _, selected| {
+                            app.pipeline_manager.set_cfg_step(*selected, step_idx);
+                        })),
+                    ),
                     #[cfg_attr(any(), rustfmt::skip)]
-                    Self::text_button(b, Text::new("x", 14, COLOR_DANGER), Arc::new(move |state| {
+                    Self::text_button(b, Text::new("X", 18, COLOR_DANGER), Arc::new(move |state| {
                         state.app_state.pipeline_manager.remove_step(step_idx);
                     })),
                 ],
             ),
             b.div("h-4", &[]),
         ];
-        inner.extend_from_slice(&[b.select(
-            id!("step-select-{step_id}"),
-            &StepConfig::all(),
-            Some(Arc::new(move |app, _, selected| {
-                app.pipeline_manager.set_cfg_step(*selected, step_idx);
-            })),
-        )]);
-        inner.extend_from_slice(step_types);
         inner.extend_from_slice(&[b.div("h-4", &[]), form]);
 
         #[cfg_attr(any(), rustfmt::skip)]

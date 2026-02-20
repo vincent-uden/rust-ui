@@ -85,7 +85,13 @@ where
     T: AppState + 'static,
     S: PartialEq + Display + Debug + Clone + 'static,
 {
-    fn select(&self, id: DefaultAtom, options: &[S], on_select: EventListener<T, S>) -> NodeId;
+    fn select(
+        &self,
+        id: DefaultAtom,
+        selected: Option<S>,
+        options: &[S],
+        on_select: EventListener<T, S>,
+    ) -> NodeId;
 }
 
 impl<T, S> SelectBuilder<T, S> for UiBuilder<T>
@@ -93,7 +99,13 @@ where
     T: AppState + 'static,
     S: PartialEq + Display + Debug + Clone + 'static,
 {
-    fn select(&self, id: DefaultAtom, options: &[S], on_select: EventListener<T, S>) -> NodeId {
+    fn select(
+        &self,
+        id: DefaultAtom,
+        selected: Option<S>,
+        options: &[S],
+        on_select: EventListener<T, S>,
+    ) -> NodeId {
         let binding = match self.accessing_state(&id) {
             Some(s) => s,
             None => self.insert_state(id.clone(), SelectData::<T, S>::default()),
@@ -104,12 +116,15 @@ where
 
         let selected_label = match &state.selected {
             Some(s) => format!("{s}"),
-            None => "Select...".to_string(),
+            None => {
+                state.selected = selected;
+                "Select...".to_string()
+            }
         };
 
         let id1 = id.clone();
         let out = self.ui(
-            "bg-slate-900 hover:bg-slate-800 w-200 rounded-4",
+            "bg-slate-900 hover:bg-slate-800 w-200 rounded-4 flex-row items-center",
             Listeners {
                 on_left_mouse_up: Some(Arc::new(move |state| {
                     state.ui_builder.mutate_state(&id1, |w_state| {
