@@ -25,7 +25,7 @@ where
     fn clone(&self) -> Self {
         Self {
             selected: self.selected.clone(),
-            open: self.open.clone(),
+            open: self.open,
             on_select: self.on_select.clone(),
         }
     }
@@ -65,23 +65,25 @@ where
 impl<T, S> UiData<T> for SelectData<T, S>
 where
     T: AppState + 'static,
-    S: PartialEq + Display + Debug + 'static,
+    S: PartialEq + Display + Debug + Clone + 'static,
 {
     fn run_event_listener(&mut self, name: &str, app: &mut T) {
         if name == "on_select" {
-            if let Some(el) = self.on_select.take() {
-                el(app, self)
+            let el = self.on_select.take();
+            let selected = self.selected.as_ref();
+            if let (Some(el), Some(selected)) = (el, selected) {
+                el(app, self, selected)
             }
         }
     }
 }
 
-pub type EventListener<T, S> = Option<Arc<dyn Fn(&mut T, &SelectData<T, S>)>>;
+pub type EventListener<T, S> = Option<Arc<dyn Fn(&mut T, &SelectData<T, S>, &S)>>;
 
 pub trait SelectBuilder<T, S>
 where
     T: AppState + 'static,
-    S: PartialEq + Display + Debug + 'static,
+    S: PartialEq + Display + Debug + Clone + 'static,
 {
     fn select(&self, id: DefaultAtom, options: &[S], on_select: EventListener<T, S>) -> NodeId;
 }
@@ -89,7 +91,7 @@ where
 impl<T, S> SelectBuilder<T, S> for UiBuilder<T>
 where
     T: AppState + 'static,
-    S: PartialEq + Display + Debug + 'static,
+    S: PartialEq + Display + Debug + Clone + 'static,
 {
     fn select(&self, id: DefaultAtom, options: &[S], on_select: EventListener<T, S>) -> NodeId {
         let binding = match self.accessing_state(&id) {
@@ -102,7 +104,7 @@ where
 
         let selected_label = match &state.selected {
             Some(s) => format!("{s}"),
-            None => format!("Select..."),
+            None => "Select...".to_string(),
         };
 
         let id1 = id.clone();
@@ -117,18 +119,36 @@ where
                 })),
                 ..Default::default()
             },
-            &[self.marker(
+            [self.marker(
                 "p-2",
                 id.clone(),
-                &[self.text_explicit("", Text::new(selected_label, 12, COLOR_LIGHT))],
+                [self.text_explicit("", Text::new(selected_label, 12, COLOR_LIGHT))],
             )],
         );
         let children: Vec<_> = options
             .iter()
             .map(|opt| {
-                self.text(
-                    "hover:bg-slate-800",
-                    Text::new(format!("{opt}"), 12, COLOR_LIGHT),
+                let opt_clone = opt.clone();
+                let id_clone = id.clone();
+                self.ui(
+                    "hover:bg-slate-800 p-2",
+                    Listeners {
+                        on_left_mouse_up: Some(Arc::new(move |state| {
+                            state.ui_builder.mutate_state(&id_clone, |w_state| {
+                                let w_state: &mut SelectData<T, S> =
+                                    w_state.downcast_mut().unwrap();
+                                w_state.selected = Some(opt_clone.clone());
+                                w_state.open = false;
+                            });
+                            state.ui_builder.run_event_listener(
+                                &id_clone,
+                                "on_select",
+                                &mut state.app_state,
+                            );
+                        })),
+                        ..Default::default()
+                    },
+                    [self.text("", Text::new(format!("{opt}"), 12, COLOR_LIGHT))],
                 )
             })
             .collect();

@@ -12,10 +12,10 @@ use taffy::{Layout, NodeId, Style, TaffyTree};
 
 use crate::geometry::Rect;
 use crate::render::renderer::{
-    Anchor, AppState, DelayedMarker, DelayedRender, EventListener, Listeners, NodeContext,
-    Renderer, flags,
+    flags, Anchor, AppState, DelayedMarker, DelayedRender, EventListener, Listeners, NodeContext,
+    Renderer,
 };
-use crate::render::{COLOR_LIGHT, Text};
+use crate::render::{Text, COLOR_LIGHT};
 use crate::style::parse_style;
 
 pub mod scrollable;
@@ -333,5 +333,14 @@ where
     pub fn node_id(&self, persistent_id: &DefaultAtom) -> Option<NodeId> {
         let map = self.node_cache.borrow();
         map.get(persistent_id).cloned()
+    }
+
+    /// Runs an event listener on the state data associated with the given id
+    pub fn run_event_listener(&self, id: &DefaultAtom, name: &str, app: &mut T) {
+        let mut state = self.state.borrow_mut();
+        if let Some(ui_state) = state.get_mut(id) {
+            let mut guard = ui_state.data.lock().unwrap();
+            guard.run_event_listener(name, app);
+        }
     }
 }

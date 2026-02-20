@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
+            DefaultAtom, UiBuilder,
         },
+        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        DataFrame, PipelineIntermediate, Record, StepConfig,
         processing::{average, run_pipeline},
+        DataFrame, PipelineIntermediate, Record, StepConfig,
     },
 };
 
@@ -323,7 +323,10 @@ impl PipelineManagerUi {
         inner.extend_from_slice(&[b.select(
             id!("step-select-{step_id}"),
             &["One", "Two", "Three"],
-            None,
+            Some(Arc::new(|app, data, selected| {
+                tracing::info!("Selected option: {:?}", selected);
+                tracing::info!("Current selected value: {:?}", data.selected);
+            })),
         )]);
         inner.extend_from_slice(step_types);
         inner.extend_from_slice(&[b.div("h-4", &[]), form]);

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::render::renderer::{AppState, Listeners, Renderer, flags};
+use crate::render::renderer::{flags, AppState, Listeners, Renderer};
 use crate::render::widgets::{DefaultAtom, UiBuilder, UiData};
-use crate::render::{COLOR_LIGHT, Text};
+use crate::render::{Text, COLOR_LIGHT};
 use crate::style::parse_style;
 use taffy::NodeId;
 

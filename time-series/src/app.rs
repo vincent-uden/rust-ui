@@ -242,8 +242,7 @@ impl App {
                     && let Some(state) = ui.accessing_state(focus)
                 {
                     let mut data = state.data.lock().unwrap();
-                    let text_data: &mut TextFieldData<Self> = data.downcast_mut().unwrap();
-                    text_data.run_event_listener("confirm", self);
+                    data.run_event_listener("confirm", self);
                 }
             }
         }

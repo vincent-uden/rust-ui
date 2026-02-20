@@ -35,6 +35,9 @@
 - Use `#[test]` attribute for test functions
 - Name tests to describe what they're testing
 
+### Styling
+`rust-ui` uses a home made styling system based on tailwind. It contains many of the tailwind attributes but not all of them. Consult `./rust-ui/src/style.rs` for the exact definitions.
+
 ## Status of the workspace
 - `rust-ui` is the core UI library which is being developed
 - `time-series` is the current demonstration program being worked on
