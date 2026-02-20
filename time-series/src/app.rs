@@ -88,10 +88,10 @@ impl App {
 
     pub fn add_step(&mut self) {
         if let Some(selected) = self.pipeline_manager.selected_source {
-            self.pipeline_manager.pipelines[selected].push(StepConfig::PickColumns {
-                column_1: 0,
-                column_2: 0,
-            });
+            let step_idx = self.pipeline_manager.pipelines[selected].steps.len();
+            if let Some(default_step) = self.pipeline_manager.get_default_step_for_position(step_idx) {
+                self.pipeline_manager.pipelines[selected].push(default_step);
+            }
         }
     }
 

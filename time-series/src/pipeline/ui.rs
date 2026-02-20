@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
+            DefaultAtom, UiBuilder,
         },
+        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
         processing::{average, run_pipeline},
+        AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
     },
 };
 
@@ -485,6 +485,13 @@ impl PipelineManagerUi {
                 input_matches && output_matches
             })
             .collect()
+    }
+
+    /// Returns a default step that can be added at the given position.
+    /// Returns None if no valid step exists for this position.
+    pub fn get_default_step_for_position(&self, step_idx: usize) -> Option<StepConfig> {
+        let valid_steps = self.get_valid_steps(step_idx);
+        valid_steps.first().cloned()
     }
 
     pub fn remove_step(&mut self, idx: usize) {
