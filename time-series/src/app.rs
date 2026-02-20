@@ -34,6 +34,9 @@ pub enum AppMessage {
     PopMode,
     ZoomFit,
     Confirm,
+    AddStep,
+    RemoveStep,
+    RunPipeline,
 }
 
 fn default_config() -> Config<AppMode, AppMessage, AppMessage> {
@@ -234,12 +237,6 @@ impl App {
                     w_state.limits = limits;
                 });
             }
-            // TODO: Think about how this should be communicated. I want the state change
-            // localized at the UI. That requires notifying Renderer. Still the App might
-            // want to decide when a "Confirm is taking place"
-            //
-            // The Renderer won't necessarily know what sort of widgets exist. I guess
-            // the widgets need to know when they are triggered?
             AppMessage::Confirm => {
                 if let Some(focus) = &self.focus
                     && let Some(state) = ui.accessing_state(focus)
@@ -247,6 +244,21 @@ impl App {
                     let mut data = state.data.lock().unwrap();
                     data.run_event_listener("confirm", self);
                 }
+            }
+            AppMessage::AddStep => {
+                if let Some(idx) = self.pipeline_manager.selected_source {
+                    let next = self
+                        .pipeline_manager
+                        .get_default_next_step()
+                        .expect("A pipeline is selected");
+                    self.pipeline_manager.pipelines[idx].push(next);
+                }
+            }
+            AppMessage::RemoveStep => {
+                self.pipeline_manager.remove_last_step();
+            }
+            AppMessage::RunPipeline => {
+                self.pipeline_manager.run();
             }
         }
         vec![]

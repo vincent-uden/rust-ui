@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
+            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
-            DefaultAtom, UiBuilder,
         },
-        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        processing::{average, run_pipeline},
         AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
+        processing::{average, run_pipeline},
     },
 };
 
@@ -70,6 +70,10 @@ impl Pipeline {
     pub fn remove(&mut self, idx: usize) -> StepConfig {
         self.step_ids.remove(idx);
         self.steps.remove(idx)
+    }
+
+    pub fn len(&self) -> usize {
+        self.steps.len()
     }
 }
 
@@ -448,7 +452,7 @@ impl PipelineManagerUi {
         }
     }
 
-    /// Returns the valid steps that can be placed at the given position in the pipeline.
+    /// Returns the valid steps that can be placed at the given position in the active pipeline.
     /// First step must accept DataFrame, other steps must match previous step's output.
     /// If there's a next step, the selected step's output must match the next step's input.
     fn get_valid_steps(&self, step_idx: usize) -> Vec<StepConfig> {
@@ -492,8 +496,23 @@ impl PipelineManagerUi {
         valid_steps.first().cloned()
     }
 
+    /// Returns a default step that can be added at the end of the pipeline.
+    /// Returns None if no valid step exists for this position.
+    pub fn get_default_next_step(&self) -> Option<StepConfig> {
+        self.selected_source
+            .map(|idx| self.get_default_step_for_position(self.pipelines[idx].len()))
+            .flatten()
+    }
+
     pub fn remove_step(&mut self, idx: usize) {
         if let Some(selected) = self.selected_source {
+            self.pipelines[selected].remove(idx);
+        }
+    }
+
+    pub fn remove_last_step(&mut self) {
+        if let Some(selected) = self.selected_source {
+            let idx = self.pipelines[selected].len() - 1;
             self.pipelines[selected].remove(idx);
         }
     }

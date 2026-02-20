@@ -64,6 +64,7 @@ pub fn glfw_key_to_key_input(key: Key, modifiers: Modifiers) -> Option<KeyInput>
         Key::Right => KeybindsKey::Right,
         Key::Up => KeybindsKey::Up,
         Key::Down => KeybindsKey::Down,
+        Key::Delete => KeybindsKey::Delete,
         _ => return None,
     };
 
