@@ -142,7 +142,7 @@ impl App {
 
         if self.test_popup_open {
             ui.popup(
-                "bg-slate-800 rounded-8 p-8 border-slate-500 border-2 translate-y-20",
+                "bg-slate-800 hover:bg-sky-600 rounded-8 p-8 border-slate-500 border-2",
                 id!("popup0"),
                 &[ui.ui(
                     "",

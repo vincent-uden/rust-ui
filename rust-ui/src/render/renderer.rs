@@ -534,6 +534,32 @@ where
                                     },
                                 )
                                 .unwrap();
+                            let marker_size = layer.tree.layout(marker.id).unwrap().size;
+                            let attached_size = layer.tree.layout(attached_to).unwrap().size;
+
+                            // Apply anchor positioning - same logic as in render()
+                            let marker_pos = match marker.anchor {
+                                Anchor::TopLeft => {
+                                    Vector::new(abs_pos.x, abs_pos.y + attached_size.height)
+                                }
+                                Anchor::TopRight => Vector::new(
+                                    abs_pos.x + attached_size.width - marker_size.width,
+                                    abs_pos.y + attached_size.height,
+                                ),
+                                Anchor::BottomLeft => {
+                                    Vector::new(abs_pos.x, abs_pos.y - marker_size.height)
+                                }
+                                Anchor::BottomRight => Vector::new(
+                                    abs_pos.x + attached_size.width - marker_size.width,
+                                    abs_pos.y - marker_size.height,
+                                ),
+                                Anchor::Center => Vector::new(
+                                    abs_pos.x + attached_size.width / 2.0 - marker_size.width / 2.0,
+                                    abs_pos.y + attached_size.height / 2.0
+                                        - marker_size.height / 2.0,
+                                ),
+                            };
+
                             self.delayed_renders.push(DelayedRender {
                                 id: marker.id,
                                 attached_to,
@@ -549,7 +575,7 @@ where
                             let _ = self.collect_event_listeners(
                                 &layer.tree,
                                 marker.id,
-                                abs_pos,
+                                marker_pos,
                                 i as i32 + 1,
                             );
                         } else {
@@ -766,9 +792,10 @@ where
                     || ctx.on_mouse_exit.is_some()
                     || (ctx.flags & flags::HOVER_BG != 0)
                 {
-                    let is_hovered = abs_bbox.contains(self.mouse_pos) && layer_idx >= self.mouse_hit_layer;
+                    let is_hovered =
+                        abs_bbox.contains(self.mouse_pos) && layer_idx >= self.mouse_hit_layer;
                     let was_hovered = *self.hover_states.get(&id).unwrap_or(&false);
-                    
+
                     if is_hovered && !was_hovered {
                         // Mouse entered
                         self.hover_states.insert(id, true);
