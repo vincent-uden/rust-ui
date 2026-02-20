@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
+            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
-            DefaultAtom, UiBuilder,
         },
-        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        processing::{average, run_pipeline},
         DataFrame, PipelineIntermediate, Record, StepConfig,
+        processing::{average, run_pipeline},
     },
 };
 
@@ -322,10 +322,9 @@ impl PipelineManagerUi {
         ];
         inner.extend_from_slice(&[b.select(
             id!("step-select-{step_id}"),
-            &["One", "Two", "Three"],
-            Some(Arc::new(|app, data, selected| {
-                tracing::info!("Selected option: {:?}", selected);
-                tracing::info!("Current selected value: {:?}", data.selected);
+            &StepConfig::all(),
+            Some(Arc::new(move |app, _, selected| {
+                app.pipeline_manager.set_cfg_step(*selected, step_idx);
             })),
         )]);
         inner.extend_from_slice(step_types);
