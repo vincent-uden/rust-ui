@@ -120,7 +120,7 @@ where
                 ..Default::default()
             },
             [self.marker(
-                "p-2",
+                "py-2 px-8",
                 id.clone(),
                 [self.text_explicit("", Text::new(selected_label, 12, COLOR_LIGHT))],
             )],
@@ -131,7 +131,7 @@ where
                 let opt_clone = opt.clone();
                 let id_clone = id.clone();
                 self.ui(
-                    "hover:bg-slate-800 p-2",
+                    "hover:bg-slate-700 py-2 px-8",
                     Listeners {
                         on_left_mouse_up: Some(Arc::new(move |state| {
                             state.ui_builder.mutate_state(&id_clone, |w_state| {
