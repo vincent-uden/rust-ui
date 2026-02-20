@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
+            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
-            DefaultAtom, UiBuilder,
         },
-        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        processing::{average, run_pipeline},
         AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
+        processing::{average, run_pipeline},
     },
 };
 
@@ -110,19 +110,7 @@ impl PipelineManagerUi {
         for (i, source) in self.sources.borrow().iter().enumerate() {
             signal_rows.push(self.signal_row(&source, &b, i));
         }
-        signal_rows.extend_from_slice(&[
-            b.text("", Text::new("Pipeline", 14, COLOR_LIGHT)),
-            b.ui(
-                "py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500",
-                Listeners {
-                    on_left_mouse_up: Some(Arc::new(|state| {
-                        state.app_state.add_step();
-                    })),
-                    ..Default::default()
-                },
-                &[b.text("", Text::new("Add", 14, COLOR_SUCCESS))],
-            ),
-        ]);
+        signal_rows.extend_from_slice(&[b.text("", Text::new("Pipeline", 14, COLOR_LIGHT))]);
         let mut pipeline_rows = vec![];
         if let Some(idx) = self.selected_source {
             for (c_idx, cfg) in self.pipelines[idx].steps.iter().enumerate() {
@@ -138,7 +126,17 @@ impl PipelineManagerUi {
                 ));
             }
         }
-        let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "", pipeline_rows);
+        pipeline_rows.push(b.ui(
+            "py-6 px-8 rounded-8 bg-slate-600 hover:bg-slate-500",
+            Listeners {
+                on_left_mouse_up: Some(Arc::new(|state| {
+                    state.app_state.add_step();
+                })),
+                ..Default::default()
+            },
+            &[b.text("", Text::new("Add", 14, COLOR_SUCCESS))],
+        ));
+        let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "gap-8", pipeline_rows);
         signal_rows.push(pipeline_container);
         signal_rows.push(b.div(
             "p-8",
@@ -428,7 +426,7 @@ impl PipelineManagerUi {
         inner.extend_from_slice(&[b.div("h-4", &[]), form]);
 
         #[cfg_attr(any(), rustfmt::skip)]
-        b.div("flex-col border-2 border-slate-500 rounded-8 p-8 mt-8", &inner)
+        b.div("flex-col border-2 border-slate-500 rounded-8 p-8", &inner)
     }
 
     fn available_columns(&self) -> Vec<String> {

@@ -63,7 +63,7 @@ where
 
         let scroll_content = {
             let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) = parse_style("flex-col scroll-content");
+            let (stl, mut ctx) = parse_style(&format!("flex-col scroll-content {}", style));
             ctx.offset.y = scroll_position;
             let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
             for child in children {
@@ -73,7 +73,7 @@ where
         };
 
         self.ui(
-            &format!("{} flex-row overflow-clip h-full", style),
+            "flex-row overflow-clip h-full",
             Listeners::default(),
             &[
                 self.ui(
