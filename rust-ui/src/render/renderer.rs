@@ -733,13 +733,6 @@ where
                     {
                         self.pending_event_listeners.push(on_mouse_up.clone());
                     }
-                    if ctx.on_mouse_enter.is_some() || ctx.on_mouse_exit.is_some() {
-                        if abs_bbox.contains(self.mouse_pos) {
-                            self.hover_states.insert(id, true);
-                        } else {
-                            self.hover_states.insert(id, false);
-                        }
-                    }
                     if let Some(on_scroll) = &ctx.on_scroll
                         && (self.scroll_delta.x.abs() > 0.01 || self.scroll_delta.y.abs() > 0.01)
                         && abs_bbox.contains(self.mouse_pos)
@@ -767,17 +760,32 @@ where
                     }
                 }
 
-                if let Some(on_mouse_enter) = &ctx.on_mouse_enter
-                    && abs_bbox.contains(self.mouse_pos)
-                    && !*self.hover_states.get(&id).unwrap_or(&false)
+                // Track hover state for nodes with hover-related features (event listeners or hover_bg)
+                // This runs regardless of whether mouse is currently in bbox to properly clear state
+                if ctx.on_mouse_enter.is_some()
+                    || ctx.on_mouse_exit.is_some()
+                    || (ctx.flags & flags::HOVER_BG != 0)
                 {
-                    self.pending_event_listeners.push(on_mouse_enter.clone());
-                }
-                if let Some(on_mouse_exit) = &ctx.on_mouse_exit
-                    && !abs_bbox.contains(self.mouse_pos)
-                    && *self.hover_states.get(&id).unwrap_or(&false)
-                {
-                    self.pending_event_listeners.push(on_mouse_exit.clone());
+                    let is_hovered = abs_bbox.contains(self.mouse_pos) && layer_idx >= self.mouse_hit_layer;
+                    let was_hovered = *self.hover_states.get(&id).unwrap_or(&false);
+                    
+                    if is_hovered && !was_hovered {
+                        // Mouse entered
+                        self.hover_states.insert(id, true);
+                        if let Some(on_mouse_enter) = &ctx.on_mouse_enter {
+                            self.pending_event_listeners.push(on_mouse_enter.clone());
+                        }
+                        self.mouse_hit_layer = layer_idx;
+                    } else if !is_hovered && was_hovered {
+                        // Mouse exited
+                        self.hover_states.insert(id, false);
+                        if let Some(on_mouse_exit) = &ctx.on_mouse_exit {
+                            self.pending_event_listeners.push(on_mouse_exit.clone());
+                        }
+                    } else {
+                        // Update state without triggering events
+                        self.hover_states.insert(id, is_hovered);
+                    }
                 }
             }
 
@@ -854,7 +862,9 @@ where
                     abs_pos.y + layout.size.height,
                 ),
             };
-            let bg_color = if (ctx.flags & flags::HOVER_BG != 0) && bbox.contains(self.mouse_pos) {
+            // Use hover_states hashmap to determine hover, respecting layer occlusion
+            let is_hovered = self.hover_states.get(&id).copied().unwrap_or(false);
+            let bg_color = if (ctx.flags & flags::HOVER_BG != 0) && is_hovered {
                 ctx.bg_color_hover
             } else {
                 ctx.bg_color
