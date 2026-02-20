@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
+        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
+            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
-            DefaultAtom, UiBuilder,
         },
-        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
+        AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
         processing::{average, run_pipeline},
-        AxisSelection, DataFrame, PipelineIntermediate, Record, StepConfig,
     },
 };
 
@@ -127,7 +127,15 @@ impl PipelineManagerUi {
         if let Some(idx) = self.selected_source {
             for (c_idx, cfg) in self.pipelines[idx].steps.iter().enumerate() {
                 let step_id = self.pipelines[idx].step_ids[c_idx];
-                pipeline_rows.push(self.step_config(*cfg, step_id, c_idx, &b, focused_id));
+                let valid_steps = self.get_valid_steps(c_idx);
+                pipeline_rows.push(self.step_config(
+                    *cfg,
+                    step_id,
+                    c_idx,
+                    &valid_steps,
+                    &b,
+                    focused_id,
+                ));
             }
         }
         let pipeline_container = b.scrollable(id!("pipeline_scrollable"), "", pipeline_rows);
@@ -185,6 +193,7 @@ impl PipelineManagerUi {
         cfg: StepConfig,
         step_id: usize,
         step_idx: usize,
+        valid_steps: &[StepConfig],
         b: &UiBuilder<App>,
         focused_id: &Option<DefaultAtom>,
     ) -> NodeId {
@@ -405,7 +414,7 @@ impl PipelineManagerUi {
                 b.select(
                     id!("step-select-{step_id}"),
                     Some(cfg.clone()),
-                    &StepConfig::all(),
+                    valid_steps,
                     Some(Arc::new(move |app, _, selected| {
                         app.pipeline_manager.set_cfg_step(*selected, step_idx);
                     })),
@@ -439,6 +448,43 @@ impl PipelineManagerUi {
         if let Some(selected) = self.selected_source {
             self.pipelines[selected].steps[step_idx] = new_step;
         }
+    }
+
+    /// Returns the valid steps that can be placed at the given position in the pipeline.
+    /// First step must accept DataFrame, other steps must match previous step's output.
+    /// If there's a next step, the selected step's output must match the next step's input.
+    fn get_valid_steps(&self, step_idx: usize) -> Vec<StepConfig> {
+        let Some(pipeline_idx) = self.selected_source else {
+            return Vec::new();
+        };
+        let pipeline = &self.pipelines[pipeline_idx];
+
+        // Determine expected input kind
+        let expected_input = if step_idx == 0 {
+            SignalKind::DataFrame
+        } else {
+            pipeline.steps[step_idx - 1].output_kind()
+        };
+
+        // Determine required output kind (if there's a next step)
+        let required_output = if step_idx < pipeline.steps.len() - 1 {
+            Some(pipeline.steps[step_idx + 1].input_kind())
+        } else {
+            None
+        };
+
+        // Filter all steps to only include valid ones
+        StepConfig::all()
+            .into_iter()
+            .filter(|step| {
+                let input_matches = step.input_kind() == expected_input;
+                let output_matches = match &required_output {
+                    Some(required) => step.output_kind() == *required,
+                    None => true,
+                };
+                input_matches && output_matches
+            })
+            .collect()
     }
 
     pub fn remove_step(&mut self, idx: usize) {
