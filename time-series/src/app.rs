@@ -8,7 +8,7 @@ use rust_ui::{
     input::glfw_key_to_key_input,
     render::{
         COLOR_DANGER, COLOR_LIGHT, Text,
-        renderer::{AppState, Listeners, RenderLayout},
+        renderer::{AppState, Listeners, RenderLayout, visual_log},
         widgets::{DefaultAtom, UiBuilder, UiData, text_field::TextFieldData},
     },
 };
@@ -89,7 +89,10 @@ impl App {
     pub fn add_step(&mut self) {
         if let Some(selected) = self.pipeline_manager.selected_source {
             let step_idx = self.pipeline_manager.pipelines[selected].steps.len();
-            if let Some(default_step) = self.pipeline_manager.get_default_step_for_position(step_idx) {
+            if let Some(default_step) = self
+                .pipeline_manager
+                .get_default_step_for_position(step_idx)
+            {
                 self.pipeline_manager.pipelines[selected].push(default_step);
             }
         }

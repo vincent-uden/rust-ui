@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
+            DefaultAtom, UiBuilder,
         },
+        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
         processing::{average, run_pipeline},
+        AxisSelection, DataFrame, PipelineIntermediate, Record, SignalKind, StepConfig,
     },
 };
 
@@ -151,7 +151,7 @@ impl PipelineManagerUi {
                 &[b.text("", Text::new("Run", 14, COLOR_LIGHT))],
             )],
         ));
-        let outer = b.div("flex-col gap-4 min-h-0", &signal_rows);
+        let outer = b.div("flex-col gap-4 min-h-0 h-full w-240", &signal_rows);
         outer
     }
 

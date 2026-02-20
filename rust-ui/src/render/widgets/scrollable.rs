@@ -63,7 +63,16 @@ where
 
         let scroll_content = {
             let mut tree = self.tree.borrow_mut();
-            let (stl, mut ctx) = parse_style(&format!("flex-col scroll-content {}", style));
+            let (mut stl, mut ctx) =
+                parse_style(&format!("flex-col scroll-content min-h-0 w-full {}", style));
+            // Make content absolutely positioned so it doesn't contribute to parent's content_size
+            stl.position = taffy::Position::Absolute;
+            stl.inset = taffy::Rect {
+                left: taffy::LengthPercentageAuto::length(0.0),
+                right: taffy::LengthPercentageAuto::length(0.0),
+                top: taffy::LengthPercentageAuto::auto(),
+                bottom: taffy::LengthPercentageAuto::auto(),
+            };
             ctx.offset.y = scroll_position;
             let parent = tree.new_leaf_with_context(stl, ctx).unwrap();
             for child in children {
@@ -73,7 +82,7 @@ where
         };
 
         self.ui(
-            "flex-row overflow-clip h-full",
+            "flex-row overflow-clip h-full min-h-0",
             Listeners::default(),
             &[
                 self.ui(
