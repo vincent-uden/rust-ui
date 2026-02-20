@@ -5,20 +5,20 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use keybinds::KeyInput;
 use rust_ui::{
     geometry::{Rect, Vector},
     id,
     render::{
-        COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS, Text,
         renderer::{AppState, Listeners, NodeContext, Renderer},
         widgets::{
-            DefaultAtom, UiBuilder,
             scrollable::ScrollableBuilder as _,
             select::{self, SelectBuilder},
             text_field::TextFieldBuilder as _,
+            DefaultAtom, UiBuilder,
         },
+        Text, COLOR_DANGER, COLOR_LIGHT, COLOR_SUCCESS,
     },
 };
 use taffy::{NodeId, TaffyTree};
@@ -27,8 +27,8 @@ use tracing::{error, info};
 use crate::{
     app::{App, AppMessage},
     pipeline::{
-        AxisSelection, DataFrame, PipelineIntermediate, Record, StepConfig,
         processing::{average, run_pipeline},
+        AxisSelection, DataFrame, PipelineIntermediate, Record, StepConfig,
     },
 };
 
@@ -275,55 +275,55 @@ impl PipelineManagerUi {
                 x2: _,
             } => b.text("", Text::new("Current calculator (not implemented)", 12, COLOR_LIGHT)),
             StepConfig::PickColumns { column_1, column_2 } => {
-                let available: Vec<_> = self
-                    .available_columns()
-                    .iter()
-                    .map(|col| b.text("", Text::new(col.clone(), 12, COLOR_LIGHT)))
-                    .collect();
-                let mut controls = vec![
-                    b.text(
-                        "",
-                        Text::new(format!("Time column ({column_1})"), 12, COLOR_LIGHT),
-                    ),
-                    b.text_field(
-                        id!("cfg-{step_id}-c1"),
-                        focused_id,
-                        Some(Arc::new(move |app, data| {
-                            let pm = &mut app.pipeline_manager;
-                            let pos = pm
-                                .available_columns()
-                                .iter()
-                                .position(|col| col == &data.contents);
-                            pm.pipelines[pm.selected_source.unwrap()].steps[step_idx] =
-                                StepConfig::PickColumns {
-                                    column_1: pos.unwrap_or(column_1),
-                                    column_2: column_2,
-                                };
-                        })),
-                    ),
-                    b.text(
-                        "",
-                        Text::new(format!("Value column ({column_2})"), 12, COLOR_LIGHT),
-                    ),
-                    b.text_field(
-                        id!("cfg-{step_id}-c2"),
-                        focused_id,
-                        Some(Arc::new(move |app, data| {
-                            let pm = &mut app.pipeline_manager;
-                            let pos = pm
-                                .available_columns()
-                                .iter()
-                                .position(|col| col == &data.contents);
-                            pm.pipelines[pm.selected_source.unwrap()].steps[step_idx] =
-                                StepConfig::PickColumns {
-                                    column_1: column_1,
-                                    column_2: pos.unwrap_or(column_2),
-                                };
-                        })),
-                    ),
-                ];
-                controls.extend_from_slice(&available);
-                b.div("flex-col gap-4", &controls)
+                let columns = self.available_columns();
+                let selected_time = columns.get(column_1).cloned();
+                let selected_value = columns.get(column_2).cloned();
+
+                b.div(
+                    "flex-col gap-4",
+                    &[
+                        b.text("", Text::new("Time column", 12, COLOR_LIGHT)),
+                        b.select(
+                            id!("cfg-{step_id}-c1"),
+                            selected_time,
+                            &columns,
+                            Some(Arc::new(move |app, _, selected| {
+                                let pm = &mut app.pipeline_manager;
+                                let columns = pm.available_columns();
+                                let pos = columns.iter().position(|col| col == selected);
+                                if let Some(idx) = pos {
+                                    pm.set_cfg_step(
+                                        StepConfig::PickColumns {
+                                            column_1: idx,
+                                            column_2,
+                                        },
+                                        step_idx,
+                                    );
+                                }
+                            })),
+                        ),
+                        b.text("", Text::new("Value column", 12, COLOR_LIGHT)),
+                        b.select(
+                            id!("cfg-{step_id}-c2"),
+                            selected_value,
+                            &columns,
+                            Some(Arc::new(move |app, _, selected| {
+                                let pm = &mut app.pipeline_manager;
+                                let columns = pm.available_columns();
+                                let pos = columns.iter().position(|col| col == selected);
+                                if let Some(idx) = pos {
+                                    pm.set_cfg_step(
+                                        StepConfig::PickColumns {
+                                            column_1,
+                                            column_2: idx,
+                                        },
+                                        step_idx,
+                                    );
+                                }
+                            })),
+                        ),
+                    ],
+                )
             }
             StepConfig::ScaleAxis { axis, factor } => b.div(
                 "flex-col gap-4",
